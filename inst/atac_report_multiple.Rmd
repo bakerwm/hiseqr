@@ -1,0 +1,329 @@
+---
+title: "ATAC-seq report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(hiseqr))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(glue))
+suppressPackageStartupMessages(library(ggcor))
+suppressPackageStartupMessages(library(GenomicRanges))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+1. Summary   
+2. Map reads
+3. Reads + peaks
+4. FRiP table
+5. Fragment Length
+6. TSS enrich  
+7. Peaks overlap
+8. IDR
+9. Correlation between replicates
+
+
+
+```{r main_single, eval = T}
+## for single samples
+input_dir <- params$input_dir
+
+#ATACseq dir
+input_dir <- normalizePath(input_dir)
+dirs_single <- hiseqr::atac_dirs(input_dir)
+if(length(dirs_single) == 0) {
+  stop(paste0("Input file is not a ATACseq merge directory: ", input_dir))
+}
+
+# all align
+align_list <- sapply(dirs_single, function(f) hiseqr::atac_files(f, "align"))
+df         <- alignStat(unlist(align_list))
+
+# total
+df2   <- df %>%
+  dplyr::group_by(id) %>%
+  dplyr::summarise(total = sum(count))
+
+# mito
+df3   <- df %>%
+  dplyr::group_by(id) %>%
+  dplyr::mutate(pct = count / sum(count)) %>%
+  dplyr::filter(grepl("mito", group)) %>%
+  dplyr::summarise(mito_pct = round(sum(pct) * 100, 2))
+
+## FRiP
+frip_list <- sapply(dirs_single, function(f) hiseqr::atac_files(f, "frip"))
+frip_list <- unlist(frip_list)
+
+## fragment length
+frag_list <- sapply(dirs_single, function(f) hiseqr::atac_files(f, "length_distribution"))
+frag_list <- unlist(frag_list)
+```
+
+
+```{r main, eval = T}
+## for merged samples
+## - bam_cor
+## - idr
+## - peak_overlap
+
+#ATACseq merged dirs
+dirs_merge <- hiseqr::atac_merge_dirs(input_dir)
+if(! all(mapply(hiseqr::is_atac_merge_dir, dirs_merge))) {
+  stop(paste0("ATACseq merge directories not found: ", input_dir))
+}
+
+## peak
+peak_list <- sapply(dirs_merge, function(f) hiseqr::atac_merge_files(f, "peak"))
+# peak_list <- unlist(peak_list)
+
+## bam_cor: count table
+cor_list <- sapply(dirs_merge, function(f) hiseqr::atac_merge_files(f, "count_tab"))
+cor_list <- unlist(cor_list)
+
+## IDR
+idr_list <- sapply(dirs_merge, function(f) hiseqr::atac_merge_files(f, "idr_png"))
+idr_list <- unlist(idr_list)
+```
+
+
+## Summary
+
+```{r summary, results="asis"}
+n_smp      <- length(unique(df$id))
+min_depth  <- min(df2$total)
+max_depth  <- max(df2$total)
+mean_depth <- round(mean(df2$total), 0)
+# mito
+min_mito   <- min(df3$mito_pct)
+max_mito   <- max(df3$mito_pct)
+mean_mito  <- round(mean(df3$mito_pct), 2)
+
+# 
+log <- glue::glue("A total of {n_smp} samples; average {mean_depth} reads for \
+   each sample were sequenced (min: {min_depth}, max: {max_depth}); \
+   The average Mitochondrial DNA reads is {mean_mito}% (min: {min_mito}%, \
+   max: {max_mito}%)");
+
+print(log)
+```
+
+
+## Results
+
+### 1. Table1. Total reads
+
+```{r table1_mito_pct}
+df_table <- df %>% 
+  dplyr::group_by(id) %>%
+  dplyr::mutate(total = sum(count)) %>%
+  dplyr::mutate(group = forcats::fct_rev(group)) %>%
+  tidyr::spread(group, count) %>%
+  dplyr::mutate(mito_pct = round((mito.u + mito.m) / total * 100, 2)) %>%
+  tibble::rowid_to_column("num") %>%
+  dplyr::ungroup()
+
+knitr::kable(df_table)
+```
+
+### 2. Figure 1. Number of mapped reads
+
+```{r figure1_align_reads, out.width = "100%"}
+df <- df %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) # rev levels
+alignPlot(df)
+```
+
+### 3. Figure2. Number of peaks
+
+```{r figure2_peaks, out.width = "100%"}
+df2_reads <- df_table %>%
+  dplyr::ungroup() %>%
+  dplyr::select(id, total) %>%
+  dplyr::mutate(count = round(total / 1e6, 1),
+                id    = forcats::fct_rev(id))
+
+## total peaks
+peak_list_str <- unlist(peak_list)
+gr_list  <- lapply(peak_list_str, function(f) hiseqr::narrowPeakReader(f))
+peak_ids <- gsub("_peaks.narrowPeak", "", basename(peak_list_str))
+peak_num <- sapply(gr_list, length)
+
+df2_peaks <- data.frame(
+  id     = peak_ids,
+  count  = peak_num) %>%
+  dplyr::mutate(id = forcats::fct_rev(id))
+
+## plots
+p1 <- hiseqr::barplot2(df2_reads, label = TRUE) +
+  ggtitle("Unique reads on genome") +
+  ylab("Million of reads")
+
+p2 <- hiseqr::barplot2(df2_peaks, label = TRUE) +
+  ggtitle("Number of peaks") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+p <- cowplot::plot_grid(p1, p2, ncol = 2, rel_widths = c(1, 0.6),
+                        labels = "AUTO")
+
+print(p)
+```
+
+### 4. FRiP.
+
+> Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
+>
+> source: https://www.encodeproject.org/data-standards/terms/
+
+> The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
+> source: https://www.encodeproject.org/atac-seq/
+
+```{r table2_frip}
+tmp <- lapply(frip_list, function(f){
+  df <- read.delim(f, sep = "\t") %>%
+    dplyr::mutate(id = basename(dirname(dirname(f))),
+                  FRiP = as.character(FRiP)) %>%
+    dplyr::select(id, total_reads, peak_reads, FRiP) 
+})
+
+df_frip <- dplyr::bind_rows(tmp) %>%
+  tibble::rowid_to_column("num")
+
+knitr::kable(df_frip)
+```
+
+### 5. Figure3. Fragment length
+
+The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
+
+```{r figure3_fragment_length, out.width = "100%"}
+tmp <- lapply(frag_list, function(f){
+   id <- basename(dirname(dirname(f)))
+   hiseqr::fragReader(f) %>%
+     dplyr::mutate(id = id)
+})
+
+df_frag <- dplyr::bind_rows(tmp)
+p  <- fragPlot(df_frag) +
+  facet_wrap(~id, ncol = 3)
+
+print(p)
+```
+
+### 6. Figure4. TSS enrichment
+
+> Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
+>
+> source: https://www.encodeproject.org/data-standards/terms/
+
+**to-do**
+
+
+### 7. Figure5. Peaks overlap between samples
+
+```{r figure5_peak_overlap}
+# p <- hiseqr::bedVenn(blist = as.list(peak_list))
+# print(p)
+tmp <- lapply(peak_list, function(i){
+  hiseqr::bedVenn(blist = as.list(i))
+})
+p <- cowplot::plot_grid(plotlist = tmp, ncol = 2)
+print(p)
+```
+
+
+### 8. Figure6. IDR, Irreproducibility Discovery Rate
+
+用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
+
+> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
+ 
+Why IDR?
+
+  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
+  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
+  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
+  
+See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
+
+```{r firug6_idr, results='asis'}
+for(i in idr_list){
+  # if(file.exists(i)) print(knitr::include_graphics(i))
+  if(file.exists(i)) cat("![](",i,")")
+}
+
+```
+
+### 9. Figure7. Correlation between replicates
+
+The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
+
+```{r figure7_cor_pearson, eval = TRUE, out.width="100%"}
+tmp <- lapply(cor_list, function(i){
+  df <- hiseqr::corMatrix(i)
+  p  <- hiseqr::corPlot(df)
+})
+
+p <- cowplot::plot_grid(plotlist = tmp, ncol = 1, labels = "AUTO")
+print(p)
+```
+
+
+## ENCODE standard
+
+> source: [https://www.encodeproject.org/atac-seq/#standards](https://www.encodeproject.org/atac-seq/#standards)
+
+Experiments should have two or more biological replicates. Assays performed using EN-TEx samples may be exempted due to limited availability of experimental material, but at least two technical replicates are required.  
+
+Each replicate should have 25 million non-duplicate, non-mitochondrial aligned reads for single-end sequencing and 50 million for paired-ended sequencing (i.e. 25 million fragments, regardless of sequencing run type). 
+
+The alignment rate, or percentage of mapped reads, should be greater than 95%, though values >80% may be acceptable. 
+
+Replicate concordance is measured by calculating IDR values (Irreproducible Discovery Rate). The experiment passes if both rescue and self consistency ratios are less than 2.
+
+Library complexity is measured using the Non-Redundant Fraction (NRF) and PCR Bottlenecking Coefficients 1 and 2, or PBC1 and PBC2. The preferred values are as follows: NRF>0.9, PBC1>0.9, and PBC2>3. 
+
+Various peak files must meet certain requirements. Please visit the section on output files under the pipeline overview for more information on peak files.
+
+The number of peaks within a replicated peak file should be >150,000, though values >100,000 may be acceptable. 
+
+The number of peaks within an IDR peak file should be >70,000, though values >50,000 may be acceptable.
+
+A nucleosome free region (NFR) must be present.
+
+A mononucleosome peak must be present in the fragment length distribution. These are reads that span a single nucleosome, so they are longer than 147 bp but shorter than 147*2 bp. Good ATAC-seq datasets have reads that span nucleosomes (which allows for calling nucleosome positions in addition to open regions of chromatin).
+
+The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure.
+
+Transcription start site (TSS) enrichment values are dependent on the reference files used; cutoff values for high quality data are listed in the table below. 
+

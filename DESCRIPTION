@@ -8,10 +8,20 @@ Authors@R:
            email = "first.last@example.com",
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/bakerwm/hiseqr
 BugReports: https://github.com/bakerwm/hiseqr/issues
+Suggests: 
+    spelling
+Language: en-US
+Imports: 
+    ggplot2,
+    readr,
+    dplyr,
+    RColorBrewer,
+    rtracklayer,
+    GenomicRanges,
+    cowplot
