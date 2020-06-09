@@ -70,7 +70,7 @@ barplot2 <- function(df, label = FALSE){
 #' @import ggplot2
 #'
 #' @export
-fragPlot <- function(df) {
+frag_plot <- function(df) {
   stopifnot(all(c("id", "length", "count") %in% names(df)))
 
   p <- df %>%
@@ -104,7 +104,7 @@ fragPlot <- function(df) {
 #' @import ggplot2
 #'
 #' @export
-alignPlot <- function(df) {
+align_plot <- function(df) {
   stopifnot(all(c("id", "count", "group") %in% names(df)))
 
   group_colors <- c("darkgreen", "green2", "orange4", "orange", "grey50")
@@ -139,7 +139,7 @@ alignPlot <- function(df) {
 #' @import RColorBrewer
 #'
 #' @export
-corPlot <- function(df){
+cor_plot <- function(df){
   p <- ggcor::ggcor(df, type = "lower", show.diag = TRUE,
              cor.test.method = "pearson") +
     ggcor::geom_color(data = get_data(type = "lower", show.diag = TRUE)) +

@@ -44,7 +44,7 @@ library(ggplot2)
 library(dplyr)
 library(glue)
 library(DT)
-library(ggcor)
+# library(ggcor)
 ```
 
 
@@ -130,8 +130,15 @@ DT::datatable(df_table, rownames = FALSE, filter = "top",
 
 ### 2 Figure 1. Number of mapped reads
 
+
+mito.u, unique reads mapped to mito/rRNA/tRNAs     
+mito.m, multiple mapped reads, on mito/rRNA/tRNAs    
+genome.u, unique reads mapped to reference genome    
+genome.m, multiple mapped reads, on reference genome    
+
 ```{r figure1_align_reads, out.width = "100%"}
-alignPlot(df)
+p <- hiseqr::align_plot(df)
+plotly::ggplotly(p)
 ```
 
 

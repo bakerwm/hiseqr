@@ -2,12 +2,26 @@
 ##----------------------------------------------------------------------------##
 ## parse BED files
 
+
+#' read_bed
+#'
+#' @param x string path to the peak file
+#'
+#' @import rtracklayer
+#' @export
+#'
+read_bed <- function(x) {
+  rtracklayer::import(x, format = "BED")
+}
+
+
+
 #' peak.xls
 #'
 #' @param x string path to the peak xls, output fo MACS2
 #' @export
 #'
-peakXlsReader <- function(x) {
+read_peak_xls <- function(x) {
   xlines <- readLines(x, n = 50)
   xlines <- xlines[grep("^#", xlines)] # head lines
   xlines <- xlines[grep(":", xlines)] # records
@@ -17,46 +31,33 @@ peakXlsReader <- function(x) {
   }
 
 
-
-#' narrowPeakReader
+#' read_narrowpeak
 #'
 #' @param x string path to the peak file
 #'
 #' @import rtracklayer
 #' @export
 #'
-narrowPeakReader <- function(x) {
+read_narrowpeak <- function(x) {
   ext <- c(signalValue = "numeric", pValue = "numeric",
            qValue = "numeric", peak = "integer")
   rtracklayer::import(x, format = "BED", extraCols = ext)
 }
 
 
-#' bedReader
-#'
-#' @param x string path to the peak file
-#'
-#' @import rtracklayer
-#' @export
-#'
-bedReader <- function(x) {
-  rtracklayer::import(x, format = "BED")
-}
-
-
-#' bedIntersect2
+#' intersect_bed2
 #'
 #' @param blist list, bed files
 #' @import GenomicRanges
 #' @export
-bedIntersect2 <- function(blist){
+intersect_bed2 <- function(blist){
   stopifnot(length(blist) >= 2)
   bed1 <- blist[[1]]
   bed2 <- blist[[2]]
   # bed 2 gr
-  gr1 <- narrowPeakReader(bed1)
-  gr2 <- narrowPeakReader(bed2)
-  gr12 <- findOverlaps(gr1, gr2)
+  gr1 <- read_narrowpeak(bed1)
+  gr2 <- read_narrowpeak(bed2)
+  gr12 <- GenomicRanges::findOverlaps(gr1, gr2)
 
   # intersect
   n1 <- paste("a", seq_len(length(gr1) - length(gr12)), sep = "")
@@ -70,25 +71,27 @@ bedIntersect2 <- function(blist){
 }
 
 
-#' bedIntersect3
+#' intersect_bed3
 #'
 #' @param blist list, intersect 3 bed files
 #' @import GenomicRanges
 #' @export
-bedIntersect3 <- function(blist){
+intersect_bed3 <- function(blist){
   stopifnot(length(blist) >= 3)
   bed1  <- blist[[1]]
   bed2  <- blist[[2]]
   bed3  <- blist[[3]]
   # bed to gr
-  gr1   <- narrowPeakReader(bed1)
-  gr2   <- narrowPeakReader(bed2)
-  gr3   <- narrowPeakReader(bed3)
+  gr1   <- read_narrowpeak(bed1)
+  gr2   <- read_narrowpeak(bed2)
+  gr3   <- read_narrowpeak(bed3)
   # intersect
   gr12  <- findOverlaps(gr1, gr2, ignore.strand = TRUE)
   gr13  <- findOverlaps(gr1, gr3, ignore.strand = TRUE)
   gr23  <- findOverlaps(gr2, gr3, ignore.strand = TRUE)
-  gr123 <- findOverlaps(gr1[gr12@from], gr3, ignore.strand = TRUE)
+  gr123 <- GenomicRanges::findOverlapsfindOverlaps(gr1[gr12@from],
+                                                   gr3,
+                                                   ignore.strand = TRUE)
   # numbers
   n12   <- length(gr12)
   n13   <- length(gr13)
@@ -118,12 +121,12 @@ bedIntersect3 <- function(blist){
 }
 
 
-#' bedIntersect4
+#' intersect_bed4
 #'
 #' @param blist list, intersect 4 bed files
 #' @import GenomicRanges
 #' @export
-bedIntersect4 <- function(blist){
+intersect_bed4 <- function(blist){
   stopifnot(length(blist) >= 4)
   bed1 = blist[[1]]
   bed2 = blist[[2]]

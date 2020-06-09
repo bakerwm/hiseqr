@@ -44,6 +44,8 @@ library(ggplot2)
 library(dplyr)
 library(glue)
 library(DT)
+library(plotly)
+library(reticulate)
 # library(ggcor)
 ```
 
@@ -63,20 +65,12 @@ if(!hiseq_type == "rnaseq_single") {
 
 ```{r global_vars}
 args <- rnaseq_single_dir(input_dir, feature = feature)
-
-# ## check required args
-# required_names <- c("align_stat", "smp_name", "genome", "gtf", "gtf", 
-#                     "count_sens", "count_anti", "strandness_status")
-# 
-# for(name in required_names){
-#   args[[name]] = ifelse(name %in% names(args), args[[name]], NA)
-# }
 ```
 
 ## Summary
 
 ```{r summary, eval = T, results = "asis"}
-df <- hiseqr::readAlign1(args$align_stat)
+df <- hiseqr::read_align1(args$align_stat)
 
 total    <- sum(df$count)
 mito     <- df %>% 
@@ -122,8 +116,14 @@ DT::datatable(df_table, rownames = FALSE, filter = "top",
 
 ### 2 Figure 1. Number of mapped reads
 
+mito.u, unique reads mapped to mito/rRNA/tRNAs     
+mito.m, multiple mapped reads, on mito/rRNA/tRNAs    
+genome.u, unique reads mapped to reference genome    
+genome.m, multiple mapped reads, on reference genome    
+
 ```{r figure1_align_reads, out.width = "100%", fig.height = 3}
-alignPlot(df)
+p <- hiseqr::align_plot(df)
+plotly::ggplotly(p)
 ```
 
 
@@ -152,8 +152,8 @@ print(log2)
 ```{r count_pie, out.width = "100%", fig.height = 5}
 
 ## sense strand
-df_sens <- fcSummary(paste0(args$count_sens, ".summary"))
-df_anti <- fcSummary(paste0(args$count_anti, ".summary"))
+df_sens <- fc_summary(paste0(args$count_sens, ".summary"))
+df_anti <- fc_summary(paste0(args$count_anti, ".summary"))
 df_sens$strand <- "Sense strand"
 df_anti$strand <- "Anti-sense strand"
 
@@ -165,8 +165,10 @@ p_pie <- bind_rows(df_sens, df_anti) %>%
   ylab("Percentage of reads") +
   theme_bw()
   
-print(p_pie)
+# print(p_pie)
+p_pie <- plotly::ggplotly(p_pie)
 
+p_pie
 ```
 
 

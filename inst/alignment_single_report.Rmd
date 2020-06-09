@@ -1,0 +1,182 @@
+---
+title: "Alignment single report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+  feature: "gene"
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(glue)
+library(DT)
+# library(ggcor)
+```
+
+
+```{r config, eval = T}
+# main 
+feature    <- params$feature # default: gene
+input_dir  <- params$input_dir
+input_dir  <- normalizePath(input_dir)
+hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
+
+if(!hiseq_type == "rnaseq_single") {
+  stop(paste0("Input dir is not RNAseq single directory: ", input_dir))
+}
+```
+
+
+```{r global_vars}
+args <- rnaseq_single_dir(input_dir, feature = feature)
+```
+
+## Summary
+
+```{r summary, eval = T, results = "asis"}
+df <- hiseqr::read_align1(args$align_stat)
+
+total    <- sum(df$count)
+mito     <- df %>% 
+  dplyr::filter(grepl("mito", group)) %>%
+  pull(count) %>%
+  sum()
+genome_u    <- df %>%
+  dplyr::filter(grepl("genome.u", group)) %>%
+  pull(count)
+genome_u_pct <- round(genome_u / total * 100, 2)
+mito_pct <- round(mito / total * 100, 2)
+## unmap
+unmap <- df %>%
+  dplyr::filter(grepl("unmap", group)) %>%
+  pull(count)
+unmap_pct <- round(unmap / total * 100, 2)
+
+sum_text <- glue::glue("RNAseq sample [{args$smp_name}], 
+    {total} (100%) reads in all; 
+    {genome_u} ({genome_u_pct}%) reads uniquely mapped to reference genome ;
+    {mito} ({mito_pct}%) reads map to rRNAs, tRNAs;
+    {unmap} ({unmap_pct}%) reads unmapped")
+
+print(sum_text)
+```
+
+## Results
+
+### 1 Table1. rRNA content
+
+```{r table1_mito_pct}
+df_table <- df %>% 
+  dplyr::group_by(id) %>%
+  dplyr::mutate(total = sum(count)) %>%
+  dplyr::mutate(group = forcats::fct_rev(group)) %>%
+  tidyr::spread(group, count) %>%
+  dplyr::mutate(mito_pct = round((mito.u + mito.m) / total * 100, 2))
+
+# knitr::kable(df_table)
+DT::datatable(df_table, rownames = FALSE, filter = "top", 
+              options = list(pageLength = 10, scrollX = TRUE))
+```
+
+### 2 Figure 1. Number of mapped reads
+
+```{r figure1_align_reads, out.width = "100%", fig.height = 3}
+p <- hiseqr::align_plot(df)
+plotly::ggplotly(p)
+```
+
+
+### 3. RNAseq library type
+
+Check the RNAseq library type, check if the reads from forward strand or reverse strand of mRNA;
+
+Using `featureCounts` to count reads on mRNAs.
+
+```{r lib type, out.width = "100%"}
+df_st <- readLines(args$strandness_status)
+print(df_st)
+```
+
+
+### 4. Quantification
+
+```{r}
+log2 <- glue::glue("Count reads on features:
+                   Genome: {args$genome}
+                      GTF: {args$gtf}")
+print(log2)
+```
+
+
+```{r count_pie, out.width = "100%", fig.height = 5}
+
+## sense strand
+df_sens <- fcSummary(paste0(args$count_sens, ".summary"))
+df_anti <- fcSummary(paste0(args$count_anti, ".summary"))
+df_sens$strand <- "Sense strand"
+df_anti$strand <- "Anti-sense strand"
+
+p_pie <- bind_rows(df_sens, df_anti) %>%
+  ggplot(aes(x = sample, y = count, fill = Status)) + 
+  geom_col(position = "fill") +
+  facet_wrap(~strand) +
+  ggtitle(args$smp_name) +
+  ylab("Percentage of reads") +
+  theme_bw()
+  
+print(p_pie)
+
+```
+
+
+
+
+```{r table2_count_reads}
+# sense
+DT::datatable(df_sens, rownames = FALSE, filter = "top", 
+              options = list(pageLength = 10, scrollX = TRUE))
+
+# anti
+DT::datatable(df_anti, rownames = FALSE, filter = "top", 
+              options = list(pageLength = 10, scrollX = TRUE))
+```
+
+
+
+**END**
+
+

@@ -1,0 +1,297 @@
+---
+title: "FastQC report"
+author:
+- name: Ming Wang
+  affiliation: IBP
+  email: wangming@ibp.ac.cn
+output:
+  BiocStyle::html_document
+abstract: |
+  Organize FastQC output into a single html page
+vignette: |
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+params:
+  qc_path: ""
+---
+
+
+
+<!-- --- -->
+<!-- title: "Quality Control Report" -->
+<!-- author: "Ming Wang" -->
+<!-- date: "`r Sys.Date()`" -->
+<!-- output: -->
+<!--   prettydoc::html_pretty: -->
+<!--     theme: hpstr -->
+<!--     toc: true -->
+<!--     toc_depth: 2 -->
+<!--     highlight: github -->
+<!--     df_print: kable -->
+<!-- vignette: > -->
+<!--   %\VignetteIndexEntry{Vignette Title} -->
+<!--   %\VignetteEngine{knitr::rmarkdown} -->
+<!--   %\VignetteEncoding{UTF-8} -->
+<!-- params: -->
+<!--   qc_path: "" -->
+<!-- --- -->
+
+```{r global options, echo=FALSE}
+library(knitr)
+
+knitr::opts_chunk$set(fig.width = 12, 
+                      fig.height = 8, 
+                      fig.path = 'Figs/',
+                      echo = FALSE,
+                      eval = TRUE,
+                      cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE,
+                      rownames.print = FALSE)
+options(width=150)
+qc_path <- params$qc_path
+```
+
+
+```{r lib, include=FALSE}
+library(hiseqr)
+library(fastqcr)
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(cowplot)
+# suppressPackageStartupMessages(library(kableExtra))
+```
+
+## Summary
+
+```{r fig_qc, fig.align = "middle", fig.cap = "overview of analysis"}
+qc <- qc_aggregate(qc_path, progressbar = FALSE)
+qcgs <- qc_stats(qc)
+qcgs <- dplyr::mutate(qcgs, 
+               tot.seq = as.numeric(tot.seq),
+               # tot.seq = as.numeric(tot.seq) / 1e6,
+               pct.dup = paste0(pct.dup, '%'),
+               pct.gc  = paste0(pct.gc, '%')) %>%
+  dplyr::select(sample, tot.seq, pct.dup, pct.gc, seq.length)
+names(qcgs) <- c('Sample', 'Reads', '% Dup', '% GC', 'Length (nt)')
+
+DT::datatable(qcgs, rownames = FALSE, filter = "top", 
+              options = list(pageLength = 10, scrollX = TRUE))
+```
+
+
+## Number of reads
+
+```{r num_reads, }
+nmax <- 10^(nchar(max(qcgs$Reads)) - 1)
+ymax <- ceiling(max(qcgs$Reads) / nmax) * nmax
+ymax <- ymax / 1e6
+
+p1 <- qcgs %>%
+  mutate(count = round(as.numeric(Reads) / 1e6, 2)) %>%
+  ggplot(aes(Sample, count)) +
+  geom_bar(stat = "identity", fill = "grey80", color = "black", size = .5) +
+  geom_text(aes(label = count), vjust = .5, hjust = -0.1) +
+  scale_x_discrete(limits = rev(unique(sort(qcgs$Sample)))) +
+  scale_y_continuous(limits = c(0, ymax),
+                     breaks = seq(0, ymax, length.out = 5),
+                     labels = seq(0, ymax, length.out = 5),
+                     position = "right") +
+  coord_flip() +
+  xlab(NULL) + 
+  ylab(paste0("Number of reads (Million)")) +
+  theme_bw() +
+  theme(panel.grid   = element_blank(),
+        panel.border = element_blank(),
+        plot.title   = element_text(color = "black", size = rel(1.5),
+                                    face = "bold", hjust = .5),
+        axis.line    = element_line(color = "black", size = .5),
+        axis.title   = element_text(color = "black", size = rel(1.2)),
+        axis.text.x  = element_text(color = "black", size = rel(1.2)),
+        axis.text.y  = element_text(color = "black", size = rel(1.2)))
+
+print(p1)
+```
+
+## Distribution of Base Quality
+
+> From Illumina:
+
+Q scores are defined as a property that is logarithmically related to the base calling error probabilities (P)
+
+$$Q = - 10 log_{10} P $$  
+
+For example, if Phred assigns a Q score of 30 (Q30) to a base, this is equivalent to the probability of an incorrect base call 1 in 1000 times (Table 1). This means that the base call accuracy (i.e., the probability of a correct base call) is 99.9%. A lower base call accuracy of 99% (Q20) will have an incorrect base call probability of 1 in 100, meaning that every 100 bp sequencing read will likely contain an error. When sequencing quality reaches Q30, virtually all of the reads will be perfect, having zero errors and ambiguities. This is why Q30 is considered a benchmark for quality in next-generation sequencing. By comparison, Sanger sequencing systems generally produce base call accuracy of ~99.4%, or $Q20^{3}$. Low Q scores can increase false-positive variant calls, which can result in inaccurate conclusions and higher costs for validation experiments ^[Illumina, Inc, https://www.illumina.com/documents/products/technotes/technote_Q-Scores.pdf]. 
+
+
+```{r table_quality, }
+qual <- data.frame("Score" = as.character(c(10, 20, 30, 40, 50)),
+                   "Incorrect" = c("1 in 10", 
+                                   "1 in 100",
+                                   "1 in 1000", 
+                                   "1 in 10000",
+                                   "1 in 100000"),
+                   "Accuracy" = c("90%", "99%", "99.9%", "99.99%", "99.999%"),
+                   stringsAsFactors = FALSE)
+
+DT::datatable(qual, rownames = TRUE, filter = "none")
+```
+
+Score = "Phred Quality Score", Incorrect = "Probability of Incorrect Base Call", "Accuracy" = "Base Call Accuracy".
+
+### Per base sequence quality
+
+```{r , fig.height = 5.5}
+## grid plots
+qcFiles <- fastqc_files(qc_path)
+r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
+r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
+
+for(i in seq_len(length(r1Files))) {
+  r1 <- r1Files[i]
+  r2 <- r2Files[i]
+  if(is.na(r2)){
+    r2 <- NULL
+  }
+
+  p1 <- fastqc_plot(r1, r2, 1) # 
+#  p2 <- fastqc_plot(r1, r2, 2) # 
+#  p3 <- fastqc_plot(r1, r2, 3) # 
+#  p  <- cowplot::plot_grid(p1, p2, p3, ncol = 1)
+  print(p1)
+  # break
+}
+```
+
+
+### Per base sequence content
+
+```{r , fig.height = 5.5}
+## grid plots
+qcFiles <- fastqc_files(qc_path)
+r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
+r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
+
+for(i in seq_len(length(r1Files))) {
+  r1 <- r1Files[i]
+  r2 <- r2Files[i]
+  if(is.na(r2)){
+    r2 <- NULL
+  }
+  
+  # p1 <- fastqc_plot(r1, r2, 1) # 
+  p2 <- fastqc_plot(r1, r2, 2) # 
+  # p3 <- fastqc_plot(r1, r2, 3) # 
+#  p  <- cowplot::plot_grid(p1, p2, p3, ncol = 1)
+  print(p2)
+  # break
+}
+```
+
+### Distribution of read length
+
+```{r , fig.height = 5.5}
+## grid plots
+qcFiles <- fastqc_files(qc_path)
+r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
+r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
+
+for(i in seq_len(length(r1Files))) {
+  r1 <- r1Files[i]
+  r2 <- r2Files[i]
+  if(is.na(r2)){
+    r2 <- NULL
+  }
+  # p1 <- fastqc_plot(r1, r2, 1) # 
+  # p2 <- fastqc_plot(r1, r2, 2) # 
+  p3 <- fastqc_plot(r1, r2, 3) # 
+  # p  <- cowplot::plot_grid(p1, p2, p3, ncol = 1)
+
+  print(p3)
+  # break
+}
+```
+
+
+## Quality Control Report in details
+
+```{r details, results = "asis"}
+qc_html <- list.files(qc_path, "*_fastqc.html", all.files = TRUE, 
+                      full.names = FALSE, recursive = FALSE)
+qc_html_name <- gsub("_fastqc.html", "", basename(qc_html))
+qc_url <- glue::glue("[{qc_html_name}](./{qc_html})")
+
+qc_df <- data.frame(Number = as.character(seq_len(length(qc_html))),
+                    Sample = qc_url,
+                    stringsAsFactors = FALSE)
+
+qc_df
+# DT::datatable(qc_df, rownames = TRUE, filter = "none")
+```
+
+## Overall report
+
+```{r qc_overall, eval = FALSE}
+qc_overall <- summary(qc)
+
+qc_overall %>%
+  kable() %>%
+  kable_styling() %>%
+  scroll_box(width = "100%", height = "300px")
+# DT::datatable(qc_overall, rownames = TRUE, filter = "none")
+```
+
+
+## Problems
+
+```{r qc_problem, }
+df_problems <- qc_problems(qc, "sample")
+
+tmp <- lapply(seq_len(nrow(df_problems)), function(i){
+  di <- df_problems[i, ]
+  data.frame(sample = di$sample,
+             nb_problems = di$nb_problems,
+             status = 1,
+             module = unlist(strsplit(di$module, ", ")),
+             stringsAsFactors = FALSE)
+})
+
+df_problem <- bind_rows(tmp) %>%
+  tidyr::spread(key = module, value = status)
+
+df_problem[is.na(df_problem)] <- 0
+
+DT::datatable(df_problem, rownames = TRUE, filter = "none")
+```
+
+
+## Failed modules
+    
+    
+```{r qc_fail, }
+df_fails <- qc_fails(qc, "sample")
+
+tmp <- lapply(seq_len(nrow(df_fails)), function(i){
+  di <- df_fails[i, ]
+  data.frame(sample = di$sample,
+             nb_problems = di$nb_problems,
+             status = 1,
+             module = unlist(strsplit(di$module, ", ")),
+             stringsAsFactors = FALSE)
+})
+
+df_fail <- bind_rows(tmp) %>%
+  tidyr::spread(key = module, value = status)
+
+df_fail[is.na(df_fail)] <- 0
+
+DT::datatable(df_fail, rownames = TRUE, filter = "none")
+```
+ 
+
+**[#EOF]**

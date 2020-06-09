@@ -415,7 +415,7 @@
 #'   pvalCutoff <- as.numeric(pvalCutoff)
 #'
 #'   ## add significant tags
-#'   plotDf <- sig_genes(data, fc = fcCutoff, pval = pvalCutoff, type = "all") # sig genes
+#'   plotDf <- deseq_sig(data, fc = fcCutoff, pval = pvalCutoff, type = "all") # sig genes
 #'   # plotDf <- dplyr::rename(plotDf, logFC = log2FoldChange, pvalue = pvalue)
 #'
 #'   # split data
