@@ -16,8 +16,12 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
   colnames(df) <- tolower(colnames(df))
 
   # add date
-  f_date <- stringr::str_split(basename(x), "_", simplify = TRUE)[1, 2] #date
-  df$date <- as.Date(f_date, format="%Y%m%d")
+  f_date <- stringr::str_split(basename(x), "_", simplify = TRUE)# [1, 2] #date
+  if(ncol(f_date) > 1) {
+    df$date <- as.Date(f_date[1, 2], format = "%Y%m%d")
+  } else {
+    df$date <- Sys.Date()
+  }
 
   # remove blank rows
   df <- df %>%
@@ -49,113 +53,6 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 }
 
 
-#' check samplename
-#' < 60 chars
-#' no duplicates
-#'
-#' @export
-is_sheet_samplename <- function(x) {
-  # not longer than: 60 chars
-  #
-  all(grepl("^[\\w|\\-|\\.|]{1,60}$", x, perl = TRUE, ignore.case = TRUE))
-}
-
-
-#' check duplication
-#'
-#' @export
-is_sheet_duplicate <- function(x, y = NULL) {
-  if(is.null(y)) {
-    length(x) > length(unique(x))
-  } else {
-    if(length(x) == length(y)) {
-      xy <- paste0(x, y)
-      length(xy) > length(unique(xy))
-    } else {
-      rep(FALSE, length(x)) # all FALSE
-    }
-  }
-}
-
-
-#' check libname
-#' @export
-is_sheet_libname <- function(x) {
-  # YY00, YS00
-  all(grepl("^\\w{2,4}\\d{2,3}$", x, perl = TRUE))
-}
-
-
-#' check index id
-#' @export
-is_sheet_index_id <- function(x) {
-  # TruSeq_index1-48
-  # Next_Ad2.1-24
-  # Null
-  # no duplicate names: p7_index + barcode
-  all(grepl("^(truseq_index\\d+)|(next_ad2.\\d+)|(null)$", df$p7_index_id, perl = TRUE, ignore.case = TRUE))
-
-}
-
-
-#' check barcode id
-#' @export
-is_sheet_barcode_id <- function(x) {
-  all(grepl("^(p7_\\d+A|B)|(iclip\\d+)|(null)$", df$barcode_id, perl = TRUE, ignore.case = TRUE))
-}
-
-
-#' check index name/ barcode name
-#' @param x string, id of the index
-#' @param index string/vector, named vector,
-#'
-#' @export
-is_sheet_valid_index <- function(x, index = NULL) {
-  if(is.null(index)) {
-    TRUE
-  } else {
-    x <- x[!grepl("NULL", x, ignore.case = TRUE)] # remove NULL
-    x <- x[! is.na(x)]
-    all(x %in% names(index))
-  }
-}
-
-
-#' read index sequence
-#' @param x string path to the index file, could be *.rds, *.txt, *.csv
-#'
-#' @export
-sheet_read_index <- function(x) {
-  # check index
-  if(! is.null(x)) {
-    if(endsWith(x, ".rds")) {
-      l <- readRDS(x) # named sequence
-      # format: truseq.TruSeq_Index1
-      a <- unlist(l)
-      # format: TruSeq_Index1
-      b <- stringr::str_split(names(a), "\\.", n = 2, simplify = T) #
-      names(a) <- b[, 2]
-      a
-    } else {
-      if(endsWith(x, ".txt")) {
-        di <- readr::read_delim(x, "\t", col_types = readr::cols())
-      } else if(endsWith(x, "*.csv")) {
-        di <- readr::read_csv(x, col_types = readr::cols())
-      } else {
-        di <- setNames(data.frame(matrix(ncol = 2, nrow = 0)),
-                       c("name", "sequence"))
-      }
-      # name, sequence required
-      if(all(c("name", "sequence") %in% colnames(di))) {
-        setNames(di$sequence, di$name)
-      } else {
-        warning("name, sequence, columns not found")
-        NULL
-      }
-    }
-  }
-}
-
 
 #' Check the fields in sheet
 #' @param data.frame sample data
@@ -170,7 +67,7 @@ sheet_check <- function(df, index_list = NULL) {
   chk1 <- all(required_cols %in% colnames(df))
 
   # load index
-  index <- sheet_read_index(index_list)
+  hiseq_index <- sheet_read_index(index_list)
 
   # chk
   if(chk1) {
@@ -182,21 +79,21 @@ sheet_check <- function(df, index_list = NULL) {
     ## check duplication
     chk7 <- is_sheet_duplicate(df$sample_name)
     chk8 <- is_sheet_duplicate(df$p7_index_id, df$barcode_id)
-    chk9 <- is_sheet_valid_index(df$p7_index_id, index)
-    chk10 <- is_sheet_valid_index(df$barcode_id, index)
+    chk9 <- is_sheet_valid_index(df$p7_index_id, hiseq_index)
+    chk10 <- is_sheet_valid_index(df$barcode_id, hiseq_index)
   } else {
-    chk2 <- chk3 <- chk4 <- chk5 <- chk6 <- chk7 <- chk8 <- TRUE
+    chk2 <- chk3 <- chk4 <- chk5 <- chk6 <- chk7 <- chk8 <- chk9 <- chk10<- TRUE
   }
 
   ## message
   df_msg <- data.frame(
-    "content" = c("required columns",
+    "Content" = c("required columns",
                   "Lib_number",
                   "Lib_user",
                   "Sample_name",
                   "P7_index_id",
                   "Barcode_id"),
-    "status"  = c(chk1 & !chk7,
+    "Status"  = c(chk1 & !chk7,
                   chk2,
                   chk3,
                   chk4,
@@ -210,10 +107,11 @@ sheet_check <- function(df, index_list = NULL) {
                    "eg: P7_1A, iCLIP2"),
     stringsAsFactors = FALSE
   ) %>%
-    dplyr::mutate(status = ifelse(status, "ok", "failed"))
+    dplyr::mutate(Status = ifelse(Status, "ok", "failed")) %>%
+    dplyr::select(Status, Content, Expected)
 
   ## output
-  list(status = all(df_msg$status == "ok"),
+  list(status = all(df_msg$Status == "ok"),
        msg    = df_msg)
 }
 
@@ -266,6 +164,119 @@ sheet_autofix <- function(df) {
 
   df
 }
+
+
+
+#' read index sequence
+#' @param x string path to the index file, could be *.rds, *.txt, *.csv
+#'
+#' @export
+sheet_read_index <- function(x) {
+  # check index
+  if(! is.null(x)) {
+    if(endsWith(x, ".rds")) {
+      l <- readRDS(x) # named sequence
+      # format: truseq.TruSeq_Index1
+      a <- unlist(l)
+      # format: TruSeq_Index1
+      b <- stringr::str_split(names(a), "\\.", n = 2, simplify = T) #
+      names(a) <- b[, 2]
+      a
+    } else {
+      if(endsWith(x, ".txt")) {
+        di <- readr::read_delim(x, "\t", col_types = readr::cols())
+      } else if(endsWith(x, "*.csv")) {
+        di <- readr::read_csv(x, col_types = readr::cols())
+      } else {
+        di <- setNames(data.frame(matrix(ncol = 2, nrow = 0)),
+                       c("name", "sequence"))
+      }
+      # name, sequence required
+      if(all(c("name", "sequence") %in% colnames(di))) {
+        setNames(di$sequence, di$name)
+      } else {
+        warning("name, sequence, columns not found")
+        NULL
+      }
+    }
+  }
+}
+
+
+#' check samplename
+#' < 60 chars
+#' no duplicates
+#'
+#' @export
+is_sheet_samplename <- function(x) {
+  # not longer than: 60 chars
+  #
+  all(grepl("^[\\w|\\-|\\.|]{1,60}$", x, perl = TRUE, ignore.case = TRUE))
+}
+
+
+#' check duplication
+#'
+#' @export
+is_sheet_duplicate <- function(x, y = NULL) {
+  if(is.null(y)) {
+    length(x) > length(unique(x))
+  } else {
+    if(length(x) == length(y)) {
+      xy <- paste0(x, y)
+      length(xy) > length(unique(xy))
+    } else {
+      rep(FALSE, length(x)) # all FALSE
+    }
+  }
+}
+
+
+#' check libname
+#' @export
+is_sheet_libname <- function(x) {
+  # YY00, YS00
+  all(grepl("^\\w{2,4}\\d{2,3}$", x, perl = TRUE))
+}
+
+
+#' check index id
+#' @param x string
+#'
+#' @export
+is_sheet_index_id <- function(x) {
+  # TruSeq_index1-48
+  # Next_Ad2.1-24
+  # Null
+  # no duplicate names: p7_index + barcode
+  all(grepl("^(truseq_index\\d+)|(next_ad2.\\d+)|(null)$", x, perl = TRUE, ignore.case = TRUE))
+}
+
+
+#' check barcode id
+#' @export
+is_sheet_barcode_id <- function(x) {
+  all(grepl("^(p7_\\d+A|B)|(iclip\\d+)|(null)$", x, perl = TRUE, ignore.case = TRUE))
+}
+
+
+#' check index name/ barcode name
+#' @param x string, id of the index
+#' @param index string/vector, named vector,
+#'
+#' @export
+is_sheet_valid_index <- function(x, index = NULL) {
+  if(is.null(index)) {
+    TRUE
+  } else {
+    x <- x[!grepl("NULL", x, ignore.case = TRUE)] # remove NULL
+    x <- x[! is.na(x)]
+    all(x %in% names(index))
+  }
+}
+
+
+
 
 
 
