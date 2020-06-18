@@ -21,7 +21,7 @@ atac_report <- function(input, output) {
   } else if(is_atac_merge_dir(input)) {
     template <- system.file('atacseq', 'atac_report_merge.Rmd', package = "hiseqr")
   } else if(is_atac_multiple_dir(input)) {
-    template <- system.file("atac_report_multiple.Rmd", package = "hiseqr")
+    template <- system.file("atacseq", "atac_report_multiple.Rmd", package = "hiseqr")
   } else {
     warning("unknown input:")
     stop("Stop report")

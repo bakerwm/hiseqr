@@ -1,0 +1,94 @@
+---
+title: "Demultiplexing report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+---
+
+```{r global options, echo=FALSE}
+library(knitr)
+
+knitr::opts_chunk$set(fig.width = 12, 
+                      fig.height = 8, 
+                      fig.path = 'Figs/',
+                      echo = FALSE,
+                      eval = TRUE,
+                      cache = FALSE,
+                      prompt = FALSE,
+                      tidy = FALSE,
+                      comment = NA,
+                      message = FALSE,
+                      warning = FALSE,
+                      rownames.print = FALSE)
+options(width=150)
+```
+
+
+```{r lib, include=FALSE}
+library(hiseqr)
+library(fastqcr)
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(cowplot)
+```
+
+
+```{r}
+input_dir <- "/data/nas/seq_data/Yu_2020/YY48_20200506/demo/results/demo"
+report_json <- file.path(input_dir, "demx_report.json")
+```
+
+
+```{r}
+x <- jsonlite::read_json(report_json)
+
+# overall
+df <- data.frame(filename = names(x$main), 
+                 count = matrix(unlist(x$main), 
+                                nrow=length(x$main), byrow=T)) %>%
+  dplyr::mutate(million = round(count / 1e6, 1))
+
+# stat
+n_total <- round(sum(df$count) / 1e6, 1) # million reads
+n_smp   <- nrow(df) - 1 # remove undemx
+undemx  <- df[df$filename == "undemx", "million"]
+pct_undemx <- round(undemx / n_total, 1)
+pct_smp <- 1 - pct_undemx
+```
+
+
+## Summary
+
+```{r}
+glue::glue("A total of {n_total} M reads in this lane, {n_total - undemx} M ({pct_smp}%) were assigned to {n_smp} samples, {undemx} M ({pct_undemx}%) were failed to assign.")
+
+```
+
+
+## Parameters
+
++ Number of mismatches: 0 
+
+
+
+## Table
+
+```{r}
+hiseqr::get_DT_table(df, mode=2)
+```
+
+
+**[#EOF]**

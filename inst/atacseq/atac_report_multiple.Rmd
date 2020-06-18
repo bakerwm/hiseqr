@@ -17,6 +17,7 @@ params:
   input_dir: ""
 ---
 
+
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
 
@@ -51,8 +52,8 @@ library(patchwork)
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
 hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type == "atacseq_s1rn") {
-  stop(paste0("Input file is not a ATACseq directory: ", input_dir))
+if(! hiseq_type %in% c("atacseq_from_design")) {
+  stop(paste0("Input file is not a ATACseq multiple directory: ", input_dir))
 }
 ```
 
@@ -61,12 +62,9 @@ if(! hiseq_type == "atacseq_s1rn") {
 # read data
 pd <- hiseqr::read_atac(input_dir)
 
-# rep_list
-rep_list <- file.path(pd$args$outdir, fq_name(pd$args$fq1, fix_pe = TRUE))
-peak_list <- sapply(rep_list, function(i) {
-  pi <- hiseqr::read_atac(i)
-  pi$args$peak
-})
+# smp merge list
+merge_list <- list_atac_merge_dirs(input_dir)
+rep_list   <- list_atac_single_dirs(input_dir)
 
 # list of files
 df_align_stat <- hiseqr::get_atac_align_stat(input_dir)
@@ -81,16 +79,13 @@ df_align_table <- df_align_stat %>%
   dplyr::mutate(mito.pct = round((mito.u + mito.m) / total * 100, 2)) %>%
   dplyr::select(id, total, mito.u, mito.m, genome.u, genome.m, unmap, mito.pct)
 
-# cor-table
-cor_counts <- pd$args$cor_counts
-
 ```
 
 
 ## 1 Summary
 
 ```{r summary, results="asis"}
-n_smp      <- length(pd$args$fq1)
+n_smp      <- length(merge_list)
 min_depth  <- min(df_align_table$total)
 max_depth  <- max(df_align_table$total)
 mean_depth <- round(mean(df_align_table$total), 0)
@@ -109,7 +104,6 @@ print(msg)
 ```
 
 
-
 ## 2 Results
 
 ### 2.1 Table1. Total reads
@@ -120,7 +114,7 @@ hiseqr::get_DT_table(df_align_table)
 
 ### 2.2 Figure 1. Number of mapped reads
 
-```{r figure1_align_reads, out.width = "100%", fig.height = 3}
+```{r figure1_align_reads, out.width = "100%"}
 p <- df_align_stat %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
   hiseqr::align_plot()
@@ -128,9 +122,10 @@ p <- df_align_stat %>%
 plotly::ggplotly(p)
 ```
 
+
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, out.width = "100%", fig.height = 4}
+```{r figure2_peaks, out.width = "100%"}
 # unique mapped reads
 p1 <- df_align_table %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
@@ -153,6 +148,7 @@ p2 <- df_peak_stat %>%
 p1 + p2
 ```
 
+
 ### 2.4 FRiP.
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
@@ -162,6 +158,7 @@ p1 + p2
 > The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
 > source: https://www.encodeproject.org/atac-seq/
 
+
 ```{r table2_frip}
 hiseqr::get_DT_table(df_frip_stat, mode = 1)
 ```
@@ -170,13 +167,14 @@ hiseqr::get_DT_table(df_frip_stat, mode = 1)
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
+```{r figure3_fragment_length, out.width = "100%"}
 p <- df_lendist_stat %>%
   hiseqr::frag_plot() +
   facet_wrap(~id, ncol = 2)
 
 print(p)
 ```
+
 
 ### 2.6 Figure4. TSS enrichment
 
@@ -185,55 +183,6 @@ print(p)
 > source: https://www.encodeproject.org/data-standards/terms/
 
 **to-do**
-
-
-### 2.7 Figure5. Peaks overlap between samples
-
-```{r figure5_peak_overlap, eval = T, fig.height = 4}
-f <- list.files(pd$args$qc_overlap_dir, "*.png$", full.names = TRUE)
-
-if(length(f) > 0) {
-  knitr::include_graphics(f[1])
-}
-```
-
-
-### 2.8 Figure6. IDR, Irreproducibility Discovery Rate
-
-用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
-
-> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
- 
-Why IDR?
-
-  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
-  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
-  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
-  
-See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
-
-```{r firug6_idr, eval = F, fig.height=5}
-f <- list.files(pd$args$qc_idr_dir, "*.png$", full.names = TRUE)
-
-for(i in f){
-  # if(file.exists(i)) print(knitr::include_graphics(i))
-  if(file.exists(i)) cat("![](",i,")")
-}
-```
-
-### 2.9 Figure7. Correlation between replicates
-
-The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
-
-```{r fig7_cor_pearson, eval = T, fig.height = 4}
-f1 <- list.files(pd$args$qc_cor_dir, "*heatmap.png$", full.names = TRUE)
-f2 <- list.files(pd$args$qc_cor_dir, "*PCA.png$", full.names = TRUE)
-
-knitr::include_graphics(f1)
-knitr::include_graphics(f2)
-
-```
-
 
 ## 3 Detail report
 
@@ -264,7 +213,6 @@ df <- data.frame(
     
 get_DT_table(df, mode = 3)
 ```
-
 
 
 ## 4 ENCODE standard

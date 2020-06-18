@@ -1,5 +1,5 @@
 ---
-title: "FastQC report"
+title: "Demultiplexing report"
 author:
 - name: Ming Wang
   affiliation: IBP

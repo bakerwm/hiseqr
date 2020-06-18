@@ -80,7 +80,7 @@ is_atac_merge_dir <- function(x) {
 #' @export
 is_atac_multiple_dir <- function(x) {
   x_type <- is_hiseq_dir(x)
-  x_type == "atacseq_snrn" # sample:1, replicate:n
+  x_type %in% c("atacseq_from_design", "atacseq_snrn")
 }
 
 
@@ -167,7 +167,7 @@ get_atac_frip_stat <- function(x) {
   if(x_type == "atacseq_s1r1") {
     f <- px$args$frip_txt
     read.delim(f, sep = "\t") %>%
-      dplyr::mutate(id = basename(dirname(dirname(f))),
+      dplyr::mutate(id = px$args$smp_name,
                     FRiP = as.character(FRiP)) %>%
       dplyr::select(id, total_reads, peak_reads, FRiP)
   } else if(x_type == "atacseq_s1rn") {
@@ -210,6 +210,54 @@ get_atac_lendist_stat <- function(x) {
   }
 }
 
+
+#' @export
+get_atac_report <- function(x) {
+  x_type <- is_hiseq_dir(x)
+
+  # load data
+  if(isTRUE(is_atac_dir(x))) {
+    px <- read_atac(x)
+  } else {
+    return(NULL)
+  }
+
+  # check, align
+  if(x_type == "atacseq_s1r1") {
+    rpt_dir <- px$args$report_dir
+    f_html  <- list.files(rpt_dir, "*.html", full.names = TRUE)
+    if(length(f_html) > 0) {
+      f_html[1]
+    }
+  } else if(x_type == "atacseq_s1rn") {
+    rpt_dir <- px$args$report_dir
+    f_html  <- list.files(rpt_dir, "*.html", full.names = TRUE)
+    if(length(f_html) > 0) {
+      f_html <- f_html[1]
+    }
+    # sub-dir
+    rep_list <- file.path(px$args$outdir, fq_name(px$args$fq1))
+    f_html2 <- sapply(rep_list, get_atac_report, simplify = TRUE)
+    if(length(f_html) > 0) {
+      f_html <- f_html[1]
+    }
+    f_html2 <- unlist(f_html2)
+    c(f_html, f_html2)
+  } else if(x_type %in% c("atacseq_from_design", "atacseq_snrn")) {
+    rpt_dir <- px$args$report_dir
+    f_html  <- list.files(rpt_dir, "*.html", full.names = TRUE)
+    if(length(f_html) > 0) {
+      f_html <- f_html[1]
+    }
+    # sub-dir
+    merge_list <- list_atac_merge_dirs(x)
+    f_html2 <- sapply(merge_list, get_atac_report, simplify = TRUE)
+    f_html2 <- unlist(f_html2)
+    c(f_html, f_html2)
+  } else {
+    warning(paste0("Unknown dir, atac_* expected, ", x_tyep, " got"))
+  }
+}
 
 
 #' @export

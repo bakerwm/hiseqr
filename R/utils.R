@@ -11,6 +11,8 @@ get_DT_table <- function(df, mode = 1) {
     DT::datatable(df,
                   extensions = 'Buttons',
                   options = list(
+                    pageLength = 10,
+                    scrollX = TRUE,
                     dom = 'Bfrtip',
                     buttons =
                       list('copy', #'print',
@@ -20,6 +22,9 @@ get_DT_table <- function(df, mode = 1) {
     )
   } else if(mode == 2) {
     DT::datatable(df, rownames = TRUE, filter = "top",
+                  options = list(pageLength = 10, scrollX = TRUE))
+  } else if(mode == 3){
+    DT::datatable(df, rownames = TRUE, filter = "top", escape = FALSE,
                   options = list(pageLength = 10, scrollX = TRUE))
   } else {
     DT::datatable(df)

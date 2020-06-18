@@ -61,7 +61,7 @@ if(! hiseq_type == "atacseq_s1r1") {
 pd <- hiseqr::read_atac(input_dir)
 ```
 
-## Summary
+## 1 Summary
 
 ```{r summary, eval = T, results = "asis"}
 df <- hiseqr::read_align1(pd$args$align_stat)
@@ -85,9 +85,9 @@ sum_text <- glue::glue("ATACseq sample {pd$args$smp_name}, has {total} total rea
 print(sum_text)
 ```
 
-## Results
+## 2 Results
 
-### 1 Table1. Mito Percentage
+### 2.1 Table1. Mito Percentage
 
 ```{r table1_mito_pct}
 df_table <- df %>% 
@@ -100,14 +100,14 @@ df_table <- df %>%
 knitr::kable(df_table)
 ```
 
-### 2 Figure 1. Number of mapped reads
+### 2.2 Figure 1. Number of mapped reads
 
 ```{r figure1_align_reads, out.width = "100%", fig.height = 3}
 p <- hiseqr::align_plot(df)
 plotly::ggplotly(p)
 ```
 
-### 3 Figure2. Number of peaks
+### 2.3 Figure2. Number of peaks
 
 ```{r figure2_peaks, out.width = "100%", fig.height = 4}
 ## reads for peaks
@@ -144,7 +144,7 @@ p <- cowplot::plot_grid(p1, p2, ncol = 2, rel_widths = c(1, 0.6),
 print(p)
 ```
 
-### 4. FRiP.
+### 2.4 FRiP
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
 >
@@ -161,7 +161,7 @@ df_frip <- read.delim(pd$args$frip_txt, sep = "\t") %>%
 knitr::kable(df_frip)
 ```
 
-### 5. Figure3. Fragment length
+### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
@@ -172,7 +172,7 @@ p <- hiseqr::frag_plot(df_frag)
 print(p)
 ```
 
-### 6. TSS enrichment
+### 2.6 TSS enrichment
 
 > Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
 >
@@ -181,7 +181,7 @@ print(p)
 **to-do**
 
 
-## ENCODE standard
+## 3 ENCODE standard
 
 > source: [https://www.encodeproject.org/atac-seq/#standards](https://www.encodeproject.org/atac-seq/#standards)
 
