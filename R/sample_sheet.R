@@ -52,7 +52,9 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 #' check samplename
 #' < 60 chars
 #' no duplicates
-.is_sheet_samplename <- function(x) {
+#'
+#' @export
+is_sheet_samplename <- function(x) {
   # not longer than: 60 chars
   #
   all(grepl("^[\\w|\\-|\\.|]{1,60}$", x, perl = TRUE, ignore.case = TRUE))
@@ -60,7 +62,9 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 
 
 #' check duplication
-.is_sheet_duplicate <- function(x, y = NULL) {
+#'
+#' @export
+is_sheet_duplicate <- function(x, y = NULL) {
   if(is.null(y)) {
     length(x) > length(unique(x))
   } else {
@@ -75,14 +79,16 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 
 
 #' check libname
-.is_sheet_libname <- function(x) {
+#' @export
+is_sheet_libname <- function(x) {
   # YY00, YS00
   all(grepl("^\\w{2,4}\\d{2,3}$", x, perl = TRUE))
 }
 
 
 #' check index id
-.is_sheet_index_id <- function(x) {
+#' @export
+is_sheet_index_id <- function(x) {
   # TruSeq_index1-48
   # Next_Ad2.1-24
   # Null
@@ -93,7 +99,8 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 
 
 #' check barcode id
-.is_sheet_barcode_id <- function(x) {
+#' @export
+is_sheet_barcode_id <- function(x) {
   all(grepl("^(p7_\\d+A|B)|(iclip\\d+)|(null)$", df$barcode_id, perl = TRUE, ignore.case = TRUE))
 }
 
@@ -102,7 +109,8 @@ sheet_load <- function(x, n_max=10000, autofix = TRUE, index_list = NULL,
 #' @param x string, id of the index
 #' @param index string/vector, named vector,
 #'
-.is_sheet_valid_index <- function(x, index = NULL) {
+#' @export
+is_sheet_valid_index <- function(x, index = NULL) {
   if(is.null(index)) {
     TRUE
   } else {
@@ -166,16 +174,16 @@ sheet_check <- function(df, index_list = NULL) {
 
   # chk
   if(chk1) {
-    chk2 <- .is_sheet_libname(df$lib_number)
-    chk3 <- .is_sheet_libname(df$lib_user)
-    chk4 <- .is_sheet_samplename(df$sample_name)
-    chk5 <- .is_sheet_index_id(df$p7_index_id)
-    chk6 <- .is_sheet_barcode_id(df$barcode_id)
+    chk2 <- is_sheet_libname(df$lib_number)
+    chk3 <- is_sheet_libname(df$lib_user)
+    chk4 <- is_sheet_samplename(df$sample_name)
+    chk5 <- is_sheet_index_id(df$p7_index_id)
+    chk6 <- is_sheet_barcode_id(df$barcode_id)
     ## check duplication
-    chk7 <- .is_sheet_duplicate(df$sample_name)
-    chk8 <- .is_sheet_duplicate(df$p7_index_id, df$barcode_id)
-    chk9 <- .is_sheet_valid_index(df$p7_index_id, index)
-    chk10 <- .is_sheet_valid_index(df$barcode_id, index)
+    chk7 <- is_sheet_duplicate(df$sample_name)
+    chk8 <- is_sheet_duplicate(df$p7_index_id, df$barcode_id)
+    chk9 <- is_sheet_valid_index(df$p7_index_id, index)
+    chk10 <- is_sheet_valid_index(df$barcode_id, index)
   } else {
     chk2 <- chk3 <- chk4 <- chk5 <- chk6 <- chk7 <- chk8 <- TRUE
   }
