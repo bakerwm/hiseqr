@@ -134,11 +134,11 @@ sheet_autofix <- function(df) {
   # auto fix columns
 
   ## no blanks
-  df$lib_number  <- gsub("[^\\w\\-\\.]", "_", df$lib_number, per = TRUE)
-  df$lib_user    <- gsub("[^\\w\\-\\.]", "_", df$lib_user, per = TRUE)
-  df$sample_name <- gsub("[^\\w\\-\\.]", "_", df$sample_name, per = TRUE)
-  df$p7_index_id <- gsub("[^\\w\\-\\.]", "_", df$p7_index_id, per = TRUE)
-  df$barcode_id  <- gsub("[^\\w\\-\\.]", "_", df$barcode_id, per = TRUE)
+  df$lib_number  <- gsub("[\\W]", "_", df$lib_number, per = TRUE)
+  df$lib_user    <- gsub("[\\W]", "_", df$lib_user, per = TRUE)
+  df$sample_name <- gsub("[\\W]", "_", df$sample_name, per = TRUE)
+  df$p7_index_id <- gsub("[\\W]", "_", df$p7_index_id, per = TRUE)
+  df$barcode_id  <- gsub("[\\W]", "_", df$barcode_id, per = TRUE)
 
   ## upper case
   df$lib_number  <- toupper(df$lib_number)
@@ -160,7 +160,7 @@ sheet_autofix <- function(df) {
   df$sample_name <- gsub("GROseq", "GROseq", df$sample_name, ignore.case = TRUE)
 
   ## rep1:
-  df$sample_name <- gsub("(r|rep)(\\d+)", "rep\\2", df$sample_name, perl = TRUE)
+  df$sample_name <- gsub("(r|rep)(\\d+)", "rep\\2", df$sample_name, perl = TRUE, ignore.case = TRUE)
 
   df
 }
