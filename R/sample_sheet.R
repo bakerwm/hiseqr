@@ -134,11 +134,13 @@ sheet_autofix <- function(df) {
   # auto fix columns
 
   ## no blanks
-  df$lib_number  <- gsub("[\\W]", "_", df$lib_number, per = TRUE)
-  df$lib_user    <- gsub("[\\W]", "_", df$lib_user, per = TRUE)
-  df$sample_name <- gsub("[\\W]", "_", df$sample_name, per = TRUE)
-  df$p7_index_id <- gsub("[\\W]", "_", df$p7_index_id, per = TRUE)
-  df$barcode_id  <- gsub("[\\W]", "_", df$barcode_id, per = TRUE)
+  df$lib_number  <- gsub("[\\W]", "_", df$lib_number, perl = TRUE)
+  df$lib_user    <- gsub("[\\W]", "_", df$lib_user, perl = TRUE)
+  df$sample_name <- gsub("[^\\w\\-]", "_", df$sample_name, perl = TRUE)
+  df$p7_index_id <- gsub("[^\\w\\.\\-]", "_", df$p7_index_id, perl = TRUE)
+  df$barcode_id  <- gsub("[^\\w\\.\\-]", "_", df$barcode_id, perl = TRUE)
+  df$seq_type    <- gsub("[\\W]", "", df$seq_type, perl = TRUE)
+  df$lib_type    <- gsub("[\\W]", "", df$lib_type, perl = TRUE)
 
   ## upper case
   df$lib_number  <- toupper(df$lib_number)
@@ -159,6 +161,11 @@ sheet_autofix <- function(df) {
   df$sample_name <- gsub("small_RNAseq", "smallRNAseq", df$sample_name, ignore.case = TRUE)
   df$sample_name <- gsub("GROseq", "GROseq", df$sample_name, ignore.case = TRUE)
 
+  ## seq_type: SE/PE
+  df$seq_type    <- toupper(df$seq_type)
+  df$lib_type    <- gsub("(ATAC|RNA|DNA|ChIP|Gold|GRO)\\_?(seq)", "\\1\\2", df$lib_type, perl = TRUE, ignore.case = TRUE)
+  df$lib_type    <- gsub("^RNAseq$", "mRNAseq", df$lib_type, ignore.case = TRUE)
+
   ## rep1:
   df$sample_name <- gsub("(r|rep)(\\d+)", "rep\\2", df$sample_name, perl = TRUE, ignore.case = TRUE)
 
@@ -173,7 +180,14 @@ sheet_autofix <- function(df) {
 #' @export
 sheet_read_index <- function(x) {
   # check index
-  if(! is.null(x)) {
+  if(is.null(x)) {
+    return(NULL)
+  }
+
+  if(is_sheet_valid_index(names(x))) {
+    return(x)
+  } else {
+    x <- x[1] # the first one
     if(endsWith(x, ".rds")) {
       l <- readRDS(x) # named sequence
       # format: truseq.TruSeq_Index1
