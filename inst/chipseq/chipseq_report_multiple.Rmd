@@ -1,5 +1,5 @@
 ---
-title: "ATAC-seq report"
+title: "ChIP-seq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -52,25 +52,25 @@ library(patchwork)
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
 hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type %in% c("atacseq_rx")) {
-  stop(paste0("Input file is not a ATACseq multiple directory: ", input_dir))
+if(! hiseq_type %in% c("chipseq_rx")) {
+  stop(paste0("Input file is not a ChIPseq multiple directory: ", input_dir))
 }
 ```
 
 
 ```{r}
 # read data
-pd <- hiseqr::read_atac(input_dir)
+pd <- hiseqr::read_chipseq(input_dir)
 
 # smp merge list
-merge_list <- list_atac_merge_dirs(input_dir)
-rep_list   <- list_atac_single_dirs(input_dir)
+merge_list <- hiseqr::list_chipseq_merge_dirs(input_dir)
+rep_list   <- hiseqr::list_chipseq_single_dirs(input_dir)
 
 # list of files
-df_align_stat   <- hiseqr::get_atac_align_stat(input_dir)
-df_peak_stat    <- hiseqr::get_atac_peak_stat(input_dir)
-df_frip_stat    <- hiseqr::get_atac_frip_stat(input_dir)
-df_lendist_stat <- hiseqr::get_atac_lendist_stat(input_dir)
+df_align_stat   <- hiseqr::get_chipseq_align_stat(input_dir)
+df_peak_stat    <- hiseqr::get_chipseq_peak_stat(input_dir)
+df_frip_stat    <- hiseqr::get_chipseq_frip_stat(input_dir)
+df_lendist_stat <- hiseqr::get_chipseq_lendist_stat(input_dir)
 
 # file
 df_align_table <- df_align_stat %>%
@@ -187,7 +187,7 @@ if(nrow(df_lendist_stat) > 0) {
 
 
 ```{r}
-rpt_html <- hiseqr::get_atac_report(input_dir)
+rpt_html <- hiseqr::get_chipseq_report(input_dir)
 
 # copy files to current dir
 data_dir <- "data"

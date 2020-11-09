@@ -51,7 +51,7 @@ library(ggcor)
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
 hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type == "atacseq_s1r1") {
+if(! hiseq_type == "atacseq_r1") {
   stop(paste0("Input file is not a ATACseq directory: ", input_dir))
 }
 ```
@@ -111,13 +111,19 @@ plotly::ggplotly(p)
 
 ```{r figure2_peaks, out.width = "100%", fig.height = 4}
 ## reads for peaks
-peak_xls <- gsub(".narrowPeak", ".xls", pd$args$peak)
-num_rmdup <- hiseqr::read_peak_xls(peak_xls) %>%
-  dplyr::filter(grepl("total tags in treatment", V1)) %>%
-  dplyr::pull(V2) %>%
-  as.character() %>%
-  as.numeric()
+peak_xls <- gsub(".narrowPeak", "*.xls", pd$args$peak)
 
+if(file.exists(peak_xls)) {
+  num_rmdup <- hiseqr::read_peak_xls(peak_xls) %>%
+    dplyr::filter(grepl("total tags in treatment", V1)) %>%
+    dplyr::pull(V2) %>%
+    as.character() %>%
+    as.numeric()
+  npeak <- length(hiseqr::read_narrowpeak(pd$args$peak))
+} else {
+  num_rmdup <- 0
+  npeak     <- 0
+}
 df2_peak_reads <- data.frame(
   id = pd$args$smp_name,
   count = round(num_rmdup / 1e6, 1)
@@ -126,7 +132,8 @@ df2_peak_reads <- data.frame(
 ## total peaks
 df2_peaks <- data.frame(
   id     = pd$args$smp_name,
-  count  = length(hiseqr::read_narrowpeak(pd$args$peak)))
+  count  = npeak
+)
 
 ## plots
 p1 <- hiseqr::barplot2(df2_peak_reads, label = TRUE) +
@@ -155,7 +162,8 @@ print(p)
 
 ```{r table2_frip}
 df_frip <- read.delim(pd$args$frip_txt, sep = "\t") %>%
-    dplyr::mutate(id = pd$args$smp_name) %>%
+    dplyr::mutate(id = pd$args$smp_name,
+                  FRiP = paste0(round(FRiP * 100, 2), "%")) %>%
     dplyr::select(id, total_reads, peak_reads, FRiP)
 
 knitr::kable(df_frip)
@@ -166,10 +174,12 @@ knitr::kable(df_frip)
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
 ```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
-df_frag <- hiseqr::read_frag(pd$args$lendist_txt) %>%
-  dplyr::mutate(id = pd$args$smp_name)
-p <- hiseqr::frag_plot(df_frag)
-print(p)
+df_frag <- hiseqr::read_frag(pd$args$lendist_txt)
+
+if(nrow(df_frag) > 1) {
+  p <- hiseqr::frag_plot2(df_frag)  
+  print(p)
+}
 ```
 
 ### 2.6 TSS enrichment

@@ -1,0 +1,238 @@
+---
+title: "RNA-seq DEseq Report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  deseq_dir: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(glue)
+library(DT)
+# library(ggcor)
+```
+
+
+```{r config, eval = T}
+deseq_dir <- normalizePath(params$deseq_dir)
+deseq_dir <- "/data/yulab/wangming/work/yu_2020/projects/20200629_lxh_RNAseq/results/RNAseq_read1/RNAseq_nos_DaGal4XshWhite_6h.vs.RNAseq_nos_DaGal4XshPiwi1_6h/"
+
+# main
+hiseq_type <- hiseqr::is_hiseq_dir(deseq_dir)
+
+if(!hiseq_type == "deseq_single") {
+  stop(paste0("Input dir is not deseq_single directory: ", deseq_dir))
+}
+```
+
+```{r}
+df_align <- get_align_stat3(deseq_dir)
+
+plot_align <- df_align %>%
+  tidyr::gather("index_name", "count", -c(1:2)) %>%
+  ggplot(aes(count, fqname, fill = index_name)) + 
+  geom_col(position = "fill") +
+  theme_bw()
+```
+
+
+## 1 Number of mapped reads
+
+```{r}
+hiseqr::get_DT_table(df_align, 2)
+```
+
+
+```{r, fig.width=10, fig.height=3}
+plot_align
+```
+
+
+## 2 Genes
+
+### 2.1 Info
+
+```{r}
+pd <- hiseqr::read_deseq(deseq_dir, "gene")#, ctl_vs_exp)
+```
+
+```{r}
+args <- pd$args
+msg1 <- glue::glue("fold_change:  log2( {args$prefix_exp} / {args$prefix_ctl} )
+                    Project:      {args$project_name}, 
+                    Reference:    {args$genome}
+                    Feature:      {args$feature}
+                    control:      {args$prefix_ctl}
+                    treatment:    {args$prefix_exp}")
+print(msg1)
+```
+
+### 2.2 Number of differentially expressed genes
+
+Here are the numbers of significant changed genes, criteria: `foldChange >= 2, pvalue < 0.05`
+
+```{r}
+knitr::kable(pd$count_df)
+```
+
+```{r, fig.width = 6, fig.height = 2}
+pd$count_plot
+```
+
+```{r, fig.width=5, fig.height=4}
+get_plot <- function(x, feature = "gene", plot = 1) {
+  args <- hiseqr::deseq_single_dir(x, feature)
+  f <- file.path(args$deseqdir, "publish_plot_data.rds")
+  pd <- readRDS(f)
+  pd[[plot]]
+}
+
+get_plot(deseq_dir, "gene", 1)
+```
+
+### 2.3 Up-regulated genes
+
+```{r}
+sig_genes <- hiseqr::get_sig_gene(deseq_dir, "gene")
+df_up <- sig_genes$up
+
+if(nrow(df_up) > 0) {
+  df_up <- df_up %>%
+    dplyr::mutate(symbol = hiseqr::gene_to_symbol(x = Gene, 
+                                                  organism = args$genome)) %>%
+    dplyr::select(1:3, log2FoldChange, padj, sig, symbol) 
+  
+  get_DT_table(df_up)
+}
+```
+
+
+### 2.4 Down-regulated genes
+
+```{r}
+df_down <- sig_genes$down
+
+if(nrow(df_down) > 0) {
+  df_down <- df_down %>%
+    dplyr::mutate(symbol = hiseqr::gene_to_symbol(x = Gene, 
+                                                  organism = args$genome)) %>%
+    dplyr::select(1:3, log2FoldChange, padj, sig, symbol) 
+  
+  get_DT_table(df_down)
+}
+```
+
+
+## 3 Transposon Element (TE)
+
+```{r}
+pd <- hiseqr::read_deseq(deseq_dir, "te")#, ctl_vs_exp)
+```
+
+### 3.1 Number of differentially expressed TE
+
+Here are the numbers of significant changed genes, criteria: `foldChange >= 2, pvalue < 0.05`
+
+```{r}
+knitr::kable(pd$count_df)
+```
+
+```{r, fig.width = 6, fig.height = 2}
+pd$count_plot
+```
+
+```{r, fig.width=5, fig.height=4}
+get_plot(deseq_dir, "te", 1)
+```
+
+### 3.2 All TEs
+
+```{r}
+sig_genes <- hiseqr::get_sig_gene(deseq_dir, "te")
+
+tmp <- lapply(sig_genes, function(d) {
+  d %>%
+  dplyr::select(1:3, log2FoldChange, padj, sig) 
+})
+
+df_te <- dplyr::bind_rows(tmp)
+
+get_DT_table(df_te)
+```
+
+
+## 4 piRNA clusters
+
+```{r}
+pd <- hiseqr::read_deseq(deseq_dir, "piRNA_cluster")
+```
+
+### 4.1 Number of differentially expressed piRNA cluster
+
+Here are the numbers of significant changed genes, criteria: `foldChange >= 2, pvalue < 0.05`
+
+```{r}
+knitr::kable(pd$count_df)
+```
+
+```{r, fig.width = 6, fig.height = 2}
+pd$count_plot
+```
+
+```{r, fig.width=5, fig.height=4}
+get_plot(deseq_dir, "piRNA_cluster", 1)
+```
+
+### 4.2 All piRNA clusters
+
+```{r}
+sig_genes <- hiseqr::get_sig_gene(deseq_dir, "piRNA_cluster")
+
+tmp <- lapply(sig_genes, function(d) {
+  d %>%
+  dplyr::select(1:3, log2FoldChange, padj, sig) 
+})
+
+df_pi <- dplyr::bind_rows(tmp)
+get_DT_table(df_pi)
+```
+
+
+
+**END**
+
+

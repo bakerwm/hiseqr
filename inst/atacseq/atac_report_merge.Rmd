@@ -51,7 +51,7 @@ library(patchwork)
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
 hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type == "atacseq_s1rn") {
+if(! hiseq_type == "atacseq_rn") {
   stop(paste0("Input file is not a ATACseq directory: ", input_dir))
 }
 ```
@@ -69,9 +69,9 @@ peak_list <- sapply(rep_list, function(i) {
 })
 
 # list of files
-df_align_stat <- hiseqr::get_atac_align_stat(input_dir)
-df_peak_stat  <- hiseqr::get_atac_peak_stat(input_dir)
-df_frip_stat  <- hiseqr::get_atac_frip_stat(input_dir)
+df_align_stat   <- hiseqr::get_atac_align_stat(input_dir)
+df_peak_stat    <- hiseqr::get_atac_peak_stat(input_dir)
+df_frip_stat    <- hiseqr::get_atac_frip_stat(input_dir)
 df_lendist_stat <- hiseqr::get_atac_lendist_stat(input_dir)
 
 # file
@@ -83,7 +83,6 @@ df_align_table <- df_align_stat %>%
 
 # cor-table
 cor_counts <- pd$args$cor_counts
-
 ```
 
 
@@ -171,11 +170,10 @@ hiseqr::get_DT_table(df_frip_stat, mode = 1)
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
 ```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
-p <- df_lendist_stat %>%
-  hiseqr::frag_plot() +
-  facet_wrap(~id, ncol = 2)
-
-print(p)
+if(nrow(df_lendist_stat) > 0) {
+  p <- hiseqr::frag_plot2(df_lendist_stat)
+  print(p)
+}
 ```
 
 ### 2.6 Figure4. TSS enrichment
@@ -264,7 +262,6 @@ df <- data.frame(
     
 get_DT_table(df, mode = 3)
 ```
-
 
 
 ## 4 ENCODE standard

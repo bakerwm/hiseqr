@@ -1,5 +1,5 @@
 ---
-title: "ATAC-seq report"
+title: "ChIP-seq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -17,13 +17,13 @@ params:
   input_dir: ""
 ---
 
-
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
 
 knitr::opts_chunk$set(fig.width  = 12, 
                       fig.height = 8, 
                       fig.path   = "Figures/",
+                      eval       = TRUE,
                       echo       = FALSE,
                       cache      = FALSE,
                       prompt     = FALSE,
@@ -36,120 +36,123 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```
 
 
-```{r}
+```{r load pkg}
 library(hiseqr)
+library(knitr)
 library(ggplot2)
 library(dplyr)
 library(glue)
 library(ggcor)
-library(GenomicRanges)
-library(patchwork)
 ```
 
 
 ```{r config, eval = T}
 # main
 input_dir <- params$input_dir
-input_dir <- normalizePath(input_dir)
+input_dir  <- normalizePath(input_dir)
 hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type %in% c("atacseq_rx")) {
-  stop(paste0("Input file is not a ATACseq multiple directory: ", input_dir))
+if(! hiseq_type == "chipseq_r1") {
+  stop(paste0("Input file is not a ChIPseq directory: ", input_dir))
 }
 ```
 
 
-```{r}
-# read data
-pd <- hiseqr::read_atac(input_dir)
-
-# smp merge list
-merge_list <- list_atac_merge_dirs(input_dir)
-rep_list   <- list_atac_single_dirs(input_dir)
-
-# list of files
-df_align_stat   <- hiseqr::get_atac_align_stat(input_dir)
-df_peak_stat    <- hiseqr::get_atac_peak_stat(input_dir)
-df_frip_stat    <- hiseqr::get_atac_frip_stat(input_dir)
-df_lendist_stat <- hiseqr::get_atac_lendist_stat(input_dir)
-
-# file
-df_align_table <- df_align_stat %>%
-  tidyr::spread("group", "count") %>%
-  dplyr::mutate(total = dplyr::select_if(., is.numeric) %>% rowSums()) %>%
-  dplyr::mutate(mito.pct = round((mito.u + mito.m) / total * 100, 2)) %>%
-  dplyr::select(id, total, mito.u, mito.m, genome.u, genome.m, unmap, mito.pct)
-
+```{r global_vars}
+pd <- hiseqr::read_chipseq(input_dir)
 ```
-
 
 ## 1 Summary
 
-```{r summary, results="asis"}
-n_smp      <- length(merge_list)
-min_depth  <- min(df_align_table$total)
-max_depth  <- max(df_align_table$total)
-mean_depth <- round(mean(df_align_table$total), 0)
-# mito
-min_mito   <- min(df_align_table$mito.pct)
-max_mito   <- max(df_align_table$mito.pct)
-mean_mito  <- round(mean(df_align_table$mito.pct), 2)
+```{r summary, eval = T, results = "asis"}
+df <- hiseqr::read_align1(pd$args$align_stat)
 
-# 
-msg <- glue::glue("A total of {n_smp} samples; average {mean_depth} reads for \
-   each sample were sequenced (min: {min_depth}, max: {max_depth}); \
-   The average Mitochondrial DNA reads is {mean_mito}% (min: {min_mito}%, \
-   max: {max_mito}%)");
+# summary
+total    <- sum(df$count)
+mito     <- df %>% 
+  dplyr::filter(grepl("mito", group)) %>%
+  pull(count) %>%
+  sum()
+genome_u    <- df %>%
+  dplyr::filter(grepl("genome.u", group)) %>%
+  pull(count)
+genome_u_pct <- round(genome_u / total * 100, 2)
+mito_pct <- round(mito / total * 100, 2)
 
-print(msg)
+sum_text <- glue::glue("ATACseq sample {pd$args$smp_name}, has {total} total reads; 
+    with {genome_u} ({genome_u_pct}%) reads uniquely mapped to reference genome ;
+    and contains {mito} ({mito_pct}%) Mitochondrial DNA reads.")
+
+print(sum_text)
 ```
-
 
 ## 2 Results
 
-### 2.1 Table1. Total reads
+### 2.1 Table1. Mito Percentage
 
-```{r}
-hiseqr::get_DT_table(df_align_table)
+```{r table1_mito_pct}
+df_table <- df %>% 
+  dplyr::group_by(id) %>%
+  dplyr::mutate(total = sum(count)) %>%
+  dplyr::mutate(group = forcats::fct_rev(group)) %>%
+  tidyr::spread(group, count) %>%
+  dplyr::mutate(mito_pct = round((mito.u + mito.m) / total * 100, 2))
+
+knitr::kable(df_table)
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
 
-```{r figure1_align_reads, out.width = "100%"}
-p <- df_align_stat %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::align_plot()
-
+```{r figure1_align_reads, out.width = "100%", fig.height = 3}
+p <- hiseqr::align_plot(df)
 plotly::ggplotly(p)
 ```
 
-
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, out.width = "100%"}
-# unique mapped reads
-p1 <- df_align_table %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  dplyr::select(id, genome.u) %>%
-  dplyr::rename(count = genome.u) %>%
-  dplyr::mutate(count = round(count / 1e6, 2)) %>%
-  hiseqr::barplot2(label = TRUE) +
+```{r figure2_peaks, out.width = "100%", fig.height = 4}
+## reads for peaks
+peak_xls <- gsub(".narrowPeak", "*.xls", pd$args$peak)
+
+if(file.exists(peak_xls)) {
+  num_rmdup <- hiseqr::read_peak_xls(peak_xls) %>%
+    dplyr::filter(grepl("total tags in treatment", V1)) %>%
+    dplyr::pull(V2) %>%
+    as.character() %>%
+    as.numeric()
+  npeak <- length(hiseqr::read_narrowpeak(pd$args$peak))
+} else {
+  num_rmdup <- 0
+  npeak     <- 0
+}
+
+df2_peak_reads <- data.frame(
+  id = pd$args$smp_name,
+  count = round(num_rmdup / 1e6, 1)
+)
+
+## total peaks
+df2_peaks <- data.frame(
+  id     = pd$args$smp_name,
+  count  = npeak
+)
+
+## plots
+p1 <- hiseqr::barplot2(df2_peak_reads, label = TRUE) +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
 
-
-# peaks
-p2 <- df_peak_stat %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
+p2 <- hiseqr::barplot2(df2_peaks, label = TRUE) +
   ggtitle("Number of peaks") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank())
 
-p1 + p2
+p <- cowplot::plot_grid(p1, p2, ncol = 2, rel_widths = c(1, 0.6),
+                        labels = "AUTO")
+
+print(p)
 ```
 
-
-### 2.4 FRiP.
+### 2.4 FRiP
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
 >
@@ -158,24 +161,34 @@ p1 + p2
 > The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
 > source: https://www.encodeproject.org/atac-seq/
 
-
 ```{r table2_frip}
-hiseqr::get_DT_table(df_frip_stat, mode = 1)
+df_frip <- read.delim(pd$args$frip_txt, sep = "\t") %>%
+    dplyr::mutate(id = pd$args$smp_name,
+                  FRiP = paste0(round(FRiP * 100, 2), "%")) %>%
+    dplyr::select(id, total_reads, peak_reads, FRiP)
+
+knitr::kable(df_frip)
 ```
 
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%"}
-if(nrow(df_lendist_stat) > 0) {
-  p <- hiseqr::frag_plot2(df_lendist_stat)
+```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
+df_frag <- hiseqr::read_frag(pd$args$lendist_txt)
+
+if(nrow(df_frag) > 1) {
+  # df_frag <- df_frag %>%
+  #   dplyr::mutate(id = pd$args$smp_name)
+  # p <- hiseqr::frag_plot(df_frag)
+  # print(p)
+  
+  p <- hiseqr::frag_plot2(df_frag)  
   print(p)
 }
 ```
 
-
-### 2.6 Figure4. TSS enrichment
+### 2.6 TSS enrichment
 
 > Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
 >
@@ -183,38 +196,8 @@ if(nrow(df_lendist_stat) > 0) {
 
 **to-do**
 
-## 3 Detail report
 
-
-```{r}
-rpt_html <- hiseqr::get_atac_report(input_dir)
-
-# copy files to current dir
-data_dir <- "data"
-dir.create(data_dir, showWarnings = FALSE)
-
-local_html <- sapply(rpt_html, function(f) {
-  f_prefix <- basename(dirname(dirname(f)))
-  f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-  if(! file.exists(f_html)) {
-    file.copy(f, f_html)
-  }
-  f_html
-})
-
-# show in table
-df <- data.frame(
-  id = basename(dirname(dirname(rpt_html))),
-  url = local_html
-) %>%
-  dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-  dplyr::select(link)
-    
-get_DT_table(df, mode = 3)
-```
-
-
-## 4 ENCODE standard
+## 3 ENCODE standard
 
 > source: [https://www.encodeproject.org/atac-seq/#standards](https://www.encodeproject.org/atac-seq/#standards)
 
