@@ -276,6 +276,7 @@ plot_scatter <- function(data, x_name = NULL, y_name = NULL,
     # plot_df <- deseq_sig(data, fc = fc_cutoff, pval = pval_cutoff, type = "all")
     plot_df <- deseq_sig(data, fc = fc_cutoff, pval = pval_cutoff)
   } else {
+    plot_df <- data
     plot_df$sig <- "gene"
   }
 

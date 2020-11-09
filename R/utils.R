@@ -269,6 +269,59 @@ read_align2 <- function(x){
 }
 
 
+#' read_align3
+#' full records for index
+#'
+#' @param x path to stat file
+#' @import readr
+#' @import dplyr
+#'
+#' @export
+read_align3 <- function(x){
+  # check separater
+  sep <- guess_sep(x)
+
+  # read file
+  df <- readr::read_delim(x, sep, col_names = TRUE,
+                          col_types = readr::cols())
+
+  # total/unmap
+  n_total <- dplyr::pull(df, `#total`)[1]
+  n_unmap <- rev(dplyr::pull(df, unmap))[1] # last one
+
+  # columns
+  df %>%
+    dplyr::select(fqname, index_name, map) %>%
+    tidyr::pivot_wider(names_from = "index_name", values_from = "map") %>%
+    dplyr::mutate(total = n_total,
+                  unmap = n_unmap) %>%
+    tidyr::pivot_longer(-c(fqname, total),
+                        names_to = "group",
+                        values_to = "count") %>%
+    dplyr::rename(id = fqname)
+}
+
+
+
+guess_sep <- function(x, nmax = 10) {
+  lines <- readLines(x, n = nmax)
+  #
+  if(all(grepl(",", lines))) {
+    sep = ","
+  } else if(all(grepl("\t", lines))) {
+    sep = "\t"
+  } else if(all(grepl(":", lines))) {
+    sep = ":"
+  } else if(all(grepl(" ", lines))) {
+    sep = " "
+  } else {
+    sep = " "
+  }
+  sep
+}
+
+
+
 
 
 #' readStat
@@ -313,9 +366,19 @@ read_frag <- function(x){
 
   # # merge data.frame
   # df <- bind_rows(tmp)
-  df <- read.delim(x[1], header = F, sep = "\t",
-                   col.names = c("length", "count"))
-  return(df)
+
+  # guess the separater
+  dfx <- readLines(x[1], n = 10)
+  if(all(grepl("\t", dfx))) {
+    sep = "\t"
+  } else if(all(grepl(",", dfx))) {
+    sep = ","
+  } else {
+    sep = "\t"
+  }
+
+  read.delim(x[1], header = T, sep = sep,
+                   col.names = c("length", "count", "id"))
 }
 
 

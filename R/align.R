@@ -4,6 +4,40 @@
 ##----------------------------------------------------------------------------##
 ## For hiseq package, parsing directory
 ##
+read_align_prj <- function(x) {
+  x_type <- is_hiseq_dir(x)
+  if(is_align_dir(x)) {
+    message(paste0("Reading: ", x_type))
+  } else {
+    warning(paste0("Not a align dir: ", x))
+    return(NULL)
+  }
+
+  # read args
+  pk <- list_align_arguments_file(x)
+  pk <- unlist(pk)
+
+  # read pickle
+  load_pickle(pk[[1]]) # the first one
+}
+
+
+#' load all pickles, sub-samples
+read_align_prj2 <- function(x) {
+  if(is_align_single_dir(x)) {
+    read_align_prj(x)
+  } else if(is_align_multiple_dir(x)) {
+    m <- read_align_prj(x)
+    # sub directories
+    sub <- file.path(m$outdir, m$smp_name)
+    p   <- lapply(sub, read_align_prj)
+    names(p) <- m$smp_name
+    p # return
+  } else {
+    warning(paste0("Not a align dir: ", x))
+  }
+}
+
 
 #' list_arguments_file
 #'
@@ -30,126 +64,79 @@ list_align_arguments_file <- function(x){
 }
 
 
-#' align
-#'
-#' @param x path, the directory of RNAseq output
-#' @param log boolen, whether print the log status, default: FALSE
+#' @param x string, path to dir
 #'
 #' @export
-#'
 is_align_dir <- function(x) {
-  chk0 <- dir.exists(x)
+  x_type <- is_hiseq_dir(x)
 
-  # check arguments.pickle file
-  pk_files <- list_align_arguments_file(x)
+  if(! is.null(x_type)) {
+    grepl("^align", x_type)
+  }
+}
 
-  if(is.null(pk_files) | is.na(pk_files)) {
-    return(NULL)
+
+#' @param x string, path to dir
+#'
+#' @export
+is_align_single_dir <- function(x) {
+  if(is_align_dir(x)){
+    p <- read_align_prj(x) # 2 2 (fq, index)
+    p$align_type[1] == 1
+  }
+}
+
+
+#' @param x string, path to dir
+#'
+#' @export
+is_align_multiple_dir <- function(x) {
+  if(is_align_dir(x)){
+    p <- read_align_prj(x) # 2 2 (fq, index)
+    p$align_type[1] > 1
+  }
+}
+
+
+#' return the align stat files
+#'
+get_align_prj_stat <- function(x) {
+  if(is_align_single_dir(x)) {
+    p <- read_align_prj2(x)
+    read_align1(p$align_stat)
+  } else if(is_align_multiple_dir(x)) {
+    p <- read_align_prj2(x)
+    tmp <- lapply(p, function(i) {read_align1(i$align_stat)} )
+    dplyr::bind_rows(tmp)
   } else {
-    # pk_files <- pk_files[1] # 1st item
-    pk <- load_pickle(pk_files[[1]])
-
-    # get values
-    if("align_type" %in% names(pk)) {
-      tag <- pk$align_type #'alignment'
-    } else if("rnaseq_type" %in% names(pk)) {
-      tag <- pk$rnaseq_type
-    } else if("atacseq_type" %in% names(pk)) {
-      tag <- pk$atacseq_type
-    } else {
-      tag <- NULL # not known
-    }
-    return(tag) # return
+    warning(paste0("Not a align dir: ", x))
   }
 }
 
 
 
-#' align_single_dir
+#' return the align stat files, full version
 #'
-#' reading data from RNAseq Single
-#'
-#' @param x path to the directory of RNAseq single
-#'
-#' @export
-#'
-align_single_dir <- function(x, feature="gene"){
-  # check
-  chk0 <- is_align_dir(x)[1] == 1
-
-  if(! isTRUE(chk0)){
-    return(NULL)
+get_align_prj_stat2 <- function(x) {
+  if(is_align_single_dir(x)) {
+    p <- read_align_prj2(x)
+    read_align3(p$align_stat)
+  } else if(is_align_multiple_dir(x)) {
+    p <- read_align_prj2(x)
+    tmp <- lapply(p, function(i) {read_align3(i$align_stat)} )
+    dplyr::bind_rows(tmp)
+  } else {
+    warning(paste0("Not a align dir: ", x))
   }
-
-  # pick pickle file
-  pk_files <- list_align_arguments_file(x)
-  args     <- load_pickle(pk_files)
-
-  ## check required args
-  required_names <- c("align_stat", "smp_name", "genome")
-
-  for(name in required_names){
-    # args[[name]] = ifelse(name %in% names(args), c(args[[name]]), NULL)
-    if(! name %in% names(args)){
-      args[[name]] <- NULL
-    }
-  }
-
-  ## mapping data
-  df <- hiseqr::readAlign1(args$align_stat)
-  args$reads_total <- sum(df$count)
-
-  ## mito.u, mito.m, genome.u genome.m
-  for(i in seq_len(nrow(df))) {
-    name <- as.character(df$group[i])
-    args[[name]] <- df$count[[i]]
-  }
-
-  ## save df
-  args$align_stat_df <- df
-
-  return(args)
 }
 
 
 
 
 
-#' rnaseq_multiple_dir
-#'
-#' return args for RNAseq_multiple/single/
-#'
-#' @param x path to the directory of RNAseq multiple
-#'
-#' @export
-#'
-#' @export
-align_multiple_dir <- function(x, feature = "gene"){
-  # check
-  chk0 <- is_align_dir(x)[1] > 1
 
-  if(! isTRUE(chk0)){
-    return(NULL)
-  }
 
-  # pick pickle file
-  pk_files <- list_align_arguments_file(x)
-  args     <- hiseqr::load_pickle(pk_files)
 
-  ## check required args
-  required_names <- c("smp_name", "outdir", "genome")
 
-  for(name in required_names){
-    if(! name %in% required_names) {
-      args[[name]] <- NULL
-    }
-  }
-
-  ## parsing RNAseq single, saved as vector
-  args$single_dirs <- mapply(function(i) file.path(args$outdir, i), args$smp_name)
-  args$single_args <- lapply(args$single_dirs, align_single_dir)
-
-  return(args)
-}
 
 

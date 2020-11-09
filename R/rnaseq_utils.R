@@ -200,7 +200,9 @@ is_deseq_single_dir <- function(x) {
 #' @param feature string, gene|te|...
 #'
 #' @export
-get_deseq_xls <- function(path, feature = "gene") {
+get_deseq_xls <- function(path,
+                          feature = "gene",
+                          filename = "transcripts_deseq2.fix.xls") {
   # check dir
   chk0 <- is_hiseq_dir(path) == "deseq_single"
   if(! isTRUE(chk0)) {
@@ -208,8 +210,7 @@ get_deseq_xls <- function(path, feature = "gene") {
     return(NULL)
   }
 
-  deseq_xls <- file.path(path, feature, "deseq",
-                         "transcripts_deseq2.fix.xls")
+  deseq_xls <- file.path(path, feature, "deseq", filename)
 
   if(file.exists(deseq_xls)) {
     return(deseq_xls)
@@ -218,6 +219,35 @@ get_deseq_xls <- function(path, feature = "gene") {
     return(NULL)
   }
 }
+
+
+#' get fix xls
+#'
+#' @param path string, path to the directory of deseq
+#' @param feature string, gene|te|...
+#'
+#' @export
+get_deseq_fpkm <- function(path, feature = "gene", filename = "gene_fpkm.csv") {
+  # check dir
+  chk0 <- is_hiseq_dir(path) == "deseq_single"
+  if(! isTRUE(chk0)) {
+    warning("not a deseq_single dir")
+    return(NULL)
+  }
+
+  deseq_xls <- file.path(path, feature, "deseq", filename)
+
+  if(file.exists(deseq_xls)) {
+    return(deseq_xls)
+  } else {
+    warning(paste("file not exists: ", deseq_xls))
+    return(NULL)
+  }
+}
+
+
+
+
 
 
 #' read output of DESeq2_run function
@@ -563,10 +593,15 @@ is_hiseq_dir <- function(x) {
       tag <- pk$rnaseq_type
     } else if ("atacseq_type" %in% names(pk)) {
       tag <- pk$atacseq_type
+    } else if("align_type" %in% names(pk)) {
+      tag <- "align"
+    } else if("chipseq_type" %in% names(pk)) {
+      tag <- pk$chipseq_type
     } else {
       tag <- NULL # not known
     }
-    return(tag) # return
+    # return(tag) # return
+    tag
   }
 }
 
@@ -721,6 +756,14 @@ get_sig_gene <- function(path, feature = "gene",
 
   # read
   df <- readr::read_delim(deseq_xls, "\t", col_types = readr::cols())
+
+  # for TE
+  # convert FBgn0000004_17.6, to 17.6
+  if(feature %in% c("te", "TE") & all(grepl("_", df$Gene))) {
+    df <- df %>%
+      tidyr::separate(Gene, c("fbid", "Gene"), sep = "_") %>%
+      dplyr::select(-fbid)
+  }
 
   # prepare list
   p <- lapply(c("up", "down", "not"), function(i) {
