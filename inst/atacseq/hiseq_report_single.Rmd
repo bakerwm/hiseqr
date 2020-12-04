@@ -40,6 +40,8 @@ knitr::opts_chunk$set(fig.width  = 12,
 library(hiseqr)
 library(knitr)
 library(ggplot2)
+library(fishualize)
+library(patchwork)
 library(dplyr)
 library(glue)
 library(ggcor)
@@ -48,108 +50,136 @@ library(ggcor)
 
 ```{r config, eval = T}
 # main
-input_dir <- params$input_dir
+input_dir  <- params$input_dir
 input_dir  <- normalizePath(input_dir)
-hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type == "chipseq_r1") {
-  stop(paste0("Input file is not a ChIPseq directory: ", input_dir))
+hiseq_type <- get_hiseq_type(input_dir)
+
+if(! endsWith(hiseq_type, "_r1")) {
+  stop(paste0("Input file is not a single HiSeq directory: ", input_dir))
 }
 ```
 
 
-```{r global_vars}
-pd <- hiseqr::read_chipseq(input_dir)
+```{r}
+# read data
+pd <- hiseqr::read_hiseq(input_dir)
+
+# smp merge list
+merge_list <- list_hiseq_merge_dirs(input_dir)
+rep_list   <- list_hiseq_single_dirs(input_dir)
+
+# list of files
+df_trim_stat    <- read_hiseq_trim(input_dir)
+df_align_stat   <- read_hiseq_align(input_dir)
+df_peak_stat    <- read_hiseq_peak_stat(input_dir)
+df_frip_stat    <- read_hiseq_frip_stat(input_dir)
+df_lendist_stat <- read_hiseq_lendist_stat(input_dir)
 ```
+
 
 ## 1 Summary
 
-```{r summary, eval = T, results = "asis"}
-df <- hiseqr::read_align1(pd$args$align_stat)
-
+```{r summary, results="asis"}
 # summary
-total    <- sum(df$count)
-mito     <- df %>% 
-  dplyr::filter(grepl("mito", group)) %>%
-  pull(count) %>%
-  sum()
-genome_u    <- df %>%
-  dplyr::filter(grepl("genome.u", group)) %>%
-  pull(count)
-genome_u_pct <- round(genome_u / total * 100, 2)
-mito_pct <- round(mito / total * 100, 2)
+n_smp    <- length(rep_list)
+total    <- df_align_stat %>% pull(total) %>% mean()
+mito     <- df_align_stat %>% pull(chrM) %>% mean()
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean()
+map      <- df_align_stat %>% pull(map) %>% mean()
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean()
 
-sum_text <- glue::glue("ATACseq sample {pd$args$smp_name}, has {total} total reads; 
-    with {genome_u} ({genome_u_pct}%) reads uniquely mapped to reference genome ;
+sum_text <- glue::glue("A total of {n_smp} samples; {total} sequencing depth,
+    with {map} ({map_pct}%) reads mapped to reference genome;
     and contains {mito} ({mito_pct}%) Mitochondrial DNA reads.")
 
 print(sum_text)
 ```
 
+
 ## 2 Results
 
 ### 2.1 Table1. Mito Percentage
 
-```{r table1_mito_pct}
-df_table <- df %>% 
-  dplyr::group_by(id) %>%
-  dplyr::mutate(total = sum(count)) %>%
-  dplyr::mutate(group = forcats::fct_rev(group)) %>%
-  tidyr::spread(group, count) %>%
-  dplyr::mutate(mito_pct = round((mito.u + mito.m) / total * 100, 2))
-
-knitr::kable(df_table)
+```{r}
+hiseqr::get_DT_table(df_align_stat)
 ```
+
 
 ### 2.2 Figure 1. Number of mapped reads
 
-```{r figure1_align_reads, out.width = "100%", fig.height = 3}
-p <- hiseqr::align_plot(df)
-plotly::ggplotly(p)
+
+
++ Clean data percentage
+
+```{r figure1_trim_reads, out.width = "100%", fig.height=3}
+p0 <- df_trim_stat %>%
+  dplyr::mutate_at(vars(c(input, output, out_pct)), as.numeric) %>%
+  dplyr::mutate(rm_pct = 100 - out_pct) %>%
+  dplyr::mutate(clean = out_pct,
+                too_short = rm_pct) %>%
+  dplyr::select(id, clean, too_short) %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count", 
+                      c(clean, too_short)) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+print(p0)
 ```
+
++ Map percentage
+
+```{r figure1_align_reads, out.width = "100%", fig.height=3}
+# figure-1: map, chrM, spikein, ...
+p1 <- df_align_stat %>%
+  dplyr::mutate(map = map - chrM) %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count",
+                      c(map, chrM, spikein, unmap)) %>%
+  dplyr::select(fqname, group, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+print(p1)
+```
+
++ Unique percentage
+
+```{r figure1_unique_reads, out.width = "100%", fig.height=3}
+# figure-2: map, unique, multiple
+p2 <- df_align_stat %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count",
+                      c(unique, multiple, unmap)) %>%
+  dplyr::select(fqname, group, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+# combine
+p2
+```
+
+
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, out.width = "100%", fig.height = 4}
-## reads for peaks
-peak_xls <- gsub(".narrowPeak", "*.xls", pd$args$peak)
-
-if(file.exists(peak_xls)) {
-  num_rmdup <- hiseqr::read_peak_xls(peak_xls) %>%
-    dplyr::filter(grepl("total tags in treatment", V1)) %>%
-    dplyr::pull(V2) %>%
-    as.character() %>%
-    as.numeric()
-  npeak <- length(hiseqr::read_narrowpeak(pd$args$peak))
-} else {
-  num_rmdup <- 0
-  npeak     <- 0
-}
-
-df2_peak_reads <- data.frame(
-  id = pd$args$smp_name,
-  count = round(num_rmdup / 1e6, 1)
-)
-
-## total peaks
-df2_peaks <- data.frame(
-  id     = pd$args$smp_name,
-  count  = npeak
-)
-
-## plots
-p1 <- hiseqr::barplot2(df2_peak_reads, label = TRUE) +
+```{r figure2_peaks, out.width = "100%"}
+# unique mapped reads
+p1 <- df_align_stat %>%
+  dplyr::mutate(count = round(unique / 1e6, 2)) %>%
+  dplyr::select(fqname, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  hiseqr::barplot2(label = TRUE) +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
 
-p2 <- hiseqr::barplot2(df2_peaks, label = TRUE) +
-  ggtitle("Number of peaks") +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank())
+# peaks
+p2 <- df_peak_stat %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  hiseqr::barplot2(label = TRUE) +
+  ggtitle("Number of peaks")
 
-p <- cowplot::plot_grid(p1, p2, ncol = 2, rel_widths = c(1, 0.6),
-                        labels = "AUTO")
-
-print(p)
+p1 / p2
 ```
 
 ### 2.4 FRiP
@@ -162,28 +192,17 @@ print(p)
 > source: https://www.encodeproject.org/atac-seq/
 
 ```{r table2_frip}
-df_frip <- read.delim(pd$args$frip_txt, sep = "\t") %>%
-    dplyr::mutate(id = pd$args$smp_name,
-                  FRiP = paste0(round(FRiP * 100, 2), "%")) %>%
-    dplyr::select(id, total_reads, peak_reads, FRiP)
-
-knitr::kable(df_frip)
+hiseqr::get_DT_table(df_frip_stat, mode = 1)
 ```
+
 
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
-df_frag <- hiseqr::read_frag(pd$args$lendist_txt)
-
-if(nrow(df_frag) > 1) {
-  # df_frag <- df_frag %>%
-  #   dplyr::mutate(id = pd$args$smp_name)
-  # p <- hiseqr::frag_plot(df_frag)
-  # print(p)
-  
-  p <- hiseqr::frag_plot2(df_frag)  
+```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
+if(nrow(df_lendist_stat) > 0) {
+  p <- hiseqr::frag_plot2(df_lendist_stat)
   print(p)
 }
 ```
@@ -194,7 +213,18 @@ if(nrow(df_frag) > 1) {
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
-**to-do**
+```{r figure4_tss_enrich, eval = T, fig.height = 4}
+f41 <- pd$args$tss_enrich_png
+f42 <- pd$args$genebody_enrich_png
+
+if(file.exists(f41)) {
+  knitr::include_graphics(f41)
+}
+
+if(file.exists(f42)) {
+  knitr::include_graphics(f42)
+}
+```
 
 
 ## 3 ENCODE standard

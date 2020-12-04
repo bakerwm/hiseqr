@@ -164,17 +164,18 @@ frag_plot2 <- function(df) {
 #' @import readr
 #' @import dplyr
 #' @import ggplot2
+#' @import fishualize
 #'
 #' @export
 align_plot <- function(df) {
   stopifnot(all(c("id", "count", "group") %in% names(df)))
-
   group_colors <- c("darkgreen", "green2", "orange4", "orange", "grey50")
 
   p <- df %>%
     ggplot(aes(id, count, fill = group)) +
     geom_bar(stat = "identity", position = "fill") +
-    scale_fill_manual(values = rev(group_colors)) +
+    # scale_fill_manual(values = rev(group_colors)) +
+    scale_fill_fish_d(option = "Bodianus_rufus") + # Scarus_quoyi
     scale_y_continuous(position = "right") +
     # geom_hline(yintercept = mito_mean) +
     xlab(NULL) + ylab("Percentage") +
@@ -184,6 +185,7 @@ align_plot <- function(df) {
                                reverse = TRUE)) +
     theme_bw() +
     theme(
+      axis.text = element_text(size = 12),
       legend.position = "top"
     )
 
@@ -219,6 +221,7 @@ align_plot2 <- function(df) {
                                reverse = TRUE)) +
     theme_bw() +
     theme(
+      axis.text = element_text(size = 12),
       legend.position = "top"
     )
 }

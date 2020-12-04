@@ -26,9 +26,8 @@ read_peak_xls <- function(x) {
   xlines <- xlines[grep("^#", xlines)] # head lines
   xlines <- xlines[grep(":", xlines)] # records
   xlines <- gsub("^#", "", xlines) # remove #
-  df <- as.data.frame(stringr::str_split(xlines, ": ", simplify = TRUE))
-  return(df)
-  }
+  as.data.frame(stringr::str_split(xlines, ": ", simplify = TRUE))
+}
 
 
 #' read_narrowpeak

@@ -1,5 +1,5 @@
 ---
-title: "ChIP-seq report"
+title: "HiSeq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -39,6 +39,8 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```{r}
 library(hiseqr)
 library(ggplot2)
+library(patchwork)
+library(fishualize)
 library(dplyr)
 library(glue)
 library(ggcor)
@@ -49,35 +51,44 @@ library(patchwork)
 
 ```{r config, eval = T}
 # main
-input_dir <- params$input_dir
-input_dir <- normalizePath(input_dir)
-hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type %in% c("chipseq_rx")) {
-  stop(paste0("Input file is not a ChIPseq multiple directory: ", input_dir))
+input_dir  <- params$input_dir
+input_dir  <- normalizePath(input_dir)
+hiseq_type <- get_hiseq_type(input_dir)
+if(! is_hiseq_multiple_dir(input_dir)) {
+  stop(paste0("Not a multiple ATACseq directory, _rx: ", input_dir))
 }
 ```
 
 
 ```{r}
 # read data
-pd <- hiseqr::read_chipseq(input_dir)
+pd <- hiseqr::read_hiseq(input_dir)
 
-# smp merge list
-merge_list <- hiseqr::list_chipseq_merge_dirs(input_dir)
-rep_list   <- hiseqr::list_chipseq_single_dirs(input_dir)
+# # list hiseq_r1 dirs 
+# d1 <- list.dirs(input_dir, recursive = FALSE)
+# a1 <- unlist(sapply(d1, is_hiseq_single_dir))
+# a2 <- unlist(sapply(d1, is_hiseq_merge_dir))
 
-# list of files
-df_align_stat   <- hiseqr::get_chipseq_align_stat(input_dir)
-df_peak_stat    <- hiseqr::get_chipseq_peak_stat(input_dir)
-df_frip_stat    <- hiseqr::get_chipseq_frip_stat(input_dir)
-df_lendist_stat <- hiseqr::get_chipseq_lendist_stat(input_dir)
+rep_list      <- list_hiseq_single_dirs(input_dir)
+merge_list    <- list_hiseq_merge_dirs(input_dir)
+df_report_list <- sapply(merge_list, list_hiseq_report) %>% unlist %>% unique()
 
-# file
-df_align_table <- df_align_stat %>%
-  tidyr::spread("group", "count") %>%
-  dplyr::mutate(total = dplyr::select_if(., is.numeric) %>% rowSums()) %>%
-  dplyr::mutate(mito.pct = round((mito.u + mito.m) / total * 100, 2)) %>%
-  dplyr::select(id, total, mito.u, mito.m, genome.u, genome.m, unmap, mito.pct)
+## peaks for merge
+df_trim_stat    <- lapply(merge_list, read_hiseq_trim) %>% dplyr::bind_rows()
+df_align_stat   <- lapply(merge_list, read_hiseq_align) %>% dplyr::bind_rows()
+df_peak_stat    <- lapply(merge_list, read_hiseq_peak_stat) %>% dplyr::bind_rows()
+df_frip_stat    <- lapply(merge_list, read_hiseq_frip_stat) %>% dplyr::bind_rows()
+df_lendist_stat <- lapply(merge_list, read_hiseq_lendist_stat) %>% dplyr::bind_rows()
+
+## enrich
+png_list <- lapply(merge_list, function(i){
+  data.frame(
+    tss = hiseqr::read_hiseq(i)$args$tss_enrich_png,
+    genebody = hiseqr::read_hiseq(i)$args$genebody_enrich_png,
+    fingerprint = hiseqr::read_hiseq(i)$args$bam_fingerprint
+  )
+}) %>%
+  dplyr::bind_rows()
 
 ```
 
@@ -85,22 +96,19 @@ df_align_table <- df_align_stat %>%
 ## 1 Summary
 
 ```{r summary, results="asis"}
-n_smp      <- length(merge_list)
-min_depth  <- min(df_align_table$total)
-max_depth  <- max(df_align_table$total)
-mean_depth <- round(mean(df_align_table$total), 0)
-# mito
-min_mito   <- min(df_align_table$mito.pct)
-max_mito   <- max(df_align_table$mito.pct)
-mean_mito  <- round(mean(df_align_table$mito.pct), 2)
+# summary
+n_smp    <- length(rep_list)
+total    <- df_align_stat %>% pull(total) %>% mean() %>% round(digits = 0)
+mito     <- df_align_stat %>% pull(chrM) %>% mean() %>% round(digits = 0)
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean() %>% round(digits = 0)
+map      <- df_align_stat %>% pull(map) %>% mean() %>% round(digits = 0)
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean() %>% round(digits = 0)
 
-# 
-msg <- glue::glue("A total of {n_smp} samples; average {mean_depth} reads for \
-   each sample were sequenced (min: {min_depth}, max: {max_depth}); \
-   The average Mitochondrial DNA reads is {mean_mito}% (min: {min_mito}%, \
-   max: {max_mito}%)");
+sum_text <- glue::glue("A total of {n_smp} samples; {total} sequencing depth,
+    with {map} ({map_pct}%) reads mapped to reference genome;
+    and contains {mito} ({mito_pct}%) Mitochondrial DNA reads.")
 
-print(msg)
+print(sum_text)
 ```
 
 
@@ -109,17 +117,58 @@ print(msg)
 ### 2.1 Table1. Total reads
 
 ```{r}
-hiseqr::get_DT_table(df_align_table)
+hiseqr::get_DT_table(df_align_stat)
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
 
-```{r figure1_align_reads, out.width = "100%"}
-p <- df_align_stat %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::align_plot()
++ Clean data percentage
 
-plotly::ggplotly(p)
+```{r figure1_trim_reads, out.width = "100%"}
+p0 <- df_trim_stat %>%
+  dplyr::mutate_at(vars(c(input, output, out_pct)), as.numeric) %>%
+  dplyr::mutate(rm_pct = 100 - out_pct) %>%
+  dplyr::mutate(clean = out_pct,
+                too_short = rm_pct) %>%
+  dplyr::select(id, clean, too_short) %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count", 
+                      c(clean, too_short)) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+print(p0)
+```
+
++ Map percentage
+
+```{r figure1_align_reads, out.width = "100%"}
+# figure-1: map, chrM, spikein, ...
+p1 <- df_align_stat %>%
+  dplyr::mutate(map = map - chrM) %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count",
+                      c(map, chrM, spikein, unmap)) %>%
+  dplyr::select(fqname, group, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+print(p1)
+```
+
++ Unique percentage
+
+```{r figure1_unique_reads, out.width = "100%"}
+# figure-2: map, unique, multiple
+p2 <- df_align_stat %>%
+  tidyr::pivot_longer(names_to = "group", values_to = "count",
+                      c(unique, multiple, unmap)) %>%
+  dplyr::select(fqname, group, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  align_plot()
+
+# combine
+p2
 ```
 
 
@@ -127,25 +176,25 @@ plotly::ggplotly(p)
 
 ```{r figure2_peaks, out.width = "100%"}
 # unique mapped reads
-p1 <- df_align_table %>%
+df_align_stat %>%
+  dplyr::mutate(count = round(unique / 1e6, 2)) %>%
+  dplyr::select(fqname, count) %>%
+  dplyr::rename(id = fqname) %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  dplyr::select(id, genome.u) %>%
-  dplyr::rename(count = genome.u) %>%
-  dplyr::mutate(count = round(count / 1e6, 2)) %>%
   hiseqr::barplot2(label = TRUE) +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
 
+```
 
+
+```{r figure2_peaks-2, out.width = "100%"}
 # peaks
-p2 <- df_peak_stat %>%
+df_peak_stat %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
   hiseqr::barplot2(label = TRUE) +
-  ggtitle("Number of peaks") +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank())
+  ggtitle("Number of peaks")
 
-p1 + p2
 ```
 
 
@@ -167,7 +216,7 @@ hiseqr::get_DT_table(df_frip_stat, mode = 1)
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%"}
+```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
 if(nrow(df_lendist_stat) > 0) {
   p <- hiseqr::frag_plot2(df_lendist_stat)
   print(p)
@@ -181,13 +230,57 @@ if(nrow(df_lendist_stat) > 0) {
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
-**to-do**
+```{r figure4_tss_enrich, eval = T, fig.height = 4}
+# f41 <- pd$args$tss_enrich_png
+# f42 <- pd$args$genebody_enrich_png
+# 
+# if(file.exists(f41)) {
+#   knitr::include_graphics(f41)
+# }
+# 
+# if(file.exists(f42)) {
+#   knitr::include_graphics(f42)
+# }
+
+## tss
+f4 <- png_list$tss
+f4 <- f4[file.exists(f4)]
+knitr::include_graphics(f4)
+```
+
+
+```{r figure5_genebody_enrich, eval = T, fig.height = 4}
+f5 <- png_list$genebody
+f5 <- f5[file.exists(f5)]
+knitr::include_graphics(f5)
+```
+
+
+
+### 2.7 Figure 8. Bam fingerPrint
+
+Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
+
+```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 5}
+# f8 <- pd$args$bam_fingerprint
+# 
+# if(file.exists(f8)) {
+#   knitr::include_graphics(f8)
+# }
+
+f8 <- png_list$fingerprint
+f8 <- f8[file.exists(f8)]
+knitr::include_graphics(f8)
+```
+
+
 
 ## 3 Detail report
 
 
 ```{r}
-rpt_html <- hiseqr::get_chipseq_report(input_dir)
+# rpt_html <- list_hiseq_report(input_dir)
+rpt_html <- df_report_list
 
 # copy files to current dir
 data_dir <- "data"
