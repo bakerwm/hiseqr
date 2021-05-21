@@ -5,6 +5,7 @@
 #' Prepare for plot
 #' Plotting
 #'
+#' @name hiseq
 
 
 #' hiseq_report
@@ -14,10 +15,12 @@
 #' @param template the template, default from hiseqr
 #'
 #' @export
-hiseq_report <- function(input, output) {
+hiseq_report <- function(input, output, template_rmd = NULL) {
   ## input
-  input <- normalizePath(input)
-  if(! dir.exists(output)) dir.create(output, recursive = TRUE)
+  input  <- normalizePath(input)
+  if(! dir.exists(output)) {
+    dir.create(output, recursive = TRUE)
+  }
   output <- normalizePath(output)
   ## output
   outhtml <- file.path(output, "HiSeq_report.html")
@@ -29,6 +32,8 @@ hiseq_report <- function(input, output) {
   if(is_hiseq_dir(input)) {
     if(startsWith(hiseq_type, "hiseq_")) {
       hiseq_dir = "hiseq"
+    } else if(startsWith(hiseq_type, "cnr_")) {
+      hiseq_dir = "cnr"
     } else if(startsWith(hiseq_type, "atacseq_")) {
       hiseq_dir = "atacseq"
     } else if(startsWith(hiseq_type, "chipseq_")) {
@@ -52,142 +57,111 @@ hiseq_report <- function(input, output) {
   }
 
   # template
-  template <- system.file(hiseq_dir, hiseq_subtype, package = "hiseqr")
+  if(is.null(template_rmd)) {
+    template <- system.file(hiseq_dir, hiseq_subtype, package = "hiseqr")
+  } else {
+    template <- template_rmd
+  }
   stopifnot(file.exists(template))
 
   ## copy template to output
   template_to <- file.path(output, basename(template))
   file.copy(template, template_to, overwrite = TRUE)
-
   rmarkdown::render(input       = template_to,
                     output_file = outhtml,
                     params      = list(input_dir = input))
 }
 
 
-#' read_hiseq_trim
+#' @describeIn  read_hiseq_trim_stat
 #'
 #' parsing the trimming status
 #'
 #' @param x path to hiseq, single
+#'
 #' @import dplyr
 #' @import readr
 #'
 #' @export
-read_hiseq_trim <- function(x) {
-  if(is_hiseq_single_dir(x)) {
-    px <- read_hiseq(x)
-
-    # version-1
-    # from: qc/00.trim_summary.json
-    j <- px$args$trim_summary_json
-
-    if(file.exists(j)) {
-      jsonlite::read_json(j) %>%
+read_hiseq_trim_stat <- function(x) {
+  dirs <- list_hiseq_single_dirs(x)
+  dirs <- purrr::discard(dirs, is.null)
+  if(length(dirs) > 0) {
+    lapply(dirs, function(i) {
+      px <- read_hiseq(i)
+      px$args$trim_summary_json %>%
+        jsonlite::read_json() %>%
         as.data.frame.list() %>%
-        dplyr::select(id, input, output, out_pct)
-    } else {
-      data.frame(
-        id = px$args$smp_name,
-        input = 0,
-        output = 0,
-        out_pct = 100
-      )
-    }
-  } else if(is_hiseq_merge_dir(x)) {
-    # for replicates
-    px     <- read_hiseq(x)
-    p_list <- px$args$rep_list # single dirs
-    lapply(p_list, read_hiseq_trim) %>%
-      dplyr::bind_rows()
-  } else if(is_hiseq_multiple_dir(x)) {
-    # for replicates
-    px      <- read_hiseq(x)
-    p1_list <- px$args$ip_dir
-    p2_list <- px$args$input_dir
-    lapply(c(p1_list, p2_list), read_hiseq_trim) %>%
-      dplyr::bind_rows()
+        dplyr::select(id, input, output, out_pct, rm_pct)
+    }) %>%
+      dplyr::bind_rows() %>%
+      dplyr::mutate(across(!id, as.numeric)) %>%
+      dplyr::rename(clean_pct = out_pct,
+                    short_pct = rm_pct) %>%
+      dplyr::mutate(clean_pct = round(clean_pct, 2),
+                    short_pct = round(short_pct, 2))
   }
 }
+
+
+
 
 
 #' read_hiseq_align
 #'
 #' @param x path to hiseq, single
+#'
+#' @description output columns
+#' "fqname", "index_name", "total", "map", "unique", "multiple",
+#' "unmap", "nodup", "chrM", "spikein"
+#'
 #' @import readr
 #' @import dplyr
 #'
 #' @export
-read_hiseq_align <- function(x){
-  # hiseq_type <- get_hiseq_type(x)
-
-  # if(endsWith(hiseq_type, "_r1")) {
-  if(is_hiseq_single_dir(x)) {
-    px <- read_hiseq(x)
-
-    # version-1
-    # from qc/01.alignment_summary.json
-    # version-2
-    # from alignment/*.json
-    j1 <- px$args$align_summary_json
-    j2 <- px$args$align_json
-
-    if(file.exists(j1)) {
-      m1 <- jsonlite::read_json(j1)
-    } else if(file.exists(j2)) {
-      m1 <- jsonlite::read_json(j2)
-    } else {
-      m1 <- NULL
-    }
-    df <- as.data.frame.list(m1)
-
-    ## arrange columns
-    cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
-              "unmap", "nodup", "chrM", "spikein")
-
-    ## pick columns
-    cols <- cols[cols %in% colnames(df)]
-
-    ## version-1
-    if(all(c("nodup", "chrM", "spikein") %in% cols)) {
-      df %>%
-        dplyr::select(all_of(cols)) %>%
-        dplyr::mutate(map_pct  = round(map / total * 100, 2),
-                      dup_pct  = round((map - nodup) / total * 100, 2),
-                      chrm_pct = round(chrM / total * 100, 2))
-    } else {
-      ## version-2
-      df %>%
-        dplyr::select(all_of(cols)) %>%
-        dplyr::mutate(nodup    = map,
-                      chrM     = 0,
-                      spikein  = 0,
-                      map_pct  = round(map / total * 100, 2),
-                      dup_pct  = round((map - nodup) / total * 100, 2),
-                      chrm_pct = round(chrM / total * 100, 2))
-    }
-
-    # } else if(endsWith(hiseq_type, "_rn")) {
-  } else if(is_hiseq_merge_dir(x)) {
-    # for replicates
-    px     <- read_hiseq(x)
-    p_list <- px$args$rep_list # single dirs
-    tmp    <- lapply(p_list, read_hiseq_align)
-    dplyr::bind_rows(tmp)
-
-    # } else if(endsWith(hiseq_type, "_rx")) {
-  } else if(is_hiseq_multiple_dir(x)) {
-    # for ip, input
-    px <- read_hiseq(x)
-
-    # get dirs for replicates
-    p1     <- px$args$ip_dir
-    p2     <- px$args$input_dir
-    p_list <- unlist(c(p1, p2))
-    tmp    <- lapply(p_list, read_hiseq_align)
-    dplyr::bind_rows(tmp)
+read_hiseq_align_stat <- function(x){
+  dirs <- list_hiseq_single_dirs(x)
+  dirs <- purrr::discard(dirs, is.null)
+  if(length(dirs) > 0) {
+    lapply(dirs, function(i) {
+      px <- read_hiseq(i)
+      f1 <- px$args$align_summary_json # ver-1: qc/01.alignment_summary.json
+      f2 <- px$args$align_json # ver-2: alignment/*.json
+      if(file.exists(f1)) {
+        cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
+                  "unmap", "nodup", "chrM", "spikein")
+        jsonlite::read_json(f1) %>%
+          as.data.frame.list %>%
+          dplyr::select(all_of(cols)) %>%
+          dplyr::mutate(map_pct  = round(map / total * 100, 2),
+                        dup_pct  = round((map - nodup) / total * 100, 2),
+                        chrm_pct = round(chrM / total * 100, 2),
+                        unique_pct = round(unique / total * 100, 2),
+                        unmap_pct  = round(unmap / total * 100, 2))
+      } else if(file.exists(f2)) {
+        cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
+                  "unmap")
+        jsonlite::read_json(f2) %>%
+          as.data.frame.list %>%
+          dplyr::select(all_of(cols)) %>%
+          dplyr::mutate(nodup    = map,
+                        chrM     = 0,
+                        spikein  = 0,
+                        map_pct  = round(map / total * 100, 2),
+                        dup_pct  = round((map - nodup) / total * 100, 2),
+                        chrm_pct = round(chrM / total * 100, 2),
+                        unique_pct = round(unique / total * 100, 2),
+                        unmap_pct  = round(unmap / total * 100, 2))
+      }
+    }) %>%
+      dplyr::bind_rows()
   }
 }
+
+
+
+
+
 
 
 #' read_hiseq_peak_stat
@@ -203,19 +177,25 @@ read_hiseq_peak_stat <- function(x) {
   rep_list   <- list_hiseq_single_dirs(x)
   merge_list <- list_hiseq_merge_dirs(x)
   input_list <- sort(c(rep_list, merge_list))
-
   lapply(input_list, function(i){
-    px <- read_hiseq(i)
+    px     <- read_hiseq(i)
+    n_peak <- tryCatch(
+      error = function(cnd) 0,
+      length(readLines(px$args$peak))
+    )
     data.frame(
       id    = px$args$smp_name,
-      count = length(readLines(px$args$peak))
+      count = n_peak
     )
   }) %>%
     dplyr::bind_rows()
 }
 
 
-#' read_hiseq_lendist_stat
+
+
+
+#' @describeIn read_hiseq_lendist_stat
 #'
 #' length distribution
 #'
@@ -224,21 +204,25 @@ read_hiseq_peak_stat <- function(x) {
 #' @export
 read_hiseq_lendist_stat <- function(x) {
   # search for single dir
-  rep_list   <- list_hiseq_single_dirs(x)
-  merge_list <- list_hiseq_merge_dirs(x)
-  input_list <- sort(c(rep_list, merge_list))
-
-  lapply(input_list, function(i){
-    px <- read_hiseq(i)
-    f  <- px$args$lendist_txt
-    if(file.exists(f)) {
-      read_frag(f)
-    } else {
-      NULL
-    }
-  }) %>%
-    dplyr::bind_rows()
+  r1_list <- list_hiseq_single_dirs(x)
+  rn_list <- list_hiseq_merge_dirs(x)
+  dirs    <- sort(c(r1_list, rn_list))
+  dirs    <- purrr::discard(dirs, is.null)
+  if(length(dirs) > 0) {
+    lapply(dirs, function(i){
+      px <- read_hiseq(i)
+      f  <- px$args$lendist_txt
+      if(file.exists(f)) {
+        read_text(f)
+      }
+    }) %>%
+      dplyr::bind_rows()
+  }
 }
+
+
+
+
 
 
 
@@ -257,44 +241,23 @@ read_hiseq_frip_stat <- function(x) {
   lapply(input_list, function(i){
     px <- read_hiseq(i)
     f  <- px$args$frip_txt
-
     if(file.exists(f)) {
-      readr::read_delim(f, delim = "\t") %>%
+      df <- read_text(f) %>%
         dplyr::mutate(id   = px$args$smp_name,
-                      FRiP = paste0(round(FRiP * 100, 2), "%")) %>%
-        dplyr::select(id, total, peak_reads, FRiP)
-    } else {
-      NULL
+                      FRiP = paste0(round(FRiP * 100, 2), "%"))
+      if("total_reads" %in% names(df)) {
+        df$total <- df$total_reads
+      }
+      df %>% dplyr::select(id, total, peak_reads, FRiP)
     }
   }) %>%
     dplyr::bind_rows()
 }
 
 
-#' read HiSeq directory
-#'
-#' input dir
-#' output files, config
-#'
-#' @param x string path
-#'
-#' @export
-read_hiseq <- function(x) {
-  if(is_hiseq_dir(x)) {
-    message(paste0("Reading HiSeq directory: ", x))
-  } else {
-    warning(paste0("Not a HiSeq directory: ", x))
-    return(NULL)
-  }
 
-  # read args
-  pk   <- list_arguments_file(x)
-  args <- load_pickle(pk[1])
 
-  list(hiseq_type = get_hiseq_type(x),
-       files      = file_to_list(x, recursive = TRUE),
-       args       = args)
-}
+
 
 
 
@@ -304,8 +267,8 @@ read_hiseq <- function(x) {
 #'
 #' @export
 is_hiseq_single_dir <- function(x) {
-  hiseq_type <- get_hiseq_type(x)
-  ifelse(is.null(hiseq_type), FALSE, endsWith(hiseq_type, "_r1"))
+  ht <- get_hiseq_type(x)
+  ifelse(is.null(ht), FALSE, endsWith(ht, "_r1"))
 }
 
 
@@ -313,8 +276,8 @@ is_hiseq_single_dir <- function(x) {
 #'
 #' @export
 is_hiseq_merge_dir <- function(x) {
-  hiseq_type <- get_hiseq_type(x)
-  ifelse(is.null(hiseq_type), FALSE, endsWith(hiseq_type, "_rn"))
+  ht <- get_hiseq_type(x)
+  ifelse(is.null(ht), FALSE, endsWith(ht, "_rn"))
 }
 
 
@@ -322,10 +285,9 @@ is_hiseq_merge_dir <- function(x) {
 #'
 #' @export
 is_hiseq_multiple_dir <- function(x) {
-  hiseq_type <- get_hiseq_type(x)
-  ifelse(is.null(hiseq_type), FALSE, endsWith(hiseq_type, "_rx"))
+  ht <- get_hiseq_type(x)
+  ifelse(is.null(ht), FALSE, endsWith(ht, "_rx"))
 }
-
 
 
 
@@ -336,10 +298,9 @@ is_hiseq_multiple_dir <- function(x) {
 #' hiseq_type, ...
 #'
 is_hiseq_dir <- function(x) {
-  st <- get_hiseq_type(x)
-  length(st) == 1 #
+  ht <- get_hiseq_type(x)
+  is(ht, "character")
 }
-
 
 
 #' hiseq_type
@@ -348,81 +309,13 @@ is_hiseq_dir <- function(x) {
 #'
 #' @export
 get_hiseq_type <- function(x) {
-  # check pickle file
-  pk_files <- list_arguments_file(x)
-
-  if(is.null(pk_files)) {
-    return(NULL)
-  }
-
-  # choose the first one
-  pk <- load_pickle(pk_files[1])
-
-  # candidate seqtype
-  st <- c("hiseq_type", "rnaseq_type", "atacseq_type", "align_type",
-          "chipseq_type")
-
-  ht <- lapply(st, function(i){
-    if(i %in% names(pk)) {
-      pk[[i]]
-    }
-  })
-
-  ht <- unlist(ht)
-
-  ht
-}
-
-
-
-
-#' list_arguments_file
-#'
-#' @param x path to the directory.
-#' expect
-#' x/config/arguments.pickle
-#' x/{feature}/config/arguments.pickle
-#' x/config/{feature}/config/arguments.pickle,
-#'
-#' filename could be config.pickle
-#'
-#' @export
-list_arguments_file <- function(x) {
-  # arguments file
-  fname <- c("arguments.pickle", "config.pickle")
-
-  # version-1: x/config/...
-  f1 <- file.path(x, "config", fname)
-
-  # version-2: x/{feature}/config/...
-  f2 <- file.path(x, "*", "config", fname)
-
-  # version-3: x/config/{feature}/config/arguments.txt
-  f3 <- file.path(x, "config",  "*", "config", fname)
-
-  # check exists
-  f_list <- c(f1, f2, f3)
-  Sys.glob(f_list)
-}
-
-
-
-#' load pickle file
-#'
-#' @param x path to pickle,
-#'
-#' @import reticulate
-#' @export
-#'
-load_pickle <- function(x) {
-  # python version issue !!
-  if (file.exists(x) & endsWith(x, ".pickle")) {
-    pd <- reticulate::import("pandas")
-    tag <- pd$read_pickle(x)
-  } else {
-    tag <- NULL
+  px <- read_hiseq(x)
+  if(is(px, "list")) {
+    px$hiseq_type
   }
 }
+
+
 
 
 
@@ -435,25 +328,35 @@ load_pickle <- function(x) {
 #'
 #' @export
 list_hiseq_single_dirs <- function(x){
-  if(is_hiseq_single_dir(x)) {
-    x
-  } else if(is_hiseq_merge_dir(x)) {
-    rep_list <- read_hiseq(x)$args$rep_list
-    sapply(rep_list, list_hiseq_single_dirs, simplify = TRUE)
-  } else if(is_hiseq_multiple_dir(x)) {
-    hiseq_type <- get_hiseq_type(x)
-    ## for CnR, ChIPseq
-    if(grepl("^hiseq_|^chipseq_|^rnaseq_|^cnt_", hiseq_type)) {
-      px     <- read_hiseq(x)
-      p_list <- unlist(c(px$args$ip_dir, px$args$input_dir))
-      sapply(p_list, list_hiseq_single_dirs, simplify = TRUE)
-    } else if(grepl("^atacseq_", hiseq_type)) {
-      d1 <- list.dirs(x, recursive = FALSE)
-      d2 <- unlist(sapply(d1, is_hiseq_single_dir))
-      names(d2[d2])
+  if(is_hiseq_dir(x)) {
+    if(is_hiseq_single_dir(x)) {
+      x
+    } else {
+      if(is_hiseq_merge_dir(x)) {
+        px   <- read_hiseq(x)
+        px$args$rep_list
+      } else if(is_hiseq_multiple_dir(x)) {
+        px <- read_hiseq(x)
+        hiseq_type <- get_hiseq_type(x)
+        if(grepl("^chipseq_|^cnt_|^cnr_|^hiseq_", hiseq_type)) {
+          rn <- c(px$args$ip_dir, px$args$input_dir)
+        } else if(grepl("^rnaseq_", hiseq_type)) {
+          rn <- c(px$args$wildtype_dir, px$args$mutant_dir)
+        } else if(grepl("^atacseq_", hiseq_type)) {
+          rn <- list.dirs(x, recursive = FALSE)
+          rn <- purrr::keep(rn, is_hiseq_merge_dir)
+        } else {
+          rn <- NULL
+        }
+        lapply(rn, list_hiseq_single_dirs) %>% unlist
+      } else {
+        NULL
+      }
     }
   }
 }
+
+
 
 
 #' hiseq_merge_dirs
@@ -462,27 +365,30 @@ list_hiseq_single_dirs <- function(x){
 #'
 #' @export
 list_hiseq_merge_dirs <- function(x){
-  if(is_hiseq_single_dir(x)) {
-    NULL
-  } else if(is_hiseq_merge_dir(x)) {
-    x
-  } else if(is_hiseq_multiple_dir(x)) {
-    # px <- read_hiseq(x)
-    # sapply(c(px$args$ip_dir, px$args$input_dir), list_hiseq_merge_dirs,
-    #        simplify = TRUE)
-    hiseq_type <- get_hiseq_type(x)
-    ## for CnR, ChIPseq
-    if(grepl("^hiseq_|^chipseq_|^rnaseq_|^cnt_", hiseq_type)) {
-      px     <- read_hiseq(x)
-      p_list <- unlist(c(px$args$ip_dir, px$args$input_dir))
-      sapply(p_list, list_hiseq_merge_dirs, simplify = TRUE)
-    } else if(grepl("^atacseq_", hiseq_type)) {
-      d1 <- list.dirs(x, recursive = FALSE)
-      d2 <- unlist(sapply(d1, is_hiseq_merge_dir))
-      names(d2[d2])
+  if(is_hiseq_dir(x)) {
+    if(is_hiseq_merge_dir(x)) {
+      x
+    } else {
+      if(is_hiseq_multiple_dir(x)) {
+        px <- read_hiseq(x)
+        hiseq_type <- get_hiseq_type(x)
+        if(grepl("^chipseq_|^cnt_|^cnr_", hiseq_type)) {
+          dirs <- c(px$args$ip_dir, px$args$input_dir)
+        } else if(grepl("^rnaseq_", hiseq_type)) {
+          dirs <- c(px$args$wildtype_dir, px$args$mutant_dir)
+        } else if(grepl("^atacseq_", hiseq_type)) {
+          dirs <- list.dirs(x, recursive = FALSE)
+        } else {
+          dirs <- NULL
+        }
+        purrr::keep(dirs, is_hiseq_merge_dir)
+      }
     }
   }
 }
+
+
+
 
 
 #' hiseq_merge_dirs
@@ -531,5 +437,175 @@ list_hiseq_report <- function(x) {
 
 
 
+#' read HiSeq directory
+#'
+#' input dir
+#' output files: pickle, toml, json
+#'
+#' @param x string path
+#'
+#' @export
+read_hiseq <- function(x) {
+  if(is(x, "character")) {
+    x  <- x[1]
+    pk <- list_arguments_file(x)
+    if(length(pk)) {
+      args <- load_config(pk[1])
+      ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type",
+                   "align_type", "chipseq_type")
+      hiseq_type <- sapply(ht_list, function(ht) {
+        if(ht %in% names(args)) {
+          args[[ht]]
+        }
+      }, simplify = TRUE) %>%
+        unlist %>%
+        head
+      list(
+        hiseq_type = hiseq_type,
+        files      = path_to_list(x[1], recursive = TRUE),
+        args       = args
+      )
+    }
+  }
+}
 
 
+#' @describeIn load_config Parsing config files
+#'
+#' Python version
+#'
+#' load pickle|toml file
+#'
+#' @param x path to pickle,
+#'
+#' @import reticulate
+#' @export
+#'
+load_config <- function(x) {
+  # python version issue
+  if(is(x, "character")) {
+    x <- x[1] # only first item
+    if (file.exists(x) & endsWith(x, ".pickle")) {
+      reticulate::use_condaenv("hiseq", required = TRUE) # !!! switch to toml ?
+      pd <- reticulate::import("pandas")
+      pd$read_pickle(x)
+    } else if(endsWith(x, ".toml")) {
+      configr::read.config(x)
+    }
+  }
+}
+
+
+
+#' @describeIn list_arguments_file Search config files, .pickle, .toml
+#' list_arguments_file
+#'
+#' @param x path to the directory.
+#' expect
+#' x/config/arguments.pickle
+#' x/{feature}/config/arguments.pickle
+#' x/config/{feature}/config/arguments.pickle,
+#'
+#' filename could be config.pickle
+#'
+#' @export
+list_arguments_file <- function(x) {
+  # arguments file
+  # fname <- c("arguments.pickle", "config.pickle", "config.toml")
+  fname <- c("config.toml", "config.json", "config.pickle", "arguments.pickle")
+  # version-1: x/config/...
+  f1 <- file.path(x, "config", fname)
+  # version-2: x/...
+  f2 <- file.path(x, fname)
+  # # version-2: x/{feature}/config/..., deprecated
+  # f2 <- file.path(x, "*", "config", fname)
+  # # version-3: x/config/{feature}/config/arguments.txt, deprecated
+  # f3 <- file.path(x, "config",  "*", "config", fname)
+  # check exists
+  f_list <- c(f1, f2)
+  Sys.glob(f_list)
+}
+
+
+
+
+##-- deprecated functions ------------------------------------------------------
+#'
+#' #' read_hiseq_align
+#' #'
+#' #' @param x path to hiseq, single
+#' #' @import readr
+#' #' @import dplyr
+#' #'
+#' #' @export
+#' read_hiseq_align_stat <- function(x){
+#'   # hiseq_type <- get_hiseq_type(x)
+#'
+#'   # if(endsWith(hiseq_type, "_r1")) {
+#'   if(is_hiseq_single_dir(x)) {
+#'     px <- read_hiseq(x)
+#'
+#'     # version-1
+#'     # from qc/01.alignment_summary.json
+#'     # version-2
+#'     # from alignment/*.json
+#'     j1 <- px$args$align_summary_json
+#'     j2 <- px$args$align_json
+#'
+#'     if(file.exists(j1)) {
+#'       m1 <- jsonlite::read_json(j1)
+#'     } else if(file.exists(j2)) {
+#'       m1 <- jsonlite::read_json(j2)
+#'     } else {
+#'       m1 <- NULL
+#'     }
+#'     df <- as.data.frame.list(m1)
+#'
+#'     ## arrange columns
+#'     cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
+#'               "unmap", "nodup", "chrM", "spikein")
+#'
+#'     ## pick columns
+#'     cols <- cols[cols %in% colnames(df)]
+#'
+#'     ## version-1
+#'     if(all(c("nodup", "chrM", "spikein") %in% cols)) {
+#'       df %>%
+#'         dplyr::select(all_of(cols)) %>%
+#'         dplyr::mutate(map_pct  = round(map / total * 100, 2),
+#'                       dup_pct  = round((map - nodup) / total * 100, 2),
+#'                       chrm_pct = round(chrM / total * 100, 2))
+#'     } else {
+#'       ## version-2
+#'       df %>%
+#'         dplyr::select(all_of(cols)) %>%
+#'         dplyr::mutate(nodup    = map,
+#'                       chrM     = 0,
+#'                       spikein  = 0,
+#'                       map_pct  = round(map / total * 100, 2),
+#'                       dup_pct  = round((map - nodup) / total * 100, 2),
+#'                       chrm_pct = round(chrM / total * 100, 2))
+#'     }
+#'
+#'     # } else if(endsWith(hiseq_type, "_rn")) {
+#'   } else if(is_hiseq_merge_dir(x)) {
+#'     # for replicates
+#'     px     <- read_hiseq(x)
+#'     p_list <- px$args$rep_list # single dirs
+#'     tmp    <- lapply(p_list, read_hiseq_align)
+#'     dplyr::bind_rows(tmp)
+#'
+#'     # } else if(endsWith(hiseq_type, "_rx")) {
+#'   } else if(is_hiseq_multiple_dir(x)) {
+#'     # for ip, input
+#'     px <- read_hiseq(x)
+#'
+#'     # get dirs for replicates
+#'     p1     <- px$args$ip_dir
+#'     p2     <- px$args$input_dir
+#'     p_list <- unlist(c(p1, p2))
+#'     tmp    <- lapply(p_list, read_hiseq_align)
+#'     dplyr::bind_rows(tmp)
+#'   }
+#' }
+#'

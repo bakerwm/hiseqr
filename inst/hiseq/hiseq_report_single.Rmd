@@ -1,5 +1,5 @@
 ---
-title: "ChIP-seq report"
+title: "HiSeq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -8,7 +8,7 @@ output:
     toc: yes
     toc_float:
       collapsed: no
-    keep_md: true
+    keep_md: false
   word_document:
     toc: yes
   pdf_document:
@@ -69,8 +69,8 @@ merge_list <- list_hiseq_merge_dirs(input_dir)
 rep_list   <- list_hiseq_single_dirs(input_dir)
 
 # list of files
-df_trim_stat    <- read_hiseq_trim(input_dir)
-df_align_stat   <- read_hiseq_align(input_dir)
+df_trim_stat    <- read_hiseq_trim_stat(input_dir)
+df_align_stat   <- read_hiseq_align_stat(input_dir)
 df_peak_stat    <- read_hiseq_peak_stat(input_dir)
 df_frip_stat    <- read_hiseq_frip_stat(input_dir)
 df_lendist_stat <- read_hiseq_lendist_stat(input_dir)
@@ -101,64 +101,33 @@ print(sum_text)
 ### 2.1 Table1. Mito Percentage
 
 ```{r}
-hiseqr::get_DT_table(df_align_stat)
+df_align_stat %>% to_DT
 ```
 
 
 ### 2.2 Figure 1. Number of mapped reads
 
-
-
 + Clean data percentage
 
 ```{r figure1_trim_reads, out.width = "100%", fig.height=3}
-p0 <- df_trim_stat %>%
-  dplyr::mutate_at(vars(c(input, output, out_pct)), as.numeric) %>%
-  dplyr::mutate(rm_pct = 100 - out_pct) %>%
-  dplyr::mutate(clean = out_pct,
-                too_short = rm_pct) %>%
-  dplyr::select(id, clean, too_short) %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count", 
-                      c(clean, too_short)) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-print(p0)
+rnaseq_trim_stat_plot(df_trim_stat)
 ```
 
 + Map percentage
 
 ```{r figure1_align_reads, out.width = "100%", fig.height=3}
-# figure-1: map, chrM, spikein, ...
-p1 <- df_align_stat %>%
-  dplyr::mutate(map = map - chrM) %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count",
-                      c(map, chrM, spikein, unmap)) %>%
-  dplyr::select(fqname, group, count) %>%
-  dplyr::rename(id = fqname) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-print(p1)
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("map", "spikein", "chrM", "unmap"),
+                       title   = "Map reads")
 ```
 
 + Unique percentage
 
 ```{r figure1_unique_reads, out.width = "100%", fig.height=3}
-# figure-2: map, unique, multiple
-p2 <- df_align_stat %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count",
-                      c(unique, multiple, unmap)) %>%
-  dplyr::select(fqname, group, count) %>%
-  dplyr::rename(id = fqname) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-# combine
-p2
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("unique", "multiple", "unmap"),
+                       title   = "Unique map reads")
 ```
-
-
 
 ### 2.3 Figure2. Number of peaks
 
@@ -169,14 +138,14 @@ p1 <- df_align_stat %>%
   dplyr::select(fqname, count) %>%
   dplyr::rename(id = fqname) %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
 
 # peaks
 p2 <- df_peak_stat %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
   ggtitle("Number of peaks")
 
 p1 / p2
@@ -192,7 +161,7 @@ p1 / p2
 > source: https://www.encodeproject.org/atac-seq/
 
 ```{r table2_frip}
-hiseqr::get_DT_table(df_frip_stat, mode = 1)
+df_frip_stat %>% to_DT
 ```
 
 
@@ -200,10 +169,17 @@ hiseqr::get_DT_table(df_frip_stat, mode = 1)
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
+
 ```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
 if(nrow(df_lendist_stat) > 0) {
-  p <- hiseqr::frag_plot2(df_lendist_stat)
-  print(p)
+  df_lendist_stat %>%
+    fragsize_plot %>%
+    print
+}
+if(nrow(df_lendist_stat) > 0) {
+  df_lendist_stat %>%
+    fragsize_plot(log10_y = TRUE) %>%
+    print
 }
 ```
 

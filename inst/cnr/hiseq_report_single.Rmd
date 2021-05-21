@@ -1,5 +1,5 @@
 ---
-title: "HiSeq report"
+title: "ChIP-seq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -23,6 +23,7 @@ suppressPackageStartupMessages(library(knitr))
 knitr::opts_chunk$set(fig.width  = 12, 
                       fig.height = 8, 
                       fig.path   = "Figures/",
+                      eval       = TRUE,
                       echo       = FALSE,
                       cache      = FALSE,
                       prompt     = FALSE,
@@ -35,34 +36,35 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```
 
 
-```{r}
+```{r load pkg}
 library(hiseqr)
+library(knitr)
 library(ggplot2)
-library(ggthemes)
-library(ggrepel)
-library(patchwork)
 library(fishualize)
+library(patchwork)
 library(dplyr)
-library(tidyr)
 library(glue)
 library(ggcor)
-library(GenomicRanges)
 ```
 
 
 ```{r config, eval = T}
+# main
 input_dir  <- params$input_dir
 input_dir  <- normalizePath(input_dir)
 hiseq_type <- get_hiseq_type(input_dir)
-if(! endsWith(hiseq_type, "_rn")) {
-  stop(paste0("Input file is not a multiple HiSeq directory, _rn: ", input_dir))
+
+if(! endsWith(hiseq_type, "_r1")) {
+  stop(paste0("Input file is not a single HiSeq directory: ", input_dir))
 }
 ```
 
 
 ```{r}
+# read data
 pd <- hiseqr::read_hiseq(input_dir)
 
+# smp merge list
 merge_list <- list_hiseq_merge_dirs(input_dir)
 rep_list   <- list_hiseq_single_dirs(input_dir)
 
@@ -72,28 +74,23 @@ df_align_stat   <- read_hiseq_align_stat(input_dir)
 df_peak_stat    <- read_hiseq_peak_stat(input_dir)
 df_frip_stat    <- read_hiseq_frip_stat(input_dir)
 df_lendist_stat <- read_hiseq_lendist_stat(input_dir)
-report_html_list <- list_hiseq_report(input_dir)
 ```
 
 
 ## 1 Summary
 
 ```{r summary, results="asis"}
+# summary
 n_smp    <- length(rep_list)
-total    <- df_align_stat %>% pull(total) %>% mean
-mito     <- df_align_stat %>% pull(chrM) %>% mean
-mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean
-map      <- df_align_stat %>% pull(map) %>% mean
-map_pct  <- df_align_stat %>% pull(map_pct) %>% mean
-total <- round(total / 1e6, 2)
-map   <- round(map / 1e6, 2)
-mito  <- round(mito / 1e6, 2)
+total    <- df_align_stat %>% pull(total) %>% mean()
+mito     <- df_align_stat %>% pull(chrM) %>% mean()
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean()
+map      <- df_align_stat %>% pull(map) %>% mean()
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean()
 
-sum_text <- glue::glue(
-  "A total of {n_smp} samples; {total}M sequencing depth ",
-  "with {map}M ({map_pct}%) reads mapped to reference genome; ",
-  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads."
-)
+sum_text <- glue::glue("A total of {n_smp} samples; {total} sequencing depth,
+    with {map} ({map_pct}%) reads mapped to reference genome;
+    and contains {mito} ({mito_pct}%) Mitochondrial DNA reads.")
 
 print(sum_text)
 ```
@@ -101,17 +98,18 @@ print(sum_text)
 
 ## 2 Results
 
-### 2.1 Table1. Total reads
+### 2.1 Table1. Mito Percentage
 
 ```{r}
 df_align_stat %>% to_DT
 ```
 
+
 ### 2.2 Figure 1. Number of mapped reads
 
 + Clean data percentage
 
-```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
+```{r figure1_trim_reads, out.width = "100%", fig.height=3}
 rnaseq_trim_stat_plot(df_trim_stat)
 ```
 
@@ -133,7 +131,7 @@ rnaseq_align_stat_plot(df_align_stat,
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.height=5}
+```{r figure2_peaks, out.width = "100%"}
 # unique mapped reads
 p1 <- df_align_stat %>%
   dplyr::mutate(count = round(unique / 1e6, 2)) %>%
@@ -153,7 +151,7 @@ p2 <- df_peak_stat %>%
 p1 / p2
 ```
 
-### 2.4 FRiP.
+### 2.4 FRiP
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
 >
@@ -166,11 +164,13 @@ p1 / p2
 df_frip_stat %>% to_DT
 ```
 
+
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
+
+```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
 if(nrow(df_lendist_stat) > 0) {
   df_lendist_stat %>%
     fragsize_plot %>%
@@ -183,7 +183,7 @@ if(nrow(df_lendist_stat) > 0) {
 }
 ```
 
-### 2.6 Figure4. TSS enrichment
+### 2.6 TSS enrichment
 
 > Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
 >
@@ -202,103 +202,8 @@ if(file.exists(f42)) {
 }
 ```
 
-### 2.7 Figure5. Peaks overlap between samples
 
-```{r figure5_peak_overlap, eval = T, fig.height = 4}
-f5 <- pd$args$peak_overlap_png
-if(file.exists(f5)) {
-  knitr::include_graphics(f5)
-}
-```
-
-
-### 2.8 Figure6. IDR, Irreproducibility Discovery Rate
-
-用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
-
-> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
- 
-Why IDR?
-
-  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
-  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
-  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
-  
-See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
-
-```{r firug6_idr, eval = T, fig.height=5}
-f6 <- pd$args$peak_idr_png
-f6 <- purrr::keep(f6, file.exists)
-if(length(f6)) {
-  knitr::include_graphics(f6)
-}
-```
-
-### 2.9 Figure7. Correlation between replicates
-
-The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
-
-```{r fig7_cor_pearson, eval = T, fig.height = 4}
-f1 <- pd$args$bam_cor_heatmap_png
-f2 <- pd$args$bam_cor_pca_png
-
-if(file.exists(f1)) { 
-  knitr::include_graphics(f1)
-}
-
-if(file.exists(f2)) {
-  knitr::include_graphics(f2)
-}
-```
-
-
-### 2.10 Figure 8. Bam fingerPrint
-
-Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
-
-```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6}
-f8 <- pd$args$bam_fingerprint
-f8 <- purrr::keep(f8, file.exists)
-if(length(f8)) {
-  knitr::include_graphics(f8)
-}
-```
-
-
-
-## 3 Detail report
-
-```{r}
-data_dir <- "data"
-dir.create(data_dir, showWarnings = FALSE)
-
-if(length(report_html_list)) {
-  local_html <- sapply(report_html_list, function(f) {
-    f_prefix <- basename(dirname(dirname(f)))
-    f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-    if(! file.exists(f_html)) {
-      file.copy(f, f_html)
-    }
-    f_html
-  })
-} else {
-  local_html <- NULL
-}
-
-# show in table
-if(length(local_html)) {
-  data.frame(id = basename(dirname(dirname(report_html_list))),
-             url = local_html
-  ) %>%
-    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-    dplyr::select(link) %>% 
-    to_DT(mode = 3)
-}
-```
-
-
-
-## 4 ENCODE standard
+## 3 ENCODE standard
 
 > source: [https://www.encodeproject.org/atac-seq/#standards](https://www.encodeproject.org/atac-seq/#standards)
 

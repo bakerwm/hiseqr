@@ -133,3 +133,33 @@ intersect_bed4 <- function(blist){
   bed4 = blist[[4]]
   # bed to gr
 }
+
+
+
+
+
+#' bed_venn
+#'
+#' @param blist list, a list of BED files
+#' @param names character, the names for each group
+#'
+#' @export
+bed_venn <- function(blist, names = NULL){
+  if(length(blist) == 2){
+    # x <- bedIntersect2(blist)
+    x <- intersect_bed2(blist)
+  } else if(length(blist) == 3) {
+    # x <- bedIntersect3(blist)
+    x <- intersect_bed3(blist)
+  } else if(length(blist) == 4) {
+    # x <- bedIntersect4(blist)
+    x <- intersect_bed4(blist)
+  } else {
+    stop("only accept narrowpeaks: 2-4 files")
+  }
+
+  p <- vennplot(x, names)
+
+  return(p)
+}
+

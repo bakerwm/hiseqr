@@ -1,0 +1,258 @@
+---
+title: "Check P7 structure"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: false
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(knitr)
+library(ggplot2)
+library(fishualize)
+library(patchwork)
+library(dplyr)
+library(glue)
+```
+
+
+```{r config, eval = T}
+# main
+input_dir <- params$input_dir
+input_dir <- normalizePath(input_dir)
+f_list    <- list.files(input_dir, "*stat.log$", full.names = TRUE)
+if(length(f_list) == 0) {
+  stop("No *stat.log files detected")
+}
+p_list    <- hiseqr::hiseq_p7(f_list)
+```
+
+
+## 1. HiSeq library structure 
+
+```{r, fig.height=1, fig.width=8}
+ft <- c("P5", "Insert", "barcode", "P7_a", "i7", "P7_b")
+ds <- data.frame(
+  hiseq = "TruSeq",
+  score = c(3, 2, 1, 2, 1, 2),
+  name  = ft
+) %>%
+  dplyr::mutate(name = forcats::fct_relevel(name, rev(ft)),
+                label_x = cumsum(score) - 0.5 * score)
+
+ds %>%
+  ggplot(aes(score, hiseq, fill = name, group = name)) + 
+  geom_col() + 
+  scale_fill_manual(
+    values = c("blue4", "red4", "blue4", "red4", "grey40", "blue4")) + 
+  geom_text(aes(x = label_x, label = name), colour = "white", size =5) +
+  ggtitle("Structure of TruSeq/Nextera library") + 
+  theme_minimal() + 
+  theme(legend.position = "none",
+        axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank())
+```
+
+```
+## TruSeq 122nt+insert, 129nt+insert(inline barcode)
+P5:   AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT, 58nt
+barcode: 6nt + A
+P7_a: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC, 34nt [TruSeq]
+i7:   6nt  
+P7_b: ATCTCGTATGCCGTCTTCTGCTTG, 24nt
+
+## Nextera 128nt+insert
+P5:   AATGATACGGCGACCACCGAGATCTACACTCGTCGGCAGCGTCAGATGTGTATAAGAGACAG, 62nt 
+P7_a: CTGTCTCTTATACACATCTCCGAGCCCACGAGAC, 34nt  
+i7:   8nt
+P7_b: ATCTCGTATGCCGTCTTCTGCTTG, 24nt
+
+```
+
+## 1 The distribution of P7 components
+
+### 1.1 Table1. P7 components
+
+```{r}
+df1 <- lapply(p_list, function(p) {
+  p$p7_table
+}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::select(sample, total, group, pct) %>%
+  dplyr::mutate(pct = paste0(pct, "%")) %>%
+  tidyr::pivot_wider(names_from = "group", values_from = "pct")
+df1 %>% hiseqr::to_DT()
+```
+
+
+### 1.2 Plots of P7 components
+
+Check the frequency of each `i7` sequences; `x-axis` is percentage of sequence.
+
+```{r, fig.width=7, fig.height=1.3}
+p7_list <- lapply(p_list, function(p) { print(p$p7) })
+```
+
+
+## 2 The distribution of index7 sequence
+
+### 2.1 Table2 the distribution of index7 sequence 
+
+```{r}
+df3 <- lapply(p_list, function(p) {
+  p$i7_table
+}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::ungroup() %>%
+  dplyr::select(rank, sample, total, demx_name, demx_pct) %>%
+  dplyr::mutate(demx_label = paste0(demx_name, " (", demx_pct, "%)")) %>%
+  dplyr::select(sample, total, demx_label, rank) %>%
+  tidyr::pivot_wider(names_from = "rank", values_from = "demx_label")
+  
+df3 %>% hiseqr::to_DT()
+```
+
+### 2.2 Plots for index7 sequence
+
+Check the frequency of each `barcode` sequences; `x-axis` is percentage of sequence.
+
+```{r, fig.width=7, fig.height=1.5}
+i7_list <- lapply(p_list, function(p) { print(p$i7) })
+```
+
+
+## 3 The distribution of barcode sequence
+
+### 3.1 Table3 the distribution of barcode sequence
+
+```{r}
+df2 <- lapply(p_list, function(p) {
+  p$bc_table
+}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::ungroup() %>%
+  dplyr::select(rank, sample, total, demx_name, demx_pct) %>%
+  dplyr::mutate(demx_label = paste0(demx_name, " (", demx_pct, "%)")) %>%
+  dplyr::select(sample, total, demx_label, rank) %>%
+  tidyr::pivot_wider(names_from = "rank", values_from = "demx_label")
+  
+df2 %>% hiseqr::to_DT()
+```
+
+### 3.2 Plots for barcode sequence 
+
+```{r, fig.width=7, fig.height=1.5}
+bc_list <- lapply(p_list, function(p) { print(p$bc) })
+```
+
+
+
+>EOF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

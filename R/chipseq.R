@@ -58,7 +58,8 @@ read_chipseq <- function(x) {
   pk1 <- list_arguments_file(x)
   pk1 <- unlist(pk1)
   if(! is.null(pk1)) {
-    args <- load_pickle(pk1[1])
+    args <- load_config(pk1[1])
+
   } else {
     args <- list()
   }

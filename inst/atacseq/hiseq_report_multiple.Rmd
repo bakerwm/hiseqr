@@ -8,7 +8,7 @@ output:
     toc: yes
     toc_float:
       collapsed: no
-    keep_md: true
+    keep_md: false
   word_document:
     toc: yes
   pdf_document:
@@ -39,18 +39,19 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```{r}
 library(hiseqr)
 library(ggplot2)
+library(ggthemes)
+library(ggrepel)
 library(patchwork)
 library(fishualize)
 library(dplyr)
+library(tidyr)
 library(glue)
 library(ggcor)
 library(GenomicRanges)
-library(patchwork)
 ```
 
 
 ```{r config, eval = T}
-# main
 input_dir  <- params$input_dir
 input_dir  <- normalizePath(input_dir)
 hiseq_type <- get_hiseq_type(input_dir)
@@ -61,63 +62,58 @@ if(! is_hiseq_multiple_dir(input_dir)) {
 
 
 ```{r}
-# read data
 pd <- hiseqr::read_hiseq(input_dir)
 
-# # list hiseq_r1 dirs 
-# d1 <- list.dirs(input_dir, recursive = FALSE)
-# a1 <- unlist(sapply(d1, is_hiseq_single_dir))
-# a2 <- unlist(sapply(d1, is_hiseq_merge_dir))
+rep_list         <- list_hiseq_single_dirs(input_dir)
+merge_list       <- list_hiseq_merge_dirs(input_dir)
 
-rep_list      <- list_hiseq_single_dirs(input_dir)
-merge_list    <- list_hiseq_merge_dirs(input_dir)
-df_report_list <- sapply(merge_list, list_hiseq_report) %>% unlist %>% unique()
+df_trim_stat     <- lapply(merge_list, read_hiseq_trim_stat) %>% bind_rows
+df_align_stat    <- lapply(merge_list, read_hiseq_align_stat) %>% bind_rows
+df_peak_stat     <- lapply(merge_list, read_hiseq_peak_stat) %>% bind_rows
+df_frip_stat     <- lapply(merge_list, read_hiseq_frip_stat) %>% bind_rows
+df_lendist_stat  <- lapply(merge_list, read_hiseq_lendist_stat) %>% bind_rows
+report_html_list <- sapply(merge_list, list_hiseq_report) %>% unlist %>% unique
 
-## peaks for merge
-df_trim_stat    <- lapply(merge_list, read_hiseq_trim) %>% dplyr::bind_rows()
-df_align_stat   <- lapply(merge_list, read_hiseq_align) %>% dplyr::bind_rows()
-df_peak_stat    <- lapply(merge_list, read_hiseq_peak_stat) %>% dplyr::bind_rows()
-df_frip_stat    <- lapply(merge_list, read_hiseq_frip_stat) %>% dplyr::bind_rows()
-df_lendist_stat <- lapply(merge_list, read_hiseq_lendist_stat) %>% dplyr::bind_rows()
-
-## enrich
+# only for merge dir
 png_list <- lapply(merge_list, function(i){
   data.frame(
-    tss = hiseqr::read_hiseq(i)$args$tss_enrich_png,
-    genebody = hiseqr::read_hiseq(i)$args$genebody_enrich_png,
-    fingerprint = hiseqr::read_hiseq(i)$args$bam_fingerprint
+    tss         = read_hiseq(i)$args$tss_enrich_png,
+    genebody    = read_hiseq(i)$args$genebody_enrich_png,
+    fingerprint = read_hiseq(i)$args$bam_fingerprint
   )
 }) %>%
   dplyr::bind_rows()
-
 ```
 
 
 ## 1 Summary
 
 ```{r summary, results="asis"}
-# summary
 n_smp    <- length(rep_list)
-total    <- df_align_stat %>% pull(total) %>% mean() %>% round(digits = 0)
-mito     <- df_align_stat %>% pull(chrM) %>% mean() %>% round(digits = 0)
-mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean() %>% round(digits = 0)
-map      <- df_align_stat %>% pull(map) %>% mean() %>% round(digits = 0)
-map_pct  <- df_align_stat %>% pull(map_pct) %>% mean() %>% round(digits = 0)
+total    <- df_align_stat %>% pull(total) %>% mean()
+mito     <- df_align_stat %>% pull(chrM) %>% mean()
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean()
+map      <- df_align_stat %>% pull(map) %>% mean()
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean()
+total <- round(total / 1e6, 2)
+map   <- round(map / 1e6, 2)
+mito  <- round(mito / 1e6, 2)
 
-sum_text <- glue::glue("A total of {n_smp} samples; {total} sequencing depth,
-    with {map} ({map_pct}%) reads mapped to reference genome;
-    and contains {mito} ({mito_pct}%) Mitochondrial DNA reads.")
+sum_text <- glue::glue(
+  "A total of {n_smp} samples; {total}M sequencing depth ",
+  "with {map}M ({map_pct}%) reads mapped to reference genome; ",
+  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads."
+)
 
 print(sum_text)
 ```
-
 
 ## 2 Results
 
 ### 2.1 Table1. Total reads
 
 ```{r}
-hiseqr::get_DT_table(df_align_stat)
+df_align_stat %>% to_DT
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
@@ -125,78 +121,47 @@ hiseqr::get_DT_table(df_align_stat)
 + Clean data percentage
 
 ```{r figure1_trim_reads, out.width = "100%"}
-p0 <- df_trim_stat %>%
-  dplyr::mutate_at(vars(c(input, output, out_pct)), as.numeric) %>%
-  dplyr::mutate(rm_pct = 100 - out_pct) %>%
-  dplyr::mutate(clean = out_pct,
-                too_short = rm_pct) %>%
-  dplyr::select(id, clean, too_short) %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count", 
-                      c(clean, too_short)) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-print(p0)
+rnaseq_trim_stat_plot(df_trim_stat)
 ```
 
 + Map percentage
 
 ```{r figure1_align_reads, out.width = "100%"}
-# figure-1: map, chrM, spikein, ...
-p1 <- df_align_stat %>%
-  dplyr::mutate(map = map - chrM) %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count",
-                      c(map, chrM, spikein, unmap)) %>%
-  dplyr::select(fqname, group, count) %>%
-  dplyr::rename(id = fqname) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-print(p1)
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("map", "spikein", "chrM", "unmap"),
+                       title   = "Map reads")
 ```
 
 + Unique percentage
 
 ```{r figure1_unique_reads, out.width = "100%"}
-# figure-2: map, unique, multiple
-p2 <- df_align_stat %>%
-  tidyr::pivot_longer(names_to = "group", values_to = "count",
-                      c(unique, multiple, unmap)) %>%
-  dplyr::select(fqname, group, count) %>%
-  dplyr::rename(id = fqname) %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  align_plot()
-
-# combine
-p2
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("unique", "multiple", "unmap"),
+                       title   = "Unique map reads")
 ```
-
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, out.width = "100%"}
+```{r figure2_peaks, fig.height=5}
 # unique mapped reads
-df_align_stat %>%
+p1 <- df_align_stat %>%
   dplyr::mutate(count = round(unique / 1e6, 2)) %>%
   dplyr::select(fqname, count) %>%
   dplyr::rename(id = fqname) %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
 
-```
-
-
-```{r figure2_peaks-2, out.width = "100%"}
 # peaks
-df_peak_stat %>%
+p2 <- df_peak_stat %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
   ggtitle("Number of peaks")
 
+print(p1)
+print(p2)
 ```
-
 
 ### 2.4 FRiP.
 
@@ -209,7 +174,7 @@ df_peak_stat %>%
 
 
 ```{r table2_frip}
-hiseqr::get_DT_table(df_frip_stat, mode = 1)
+df_frip_stat %>% to_DT
 ```
 
 ### 2.5 Figure3. Fragment length
@@ -218,8 +183,11 @@ The insert size distribution of sequenced fragments from human chromatin had cle
 
 ```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
 if(nrow(df_lendist_stat) > 0) {
-  p <- hiseqr::frag_plot2(df_lendist_stat)
-  print(p)
+  df_lendist_stat %>%
+    dplyr::mutate(sample = gsub(".rmdup$", "", id)) %>%
+    dplyr::mutate(sample = fq_name(sample, fix_rep = TRUE)) %>%
+    fragsize_plot +
+      facet_wrap(sample~., ncol = 2)
 }
 ```
 
@@ -231,79 +199,56 @@ if(nrow(df_lendist_stat) > 0) {
 > source: https://www.encodeproject.org/data-standards/terms/
 
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
-# f41 <- pd$args$tss_enrich_png
-# f42 <- pd$args$genebody_enrich_png
-# 
-# if(file.exists(f41)) {
-#   knitr::include_graphics(f41)
-# }
-# 
-# if(file.exists(f42)) {
-#   knitr::include_graphics(f42)
-# }
-
-## tss
 f4 <- png_list$tss
-f4 <- f4[file.exists(f4)]
+f4 <- purrr::keep(f4, file.exists)
 knitr::include_graphics(f4)
 ```
 
 
 ```{r figure5_genebody_enrich, eval = T, fig.height = 4}
 f5 <- png_list$genebody
-f5 <- f5[file.exists(f5)]
+f5 <- purrr::keep(f5, file.exists)
 knitr::include_graphics(f5)
 ```
-
-
 
 ### 2.7 Figure 8. Bam fingerPrint
 
 Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
 
 ```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 5}
-# f8 <- pd$args$bam_fingerprint
-# 
-# if(file.exists(f8)) {
-#   knitr::include_graphics(f8)
-# }
-
 f8 <- png_list$fingerprint
-f8 <- f8[file.exists(f8)]
+f8 <- purrr::keep(f8, file.exists)
 knitr::include_graphics(f8)
 ```
 
-
-
 ## 3 Detail report
 
-
 ```{r}
-# rpt_html <- list_hiseq_report(input_dir)
-rpt_html <- df_report_list
-
-# copy files to current dir
 data_dir <- "data"
 dir.create(data_dir, showWarnings = FALSE)
 
-local_html <- sapply(rpt_html, function(f) {
-  f_prefix <- basename(dirname(dirname(f)))
-  f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-  if(! file.exists(f_html)) {
-    file.copy(f, f_html)
-  }
-  f_html
-})
+if(length(report_html_list)) {
+  local_html <- sapply(report_html_list, function(f) {
+    f_prefix <- basename(dirname(dirname(f)))
+    f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
+    if(! file.exists(f_html)) {
+      file.copy(f, f_html)
+    }
+    f_html
+  })
+} else {
+  local_html <- NULL
+}
 
 # show in table
-df <- data.frame(
-  id = basename(dirname(dirname(rpt_html))),
-  url = local_html
-) %>%
-  dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-  dplyr::select(link)
-    
-get_DT_table(df, mode = 3)
+if(length(local_html)) {
+  data.frame(id = basename(dirname(dirname(report_html_list))),
+             url = local_html
+  ) %>%
+    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
+    dplyr::select(link) %>% 
+    to_DT(mode = 3) # keep html code
+}
 ```
 
 

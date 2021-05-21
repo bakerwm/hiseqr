@@ -1,5 +1,5 @@
 ---
-title: "RNA-seq DEseq Report"
+title: "RNA-seq Report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:

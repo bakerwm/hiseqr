@@ -211,13 +211,10 @@ deseq2_main <- function(dds,
   }, USE.NAMES = TRUE, simplify = FALSE)
 
   # Run the DESeq pipeline
-  if(file.exists(dds_rds)) {
-    dds <- readRDS(dds_rds)
-  } else {
-    dds <- DESeq2::DESeq(dds)
-    # Save dds to file
-    saveRDS(dds, file = dds_rds)
-  }
+  dds <- DESeq2::DESeq(dds)
+
+  # Save dds to file
+  saveRDS(dds, file = dds_rds)
 
   # Get table
   res <- DESeq2::results(dds)
@@ -233,21 +230,14 @@ deseq2_main <- function(dds,
 
   # Add annotation, gene_symbol, entrezid
   if (isTRUE(readable) & is.character(organism)) {
-    keytype <- guess_keytype(rownames(res), organism = organism) # !!!! error mm10
+    keytype <- guess_keytype(rownames(res), organism = organism)
     df_gene <- convert_id(rownames(res),
                           from_keytype = keytype,
                           to_keytype   = c("ENTREZID", "SYMBOL"),
                           organism     = organism,
                           na_rm        = FALSE)
-    ## convert ids
-    ## to entrezid
-    to_entrez  <- setNames(df_gene$ENTREZID, nm = df_gene[, keytype])
-    res$entrez <- dplyr::recode(rownames(res), !!!to_entrez)
-    ## to symbol
-    to_symbol  <- setNames(df_gene$SYMBOL, nm = df_gene[, keytype])
-    res$symbol <- dplyr::recode(rownames(res), !!!to_symbol)
-    # res$symbol   <- df_gene$SYMBOL
-    # res$entrezid <- df_gene$ENTREZID
+    res$symbol   <- df_gene$SYMBOL
+    res$entrezid <- df_gene$ENTREZID
     # merge(data, df_gene, by.x = "Gene", by.y = keytype, all.x = TRUE)
     # g <- convert_id(rownames(res),
     #                 to_keytype = c("SYMBOL", "ENTREZID"),
@@ -756,77 +746,23 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
     dplyr::arrange(padj) %>%
     dplyr::pull(label) %>%
     head(5)
-  labels <- purrr::discard(labels, is.na)
 
-  # png files
-  p1_png <- file.path(outdir, "pulish.1.scatter.png")
-  p2_png <- file.path(outdir, "pulish.2.ma.png")
-  p3_png <- file.path(outdir, "pulish.3.volcano.png")
-  p4_png <- file.path(outdir, "pulish.4.heatmap.png")
-
-  # # plot-1: scatter
-  # p1 <- scatter_plot(df,
-  #                    x           = xname,
-  #                    y           = yname,
-  #                    labels      = labels,
-  #                    show_sig    = TRUE,
-  #                    show_abline = TRUE)
-  p1 <- scatter_plot2(
-    df, xname, yname,
-    highlight_column = "sig",
-    highlight_values = c("up", "down"),
-    label_column     = "SYMBOL",
-    label_values     = labels,
-    point_color      = "grey60")
-  png(p1_png, width = 5, height = 4.5, units = "in", res = 150)
-  print(p1)
-  dev.off()
+  # plot-1: scatter
+  p1 <- scatter_plot(df,
+                     x           = xname,
+                     y           = yname,
+                     labels      = labels,
+                     show_sig    = TRUE,
+                     show_abline = TRUE)
 
   # plot-2: ma
   p2 <- ma_plot(df, labels = labels)
-  png(p2_png, width = 5, height = 4.5, units = "in", res = 150)
-  print(p2)
-  dev.off()
 
   # plot-3: volcano
   df$log10pval <- sapply(df$padj, function(i) {
     ifelse(is.null(i), 0, -log10(i))
   })
   p3 <- volcano_plot(df, x = "log2FoldChange", y = "log10pval", labels = labels)
-  png(p3_png, width = 5, height = 4.5, units = "in", res = 150)
-  print(p3)
-  dev.off()
-
-  # plot-4: heatmap
-  # fpkm
-  library(ComplexHeatmap)
-  df_sig <- df %>%
-    dplyr::filter(sig %in% c("up", "down"))
-  f_fpkm <- file.path(outdir, "gene_fpkm.csv")
-  if(file.exists(f_fpkm)) {
-    df3 <- readr::read_csv(f_fpkm, col_types = readr::cols())
-    # only sig genes
-    df4 <- df3 %>%
-      dplyr::filter(Gene %in% df_sig$Gene) %>%
-      tibble::column_to_rownames("Gene") %>%
-      as.matrix()
-    # check sig
-    sig_list <- dplyr::recode(rownames(df4), !!! setNames(df_sig$sig, df_sig$Gene))
-    df5 <- log10(df4+1)
-    # df6 <- head(df6, 10)
-    png(p4_png, width = 4, height = 10, units = "in", res = 150)
-    p4 <- ComplexHeatmap::Heatmap(
-      df5,
-      show_row_names = nrow(df5) < 30,
-      cluster_columns = FALSE,
-      row_split = sig_list,
-      heatmap_legend_param = list(
-        title = "log10(FPKM+1)",
-        legend_height = unit(4, "cm"),
-        title_position = "lefttop-rot"))
-    print(p4)
-    dev.off()
-  }
 
   # Add legend
   legend <- glue::glue(
