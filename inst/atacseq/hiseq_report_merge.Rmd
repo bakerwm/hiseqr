@@ -1,5 +1,5 @@
 ---
-title: "ChIP-seq report"
+title: "HiSeq report"
 author: "Ming Wang"
 date: "`r Sys.Date()`"
 output:
@@ -8,7 +8,7 @@ output:
     toc: yes
     toc_float:
       collapsed: no
-    keep_md: true
+    keep_md: false
   word_document:
     toc: yes
   pdf_document:
@@ -38,75 +38,65 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```{r}
 library(hiseqr)
 library(ggplot2)
+library(ggthemes)
+library(ggrepel)
+library(patchwork)
+library(fishualize)
 library(dplyr)
+library(tidyr)
 library(glue)
 library(ggcor)
 library(GenomicRanges)
-library(patchwork)
 ```
 
 
 ```{r config, eval = T}
-# main
-input_dir <- params$input_dir
-input_dir <- normalizePath(input_dir)
-hiseq_type <- hiseqr::is_hiseq_dir(input_dir)
-if(! hiseq_type == "chipseq_rn") {
-  stop(paste0("Input file is not a ChIPseq directory: ", input_dir))
+input_dir  <- params$input_dir
+input_dir  <- normalizePath(input_dir)
+hiseq_type <- get_hiseq_type(input_dir)
+if(! endsWith(hiseq_type, "_rn")) {
+  stop(paste0("Input file is not a multiple HiSeq directory, _rn: ", input_dir))
 }
 ```
 
 
 ```{r}
-# read data
-pd <- hiseqr::read_chipseq(input_dir)
+pd <- hiseqr::read_hiseq(input_dir)
 
-# rep_list
-rep_list <- file.path(pd$args$outdir, fq_name(pd$args$fq1, fix_pe = TRUE))
-peak_list <- sapply(rep_list, function(i) {
-  pi <- hiseqr::read_chipseq(i)
-  pi$args$peak
-})
+merge_list <- list_hiseq_merge_dirs(input_dir)
+rep_list   <- list_hiseq_single_dirs(input_dir)
 
 # list of files
-df_align_stat   <- hiseqr::get_chipseq_align_stat(input_dir)
-df_peak_stat    <- hiseqr::get_chipseq_peak_stat(input_dir)
-df_frip_stat    <- hiseqr::get_chipseq_frip_stat(input_dir)
-df_lendist_stat <- hiseqr::get_chipseq_lendist_stat(input_dir)
-
-# file
-df_align_table <- df_align_stat %>%
-  tidyr::spread("group", "count") %>%
-  dplyr::mutate(total = dplyr::select_if(., is.numeric) %>% rowSums()) %>%
-  dplyr::mutate(mito.pct = round((mito.u + mito.m) / total * 100, 2)) %>%
-  dplyr::select(id, total, mito.u, mito.m, genome.u, genome.m, unmap, mito.pct)
-
-# cor-table
-cor_counts <- pd$args$cor_counts
+df_trim_stat    <- read_hiseq_trim_stat(input_dir)
+df_align_stat   <- read_hiseq_align_stat(input_dir)
+df_peak_stat    <- read_hiseq_peak_stat(input_dir)
+df_frip_stat    <- read_hiseq_frip_stat(input_dir)
+df_lendist_stat <- read_hiseq_lendist_stat(input_dir)
+report_html_list <- list_hiseq_report(input_dir)
 ```
 
 
 ## 1 Summary
 
 ```{r summary, results="asis"}
-n_smp      <- length(pd$args$fq1)
-min_depth  <- min(df_align_table$total)
-max_depth  <- max(df_align_table$total)
-mean_depth <- round(mean(df_align_table$total), 0)
-# mito
-min_mito   <- min(df_align_table$mito.pct)
-max_mito   <- max(df_align_table$mito.pct)
-mean_mito  <- round(mean(df_align_table$mito.pct), 2)
+n_smp    <- length(rep_list)
+total    <- df_align_stat %>% pull(total) %>% mean
+mito     <- df_align_stat %>% pull(chrM) %>% mean
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean
+map      <- df_align_stat %>% pull(map) %>% mean
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean
+total <- round(total / 1e6, 2)
+map   <- round(map / 1e6, 2)
+mito  <- round(mito / 1e6, 2)
 
-# 
-msg <- glue::glue("A total of {n_smp} samples; average {mean_depth} reads for \
-   each sample were sequenced (min: {min_depth}, max: {max_depth}); \
-   The average Mitochondrial DNA reads is {mean_mito}% (min: {min_mito}%, \
-   max: {max_mito}%)");
+sum_text <- glue::glue(
+  "A total of {n_smp} samples; {total}M sequencing depth ",
+  "with {map}M ({map_pct}%) reads mapped to reference genome; ",
+  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads."
+)
 
-print(msg)
+print(sum_text)
 ```
-
 
 
 ## 2 Results
@@ -114,42 +104,53 @@ print(msg)
 ### 2.1 Table1. Total reads
 
 ```{r}
-hiseqr::get_DT_table(df_align_table)
+df_align_stat %>% to_DT
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
 
-```{r figure1_align_reads, out.width = "100%", fig.height = 3}
-p <- df_align_stat %>%
-  dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::align_plot()
++ Clean data percentage
 
-plotly::ggplotly(p)
+```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
+rnaseq_trim_stat_plot(df_trim_stat)
+```
+
++ Map percentage
+
+```{r figure1_align_reads, out.width = "100%", fig.height=3}
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("map", "spikein", "chrM", "unmap"),
+                       title   = "Map reads")
+```
+
++ Unique percentage
+
+```{r figure1_unique_reads, out.width = "100%", fig.height=3}
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("unique", "multiple", "unmap"),
+                       title   = "Unique map reads")
 ```
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, out.width = "100%", fig.height = 4}
+```{r figure2_peaks, fig.height=5}
 # unique mapped reads
-p1 <- df_align_table %>%
+p1 <- df_align_stat %>%
+  dplyr::mutate(count = round(unique / 1e6, 2)) %>%
+  dplyr::select(fqname, count) %>%
+  dplyr::rename(id = fqname) %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  dplyr::select(id, genome.u) %>%
-  dplyr::rename(count = genome.u) %>%
-  dplyr::mutate(count = round(count / 1e6, 2)) %>%
-  hiseqr::barplot2(label = TRUE) +
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
   ggtitle("Unique reads on genome") +
   ylab("Million of reads")
-
 
 # peaks
 p2 <- df_peak_stat %>%
   dplyr::mutate(id = forcats::fct_rev(id)) %>%
-  hiseqr::barplot2(label = TRUE) +
-  ggtitle("Number of peaks") +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank())
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
+  ggtitle("Number of peaks")
 
-p1 + p2
+p1 / p2
 ```
 
 ### 2.4 FRiP.
@@ -162,7 +163,7 @@ p1 + p2
 > source: https://www.encodeproject.org/atac-seq/
 
 ```{r table2_frip}
-hiseqr::get_DT_table(df_frip_stat, mode = 1)
+df_frip_stat %>% to_DT
 ```
 
 ### 2.5 Figure3. Fragment length
@@ -171,8 +172,14 @@ The insert size distribution of sequenced fragments from human chromatin had cle
 
 ```{r figure3_fragment_length, out.width = "100%", fig.height = 4}
 if(nrow(df_lendist_stat) > 0) {
-  p <- hiseqr::frag_plot2(df_lendist_stat)
-  print(p)
+  df_lendist_stat %>%
+    fragsize_plot %>%
+    print
+}
+if(nrow(df_lendist_stat) > 0) {
+  df_lendist_stat %>%
+    fragsize_plot(log10_y = TRUE) %>%
+    print
 }
 ```
 
@@ -182,16 +189,25 @@ if(nrow(df_lendist_stat) > 0) {
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
-**to-do**
+```{r figure4_tss_enrich, eval = T, fig.height = 4}
+f41 <- pd$args$tss_enrich_png
+f42 <- pd$args$genebody_enrich_png
 
+if(file.exists(f41)) {
+  knitr::include_graphics(f41)
+}
+
+if(file.exists(f42)) {
+  knitr::include_graphics(f42)
+}
+```
 
 ### 2.7 Figure5. Peaks overlap between samples
 
 ```{r figure5_peak_overlap, eval = T, fig.height = 4}
-f <- list.files(pd$args$qc_overlap_dir, "*.png$", full.names = TRUE)
-
-if(length(f) > 0) {
-  knitr::include_graphics(f[1])
+f5 <- pd$args$peak_overlap_png
+if(file.exists(f5)) {
+  knitr::include_graphics(f5)
 }
 ```
 
@@ -210,12 +226,11 @@ Why IDR?
   
 See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
 
-```{r firug6_idr, eval = F, fig.height=5}
-f <- list.files(pd$args$qc_idr_dir, "*.png$", full.names = TRUE)
-
-for(i in f){
-  # if(file.exists(i)) print(knitr::include_graphics(i))
-  if(file.exists(i)) cat("![](",i,")")
+```{r firug6_idr, eval = T, fig.height=5}
+f6 <- pd$args$peak_idr_png
+f6 <- purrr::keep(f6, file.exists)
+if(length(f6)) {
+  knitr::include_graphics(f6)
 }
 ```
 
@@ -224,43 +239,61 @@ for(i in f){
 The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
 
 ```{r fig7_cor_pearson, eval = T, fig.height = 4}
-f1 <- list.files(pd$args$qc_cor_dir, "*heatmap.png$", full.names = TRUE)
-f2 <- list.files(pd$args$qc_cor_dir, "*PCA.png$", full.names = TRUE)
+f1 <- pd$args$bam_cor_heatmap_png
+f2 <- pd$args$bam_cor_pca_png
 
-knitr::include_graphics(f1)
-knitr::include_graphics(f2)
+if(file.exists(f1)) { 
+  knitr::include_graphics(f1)
+}
 
+if(file.exists(f2)) {
+  knitr::include_graphics(f2)
+}
 ```
+
+
+### 2.10 Figure 8. Bam fingerPrint
+
+Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
+
+```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6}
+f8 <- pd$args$bam_fingerprint
+f8 <- purrr::keep(f8, file.exists)
+if(length(f8)) {
+  knitr::include_graphics(f8)
+}
+```
+
 
 
 ## 3 Detail report
 
-
 ```{r}
-rpt_html <- get_chipseq_report(input_dir)
-
-# copy files to current dir
 data_dir <- "data"
 dir.create(data_dir, showWarnings = FALSE)
 
-local_html <- sapply(rpt_html, function(f) {
-  f_prefix <- basename(dirname(dirname(f)))
-  f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-  if(! file.exists(f_html)) {
-    file.copy(f, f_html)
-  }
-  f_html
-})
+if(length(report_html_list)) {
+  local_html <- sapply(report_html_list, function(f) {
+    f_prefix <- basename(dirname(dirname(f)))
+    f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
+    if(! file.exists(f_html)) {
+      file.copy(f, f_html)
+    }
+    f_html
+  })
+} else {
+  local_html <- NULL
+}
 
 # show in table
-df <- data.frame(
-  id = basename(dirname(dirname(rpt_html))),
-  url = local_html
-) %>%
-  dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-  dplyr::select(link)
-    
-get_DT_table(df, mode = 3)
+if(length(local_html)) {
+  data.frame(id = basename(dirname(dirname(report_html_list))),
+             url = local_html
+  ) %>%
+    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
+    dplyr::select(link) %>% 
+    to_DT(mode = 3)
+}
 ```
 
 

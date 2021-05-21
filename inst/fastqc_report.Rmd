@@ -1,80 +1,66 @@
 ---
-title: "Demultiplexing report"
-author:
-- name: Ming Wang
-  affiliation: IBP
-  email: wangming@ibp.ac.cn
+title: "Fastqc report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
 output:
-  BiocStyle::html_document
-abstract: |
-  Organize FastQC output into a single html page
-vignette: |
-  %\VignetteIndexEntry{Vignette Title}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: false
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
 params:
-  qc_path: ""
+  input_dir: ""
 ---
 
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
 
-
-<!-- --- -->
-<!-- title: "Quality Control Report" -->
-<!-- author: "Ming Wang" -->
-<!-- date: "`r Sys.Date()`" -->
-<!-- output: -->
-<!--   prettydoc::html_pretty: -->
-<!--     theme: hpstr -->
-<!--     toc: true -->
-<!--     toc_depth: 2 -->
-<!--     highlight: github -->
-<!--     df_print: kable -->
-<!-- vignette: > -->
-<!--   %\VignetteIndexEntry{Vignette Title} -->
-<!--   %\VignetteEngine{knitr::rmarkdown} -->
-<!--   %\VignetteEncoding{UTF-8} -->
-<!-- params: -->
-<!--   qc_path: "" -->
-<!-- --- -->
-
-```{r global options, echo=FALSE}
-library(knitr)
-
-knitr::opts_chunk$set(fig.width = 12, 
+knitr::opts_chunk$set(fig.width  = 12, 
                       fig.height = 8, 
-                      fig.path = 'Figs/',
-                      echo = FALSE,
-                      eval = TRUE,
-                      cache = FALSE,
-                      prompt = FALSE,
-                      tidy = FALSE,
-                      comment = NA,
-                      message = FALSE,
-                      warning = FALSE,
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
                       rownames.print = FALSE)
-options(width=150)
-qc_path <- params$qc_path
 ```
 
 
-```{r lib, include=FALSE}
+```{r load pkg}
 library(hiseqr)
 library(fastqcr)
-library(dplyr)
-library(ggplot2)
 library(DT)
-library(cowplot)
-# suppressPackageStartupMessages(library(kableExtra))
+library(knitr)
+library(ggplot2)
+library(fishualize)
+library(patchwork)
+library(dplyr)
+library(glue)
 ```
 
 ## Summary
 
+```{r config, eval = T}
+input_dir <- params$input_dir
+input_dir <- normalizePath(input_dir)
+```
+
+
 ```{r fig_qc, fig.align = "middle", fig.cap = "overview of analysis"}
-qc <- qc_aggregate(qc_path, progressbar = FALSE)
+qc    <- qc_aggregate(input_dir, progressbar = FALSE)
 qcgs <- qc_stats(qc)
 qcgs <- dplyr::mutate(qcgs, 
                tot.seq = as.numeric(tot.seq),
-               # tot.seq = as.numeric(tot.seq) / 1e6,
                pct.dup = paste0(pct.dup, '%'),
                pct.gc  = paste0(pct.gc, '%')) %>%
   dplyr::select(sample, tot.seq, pct.dup, pct.gc, seq.length)

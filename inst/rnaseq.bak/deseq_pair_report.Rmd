@@ -1,0 +1,262 @@
+---
+title: "DESeq pair - compare"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  dirA: ""
+  dirB: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(knitr)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(glue)
+library(DT)
+library(ggvenn)
+library(RColorBrewer)
+library(ggalluvial)
+library(patchwork)
+```
+
+
+```{r config}
+# setwd("/data/yulab/wangming/work/yu_2020/projects/20200629_lxh_RNAseq/results/20200702_rnaseq_cmp/aaa")
+# feature <- "gene"
+# dirA    <- "../data/rnaseq_0310/shWhite_6h.vs.shAub-shAgo3_6h/"
+# dirB    <- "../data/rnaseq_0310/shWhite_6h.vs.shPiwi-1_6h/"
+dirA <- params$dirA
+dirB <- params$dirB
+
+## check
+if(hiseqr::is_deseq_single_dir(dirA) & hiseqr::is_deseq_single_dir(dirB)) {
+  message("Compare deseq_dir")
+} else {
+  stop("deseq_singl expected, failed")
+}
+```
+
+
+```{r}
+pd <- hiseqr::read_deseq_pair(dirA, dirB, "gene")
+# save to file
+rds_gene <- "deseq_pair.gene.rds"
+saveRDS(pd, rds_gene)
+```
+
+## Note
+
+```{r}
+msg <- glue::glue("Sample info:
+                  GroupA: {basename(pd$dirA)}
+                  GroupB: {basename(pd$dirB)}")
+print(msg)
+```
+
+## 1 Gene
+
+## 1.1 Number of significant changed genes
+
+```{r}
+ps <- hiseqr::deseq_pair_stat(.pd_rds = rds_gene, feature = "gene")
+hiseqr::get_DT_table(ps$sig_count_table, 1)
+```
+
+## 1.2 Overlap between groups
+
+```{r, fig.width = 10, fig.height = 4}
+po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_gene) # 
+po$merge
+```
+
+## 1.3 Overlap between sig genes
+
+```{r, fig.width = 10, fig.height = 6}
+po$up_down
+```
+
+## 1.4 Heatmap - sig genes
+
+```{r, fig.width = 5, fig.height = 8}
+hiseqr::deseq_pair_heatmap(.pd_rds = rds_gene)
+```
+
+## 1.5 Alluvial - sig genes
+
+```{r, fig.width = 6, fig.height = 4}
+hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_gene)
+```
+
+## 1.6 Sig gene patterns
+
+```{r}
+df2 <- ps$sig_list %>%
+  dplyr::group_by(trend) %>%
+  dplyr::summarise(count = n())
+
+hiseqr::get_DT_table(df2, 1)
+```
+
+## 1.7 Sig gene list
+
+```{r}
+df3 <- ps$sig_list %>%
+  dplyr::mutate(symbol = hiseqr::gene_to_symbol(Gene, "dm3", "SYMBOL"))
+
+hiseqr::get_DT_table(df3, 1, pageLength = 20)
+```
+
+
+## 2 TE
+
+## 2.1 Number of significant changed TEs
+
+```{r}
+pd     <- hiseqr::read_deseq_pair(dirA, dirB, "te")
+rds_te <- "deseq_pair.te.rds"
+saveRDS(pd, rds_te)
+ps     <- hiseqr::deseq_pair_stat(.pd_rds = rds_te)
+hiseqr::get_DT_table(ps$sig_count_table, 1)
+```
+
+## 2.2 Compare TE expression
+
+GroupB_exp was normalized by GroupA_ctl.
+
+```{r, fig.width = 5, fig.height = 10}
+hiseqr::deseq_pair_heatmap_te(dirA, dirB)
+```
+
+## 2.3 Overlap between groups
+
+```{r, fig.width = 10, fig.height = 4}
+po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_te) # 
+po$merge
+```
+
+## 2.4 Overlap between sig TEs
+
+```{r, fig.width = 10, fig.height = 6}
+po$up_down
+```
+
+## 2.5 Heatmap - sig TEs
+
+```{r, fig.width = 5, fig.height = 8}
+hiseqr::deseq_pair_heatmap(.pd_rds = rds_te)
+```
+
+## 2.6 Alluvial - sig TEs
+
+```{r, fig.width = 6, fig.height = 4}
+hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_te)
+```
+
+## 2.7 Sig gene patterns
+
+```{r}
+df2 <- ps$sig_list %>%
+  dplyr::group_by(trend) %>%
+  dplyr::summarise(count = n())
+
+hiseqr::get_DT_table(df2, 1)
+```
+
+## 2.8 Sig gene list
+
+```{r}
+df3 <- ps$sig_list 
+hiseqr::get_DT_table(df3, 1, pageLength = 20)
+```
+
+
+## 3 piRNA cluster
+
+## 3.1 Number of significant changed piRNA cluster
+
+```{r}
+pd     <- hiseqr::read_deseq_pair(dirA, dirB, "piRNA_cluster")
+rds_pi <- "deseq_pair.te.rds"
+saveRDS(pd, rds_pi)
+ps     <- hiseqr::deseq_pair_stat(.pd_rds = rds_pi)
+hiseqr::get_DT_table(ps$sig_count_table, 1)
+```
+
+## 3.2 Overlap between groups
+
+```{r, fig.width = 10, fig.height = 4}
+po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_pi) # 
+po$merge
+```
+
+## 3.3 Overlap between sig piRNA cluster
+
+```{r, fig.width = 10, fig.height = 6}
+po$up_down
+```
+
+## 3.4 Heatmap - sig piRNA cluster
+
+```{r, fig.width = 5, fig.height = 8}
+hiseqr::deseq_pair_heatmap(.pd_rds = rds_pi)
+```
+
+## 3.5 Alluvial - sig piRNA cluster
+
+```{r, fig.width = 6, fig.height = 4}
+hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_pi)
+```
+
+## 3.6 Sig gene patterns
+
+```{r}
+df2 <- ps$sig_list %>%
+  dplyr::group_by(trend) %>%
+  dplyr::summarise(count = n())
+
+hiseqr::get_DT_table(df2, 1)
+```
+
+## 3.7 Sig gene list
+
+```{r}
+df3 <- ps$sig_list 
+hiseqr::get_DT_table(df3, 1, pageLength = 20)
+```
+
+
+
+
+**END**

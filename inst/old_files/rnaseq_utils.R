@@ -361,78 +361,6 @@ count_to_matrix <- function(count_ctl, count_exp) {
 
 
 
-#' list_arguments_file
-#'
-#' @param x path to the directory.
-#' expect x/config/{feature}/config/arguments.pickle,
-#' x/{feature}/config/arguments.pickle
-#'
-#' @export
-list_arguments_file <- function(x) {
-  # arguments file
-  # RNAseq multiple: x/config/{feature}/config/arguments.txt
-  # RNAseq single: x/{feature}/config/arguments.txt
-  # RNAseq deseq: x/{feature}/config/arguments.txt
-  chk0 <- dir.exists(x)
-
-  # version-1: x/{feature}/...
-  dir1 <- list.dirs(x, full.names = TRUE, recursive = FALSE)
-  ps1 <- sapply(c(x, dir1), function(i) {
-    file.path(i, "config", "arguments.pickle")}, simplify = TRUE)
-  # ps1 <- mapply(function(i) file.path(i, "config", "arguments.pickle"), dir1)
-  if (length(ps1) > 0) {
-    ps1 <- ps1[file.exists(ps1)]
-  }
-  chk1 <- length(ps1) > 0
-
-  # version-2: x/config/{feature}/...
-  dir2 <- list.dirs(file.path(x, "config"), full.names = TRUE, recursive = FALSE)
-  ps2 <- sapply(dir2, function(i) {
-    file.path(i, "config", "arguments.pickle")}, simplify = TRUE)
-  # ps2 <- mapply(function(i) file.path(i, "config", "arguments.pickle"), dir2)
-  if (length(ps2) > 0) {
-    ps2 <- ps2[file.exists(ps2)]
-  }
-  chk2 <- length(ps2) > 0
-
-  ## mission
-  ## RNAseq multiple: ps1=0, ps2=1
-  ## RNAseq single:   ps1=1, ps2=0
-  if (isTRUE(chk1)) {
-    plist <- as.list(ps1)
-  } else if (isTRUE(chk2)) {
-    plist <- as.list(ps2)
-  } else {
-    plist <- NULL
-  }
-
-  ## change name
-  if (!is.null(plist)) {
-    names(plist) <- basename(dirname(dirname(unlist(plist))))
-  }
-
-  return(plist)
-}
-
-
-#' load pickle file
-#'
-#' @param x path to pickle,
-#'
-#' @import reticulate
-#' @export
-#'
-load_pickle <- function(x) {
-  # python version issue !!
-  if (file.exists(x) & endsWith(x, ".pickle")) {
-    pd <- reticulate::import("pandas")
-    tag <- pd$read_pickle(x)
-  } else {
-    tag <- NULL
-  }
-}
-
-
 ##------------------------------##
 ## single deseq dirs
 ## including dataset
@@ -570,40 +498,6 @@ is_enrich_dir <- function(x, return_file = FALSE) {
 }
 
 
-#' hiseq_type
-#'
-#' @param x path, the directory of RNAseq output
-#'
-#' @export
-is_hiseq_dir <- function(x) {
-  chk0 <- dir.exists(x)
-
-  # check arguments.pickle file
-  pk_files <- list_arguments_file(x)
-  # choose one
-
-  if (is.null(pk_files)) { # | is.na(pk_files)) {
-    return(NULL)
-  } else {
-    # pk_files <- pk_files[1] # 1st item
-    pk <- load_pickle(pk_files[[1]])
-
-    # get values
-    if ("rnaseq_type" %in% names(pk)) {
-      tag <- pk$rnaseq_type
-    } else if ("atacseq_type" %in% names(pk)) {
-      tag <- pk$atacseq_type
-    } else if("align_type" %in% names(pk)) {
-      tag <- "align"
-    } else if("chipseq_type" %in% names(pk)) {
-      tag <- pk$chipseq_type
-    } else {
-      tag <- NULL # not known
-    }
-    # return(tag) # return
-    tag
-  }
-}
 
 
 #' rnaseq_single_dir

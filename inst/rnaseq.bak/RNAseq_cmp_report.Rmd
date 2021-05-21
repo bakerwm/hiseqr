@@ -1,0 +1,157 @@
+---
+title: "Compare two DESeq2 output"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: true
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  dirA: ""
+  dirB: ""
+  feature: "gene"
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(glue)
+library(DT)
+library(plotly)
+library(reticulate)
+library(ggvenn)
+library(RColorBrewer)
+library(ggalluvial)
+```
+
+
+```{r config}
+feature <- params$feature # default: gene
+dirA    <- normalizePath(params$dirA)
+dirB    <- normalizePath(params$dirB)
+
+## check
+chkA <- is_hiseq_dir(dirA)
+chkB <- is_hiseq_dir(dirB)
+
+if(is.null(chkA) | is.null(chkB)) {
+  stop("expect a.vs.b, deseq_single")
+} else if(chkA == "deseq_single" & chkB == "deseq_single") {
+  message("Running RNAseq compare")
+} else {
+  stop(paste("deseq_single expected, a.vs.b:", chkA, chkB, sep = " "))
+}
+```
+
+
+```{r}
+pd <- hiseqr::compare_deseq(dirA, dirB, feature)
+```
+
+## Note
+
+```{r}
+msg <- glue::glue("Sample info:
+                  GroupA: {basename(pd$dirA)}
+                  GroupB: {basename(pd$dirB)}")
+print(msg)
+```
+
+
+## Number of significant changed genes
+
+```{r}
+DT::datatable(pd$df_count, rownames = FALSE, filter = "top", 
+              options = list(dom = 't'))
+```
+
+
+```{r, fig.width = 6, fig.height = 3}
+pd$plot_count
+```
+
+## Overlap between two groups
+
+```{r, fig.width = 6, fig.height = 4}
+pd$plot_overlap3
+```
+
+## Overlap between two groups
+
+```{r, fig.width = 10, fig.height = 6}
+pd$plot_overlap4
+```
+
+## Comapre two groups
+
+Genes not significantly changed in both samples were not list here.
+
+```{r, fig.width = 6, fig.height = 4}
+pd$plot_alluvial
+```
+
+
+## heatmap
+
+```{r, fig.width = 6, fig.height = 4}
+print(pd$plot_heatmap)
+```
+
+## Gene tables
+
+```{r}
+dfx <- pd$df_table %>%
+  dplyr::group_by(trend) %>%
+  dplyr::summarise(count = n())
+
+knitr::kable(dfx)
+```
+
+
+```{r}
+# DT::datatable(pd$df_table, rownames = TRUE, filter = "top", 
+#               options = list(pageLength = 10, scrollX = TRUE, 
+#                              buttons = c("excel", "csv")))
+# 
+DT::datatable(pd$df_table,
+              extensions = 'Buttons', 
+              options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', #'print', 
+                  list(extend = 'collection',
+                       buttons = c('excel', 'csv'),
+                       text = 'Download')))
+)
+```
+
+
+**END**

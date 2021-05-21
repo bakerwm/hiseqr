@@ -6,50 +6,40 @@
 #' @param x string, deseq_dir or gene names
 #' @param organism string scientific name, eg: Drosophila melanogaster
 #' @param outdir string, where to save the results
-#' @param foldChange numeric, with gene_names,
+#' @param fold_change numeric, with gene_names,
 #' @param feature string, required for deseq_dir
 #'
 #' @export
 go_pipe <- function(x, organism, outdir,
-                    foldChange = NULL,
+                    fold_change = NULL,
                     feature = "gene") {
-  x_type <- is_hiseq_dir(x[1])
-
-  if(is.null(x_type)) {
-    message("## Run GO analysis for gene list...")
-
-    # prepare genes
-    if(! is_valid_organism(organism)) {
-      stop(paste0("unknown organism: ", organism))
-    }
-
-    # run
-    hiseqr::run_go(x, organism, outdir, foldChange)
-    hiseqr::run_kegg(x, organism, outdir, foldChange)
-
-    # report
+  if(is.character(x)) {
+    x <- x[1]
+  } else {
+    stop("'x' require character, path to RNAseqRx dir")
+  }
+  if(! is_valid_organism(organism)) {
+    stop(paste0("unknown organism: ", organism))
+  }
+  x_type <- get_hiseq_type(x)
+  if(x_type == "hiseq_rx") {
+    message("Run GO analysis ...")
+    hiseqr::run_go(x, organism, outdir, fold_change)
+    hiseqr::run_kegg(x, organism, outdir, fold_change)
     go_report(outdir)
-
-  } else if(x_type == "deseq_single") {
-    message("# Run GO analysis for DESeq single dir...")
+  } else if(x_type == "hiseq_rx") {
+    message("# Run GO analysis for DESeq dir...")
     x <- normalizePath(x)
-
-    ## config
-    args <- deseq_single_dir(x, feature)
-
-    ## number of sig genes
+    args <- read_hiseq(x)$args
+    # args <- deseq_single_dir(x, feature)
     sig_gene <- get_sig_gene(x, feature)
-
-    ## up/down/not/up+down
-    for(s in c("up", "down", "up_and_down")){
-      message(paste0("# GO and KEGG analysis for genes: ", s))
-      outdir2 <- file.path(args$enrichdir, s)
-
-      # sig genes
-      if(s == "up_and_down") {
+    for(sig in c("up", "down", "up_and_down")){
+      message(paste0("# GO and KEGG analysis for genes: ", sig))
+      sig_outdir <- file.path(args$enrichdir, sig)
+      if(sig == "up_and_down") {
         sig_gene_df <- rbind(sig_gene[["up"]], sig_gene[["down"]])
       } else {
-        sig_gene_df <- sig_gene[[s]]
+        sig_gene_df <- sig_gene[[sig]]
       }
 
       if(is.null(sig_gene_df)) {
@@ -58,36 +48,33 @@ go_pipe <- function(x, organism, outdir,
       }
 
       # prepare args
-      gene_list    <- sig_gene_df$Gene
-      foldChange   <- setNames(sig_gene_df$log2FoldChange, gene_list)
-      foldChange   <- sort(foldChange, decreasing = TRUE)
-      organism     <- search_species(args$genome) # scientific_name
-      pvalueCutoff <- 0.1
-      qvalueCutoff <- 0.1
+      gene_list   <- sig_gene_df$Gene
+      fold_change <- setNames(sig_gene_df$log2fold_change, gene_list)
+      fold_change <- sort(fold_change, decreasing = TRUE)
+      # organism    <- search_species(args$genome) # scientific_name
+      pval_cutoff <- 0.1
+      qval_cutoff <- 0.1
 
       # GO
-      tmp1 <- run_go(gene_list, organism, outdir2,
-                     foldChange   = foldChange,
-                     level        = 2,
-                     readable     = TRUE,
-                     pvalueCutoff = pvalueCutoff,
-                     qvalueCutoff = qvalueCutoff,
-                     to_entrezid  = TRUE)
+      tmp1 <- run_go(gene_list, organism, sig_outdir,
+                     fold_change = fold_change,
+                     level       = 2,
+                     readable    = TRUE,
+                     pval_cutoff = pval_cutoff,
+                     qval_cutoff = qval_cutoff)
 
       # KEGG
-      tmp2 <- run_kegg(gene_list, organism, outdir2,
-                       foldChange   = foldChange,
-                       pvalueCutoff = pvalueCutoff,
-                       qvalueCutoff = qvalueCutoff)
+      tmp2 <- run_kegg(gene_list, organism, sig_outdir,
+                       fold_change = fold_change,
+                       pval_cutoff = pval_cutoff,
+                       qval_cutoff = qval_cutoff)
 
       ##---------------------##
-      # report
       # GO report for gene list
-      go_report(outdir2, feature)
+      go_report(sig_outdir, feature)
     }
 
     ##---------------------##
-    # report
     go_report(x, feature)
   }
 }
@@ -101,14 +88,13 @@ go_pipe <- function(x, organism, outdir,
 #'
 #' @export
 go_report <- function(x, feature = "gene") {
-  x_type <- is_hiseq_dir(x[1])
-  outdir <- normalizePath(x)
+  x_type <- read_hiseq(x[1])
+  outdir <- normalizePath(x[1])
 
   if(is_enrich_dir(x)) {
     message("## Run GO report for single dir...")
 
     ##---------------------##
-    # report
     template <- system.file("rnaseq", "go_enrich_report_single.Rmd",
                             package = "hiseqr")
     template_to <- file.path(outdir, basename(template))
