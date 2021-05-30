@@ -8,251 +8,194 @@
 #' @name hiseq
 
 
-#' hiseq_report
-#'
-#' @param input directory to the sample
-#' @param output directory to the html file
-#' @param template the template, default from hiseqr
-#'
-#' @export
-hiseq_report <- function(input, output, template_rmd = NULL) {
-  ## input
-  input  <- normalizePath(input)
-  if(! dir.exists(output)) {
-    dir.create(output, recursive = TRUE)
-  }
-  output <- normalizePath(output)
-  ## output
-  outhtml <- file.path(output, "HiSeq_report.html")
-
-  ## determine the template
-  hiseq_type = get_hiseq_type(input)
-
-  # hiseq (hiseq, atacseq, chipseq, rnaseq, ...)
-  if(is_hiseq_dir(input)) {
-    if(startsWith(hiseq_type, "hiseq_")) {
-      hiseq_dir = "hiseq"
-    } else if(startsWith(hiseq_type, "cnr_")) {
-      hiseq_dir = "cnr"
-    } else if(startsWith(hiseq_type, "atacseq_")) {
-      hiseq_dir = "atacseq"
-    } else if(startsWith(hiseq_type, "chipseq_")) {
-      hiseq_dir = "chipseq"
-    } else if(startsWith(hiseq_type, "rnaseq_")) {
-      hiseq_dir = "rnaseq"
-    } else {
-      hiseq_dir = "hiseq"
-    }
-  }
-
-  # subtype
-  if(is_hiseq_single_dir(input)) {
-    hiseq_subtype = "hiseq_report_single.Rmd"
-  } else if(is_hiseq_merge_dir(input)) {
-    hiseq_subtype = "hiseq_report_merge.Rmd"
-  } else if(is_hiseq_multiple_dir(input)) {
-    hiseq_subtype = "hiseq_report_multiple.Rmd"
-  } else {
-    hiseq_subtype = "tmp"
-  }
-
-  # template
-  if(is.null(template_rmd)) {
-    template <- system.file(hiseq_dir, hiseq_subtype, package = "hiseqr")
-  } else {
-    template <- template_rmd
-  }
-  stopifnot(file.exists(template))
-
-  ## copy template to output
-  template_to <- file.path(output, basename(template))
-  file.copy(template, template_to, overwrite = TRUE)
-  rmarkdown::render(input       = template_to,
-                    output_file = outhtml,
-                    params      = list(input_dir = input))
-}
-
-
-#' @describeIn  read_hiseq_trim_stat
-#'
-#' parsing the trimming status
-#'
-#' @param x path to hiseq, single
-#'
-#' @import dplyr
-#' @import readr
-#'
-#' @export
-read_hiseq_trim_stat <- function(x) {
-  dirs <- list_hiseq_single_dirs(x)
-  dirs <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    lapply(dirs, function(i) {
-      px <- read_hiseq(i)
-      px$args$trim_summary_json %>%
-        jsonlite::read_json() %>%
-        as.data.frame.list() %>%
-        dplyr::select(id, input, output, out_pct, rm_pct)
-    }) %>%
-      dplyr::bind_rows() %>%
-      dplyr::mutate(across(!id, as.numeric)) %>%
-      dplyr::rename(clean_pct = out_pct,
-                    short_pct = rm_pct) %>%
-      dplyr::mutate(clean_pct = round(clean_pct, 2),
-                    short_pct = round(short_pct, 2))
-  }
-}
-
-
-
-
-
-#' read_hiseq_align
-#'
-#' @param x path to hiseq, single
-#'
-#' @description output columns
-#' "fqname", "index_name", "total", "map", "unique", "multiple",
-#' "unmap", "nodup", "chrM", "spikein"
-#'
-#' @import readr
-#' @import dplyr
-#'
-#' @export
-read_hiseq_align_stat <- function(x){
-  dirs <- list_hiseq_single_dirs(x)
-  dirs <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    lapply(dirs, function(i) {
-      px <- read_hiseq(i)
-      f1 <- px$args$align_summary_json # ver-1: qc/01.alignment_summary.json
-      f2 <- px$args$align_json # ver-2: alignment/*.json
-      if(file.exists(f1)) {
-        cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
-                  "unmap", "nodup", "chrM", "spikein")
-        jsonlite::read_json(f1) %>%
-          as.data.frame.list %>%
-          dplyr::select(all_of(cols)) %>%
-          dplyr::mutate(map_pct  = round(map / total * 100, 2),
-                        dup_pct  = round((map - nodup) / total * 100, 2),
-                        chrm_pct = round(chrM / total * 100, 2),
-                        unique_pct = round(unique / total * 100, 2),
-                        unmap_pct  = round(unmap / total * 100, 2))
-      } else if(file.exists(f2)) {
-        cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
-                  "unmap")
-        jsonlite::read_json(f2) %>%
-          as.data.frame.list %>%
-          dplyr::select(all_of(cols)) %>%
-          dplyr::mutate(nodup    = map,
-                        chrM     = 0,
-                        spikein  = 0,
-                        map_pct  = round(map / total * 100, 2),
-                        dup_pct  = round((map - nodup) / total * 100, 2),
-                        chrm_pct = round(chrM / total * 100, 2),
-                        unique_pct = round(unique / total * 100, 2),
-                        unmap_pct  = round(unmap / total * 100, 2))
-      }
-    }) %>%
-      dplyr::bind_rows()
-  }
-}
-
-
-
-
-
-
-
-#' read_hiseq_peak_stat
-#'
-#' number of peaks
-#' peak reads
-#'
-#' @param x path to the directory
-#'
-#' @export
-read_hiseq_peak_stat <- function(x) {
-  # search for single dir
-  rep_list   <- list_hiseq_single_dirs(x)
-  merge_list <- list_hiseq_merge_dirs(x)
-  input_list <- sort(c(rep_list, merge_list))
-  lapply(input_list, function(i){
-    px     <- read_hiseq(i)
-    n_peak <- tryCatch(
-      error = function(cnd) 0,
-      length(readLines(px$args$peak))
-    )
-    data.frame(
-      id    = px$args$smp_name,
-      count = n_peak
-    )
-  }) %>%
-    dplyr::bind_rows()
-}
-
-
-
-
-
-#' @describeIn read_hiseq_lendist_stat
-#'
-#' length distribution
-#'
-#' @param x path to the directory
-#'
-#' @export
-read_hiseq_lendist_stat <- function(x) {
-  # search for single dir
-  r1_list <- list_hiseq_single_dirs(x)
-  rn_list <- list_hiseq_merge_dirs(x)
-  dirs    <- sort(c(r1_list, rn_list))
-  dirs    <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    lapply(dirs, function(i){
-      px <- read_hiseq(i)
-      f  <- px$args$lendist_txt
-      if(file.exists(f)) {
-        read_text(f)
-      }
-    }) %>%
-      dplyr::bind_rows()
-  }
-}
-
-
-
-
-
 
 
 #'
-#' Fraction in peak
+#' #' @describeIn  read_hiseq_trim_stat
+#' #'
+#' #' parsing the trimming status
+#' #'
+#' #' @param x path to hiseq, single
+#' #'
+#' #' @import dplyr
+#' #' @import readr
+#' #'
+#' #' @export
+#' read_hiseq_trim_stat <- function(x) {
+#'   dirs <- list_hiseq_single_dirs(x)
+#'   dirs <- purrr::discard(dirs, is.null)
+#'   if(length(dirs) > 0) {
+#'     lapply(dirs, function(i) {
+#'       px <- read_hiseq(i)
+#'       px$args$trim_summary_json %>%
+#'         jsonlite::read_json() %>%
+#'         as.data.frame.list() %>%
+#'         dplyr::select(id, input, output, out_pct, rm_pct)
+#'     }) %>%
+#'       dplyr::bind_rows() %>%
+#'       dplyr::mutate(across(!id, as.numeric)) %>%
+#'       dplyr::rename(clean_pct = out_pct,
+#'                     short_pct = rm_pct) %>%
+#'       dplyr::mutate(clean_pct = round(clean_pct, 2),
+#'                     short_pct = round(short_pct, 2))
+#'   }
+#' }
 #'
-#' @param x path to the directory
 #'
-#' @export
-read_hiseq_frip_stat <- function(x) {
-  # search for single dir
-  rep_list   <- list_hiseq_single_dirs(x)
-  merge_list <- list_hiseq_merge_dirs(x)
-  input_list <- sort(c(rep_list, merge_list))
-
-  lapply(input_list, function(i){
-    px <- read_hiseq(i)
-    f  <- px$args$frip_txt
-    if(file.exists(f)) {
-      df <- read_text(f) %>%
-        dplyr::mutate(id   = px$args$smp_name,
-                      FRiP = paste0(round(FRiP * 100, 2), "%"))
-      if("total_reads" %in% names(df)) {
-        df$total <- df$total_reads
-      }
-      df %>% dplyr::select(id, total, peak_reads, FRiP)
-    }
-  }) %>%
-    dplyr::bind_rows()
-}
+#'
+#'
+#'
+#' #' read_hiseq_align
+#' #'
+#' #' @param x path to hiseq, single
+#' #'
+#' #' @description output columns
+#' #' "fqname", "index_name", "total", "map", "unique", "multiple",
+#' #' "unmap", "nodup", "chrM", "spikein"
+#' #'
+#' #' @import readr
+#' #' @import dplyr
+#' #'
+#' #' @export
+#' read_hiseq_align_stat <- function(x){
+#'   dirs <- list_hiseq_single_dirs(x)
+#'   dirs <- purrr::discard(dirs, is.null)
+#'   if(length(dirs) > 0) {
+#'     lapply(dirs, function(i) {
+#'       px <- read_hiseq(i)
+#'       f1 <- px$args$align_summary_json # ver-1: qc/01.alignment_summary.json
+#'       f2 <- px$args$align_json # ver-2: alignment/*.json
+#'       if(file.exists(f1)) {
+#'         df <- jsonlite::read_json(f1) %>%
+#'           as.data.frame.list
+#'         # guess id column
+#'         id_column <- c("id", "fqname", "name")
+#'         id_column <- id_column[id_column %in% colnames(df)]
+#'         id_column <- id_column[1]
+#'         cols <- c("id", "index", "total", "map", "unique", "multi",
+#'                   "unmap", "nodup", "chrM", "spikein")
+#'         # processing data
+#'         df1 <- df %>%
+#'           dplyr::rename(id = !!id_column) %>%
+#'           dplyr::select(all_of(cols)) %>%
+#'           dplyr::mutate(map_pct  = round(map / total * 100, 2),
+#'                         dup_pct  = round((map - nodup) / total * 100, 2),
+#'                         chrm_pct = round(chrM / total * 100, 2),
+#'                         unique_pct = round(unique / total * 100, 2),
+#'                         unmap_pct  = round(unmap / total * 100, 2))
+#'       } else if(file.exists(f2)) {
+#'         cols <- c("fqname", "index_name", "total", "map", "unique", "multiple",
+#'                   "unmap")
+#'         jsonlite::read_json(f2) %>%
+#'           as.data.frame.list %>%
+#'           dplyr::select(all_of(cols)) %>%
+#'           dplyr::mutate(nodup    = map,
+#'                         chrM     = 0,
+#'                         spikein  = 0,
+#'                         map_pct  = round(map / total * 100, 2),
+#'                         dup_pct  = round((map - nodup) / total * 100, 2),
+#'                         chrm_pct = round(chrM / total * 100, 2),
+#'                         unique_pct = round(unique / total * 100, 2),
+#'                         unmap_pct  = round(unmap / total * 100, 2))
+#'       }
+#'     }) %>%
+#'       dplyr::bind_rows()
+#'   }
+#' }
+#'
+#'
+#'
+#'
+#'
+#'
+#'
+#' #' read_hiseq_peak_stat
+#' #'
+#' #' number of peaks
+#' #' peak reads
+#' #'
+#' #' @param x path to the directory
+#' #'
+#' #' @export
+#' read_hiseq_peak_stat <- function(x) {
+#'   # search for single dir
+#'   rep_list   <- list_hiseq_single_dirs(x)
+#'   merge_list <- list_hiseq_merge_dirs(x)
+#'   input_list <- sort(c(rep_list, merge_list))
+#'   lapply(input_list, function(i){
+#'     px     <- read_hiseq(i)
+#'     n_peak <- tryCatch(
+#'       error = function(cnd) 0,
+#'       length(readLines(px$args$peak))
+#'     )
+#'     data.frame(
+#'       id    = px$args$smp_name,
+#'       count = n_peak
+#'     )
+#'   }) %>%
+#'     dplyr::bind_rows()
+#' }
+#'
+#'
+#'
+#'
+#'
+#' #' @describeIn read_hiseq_lendist_stat
+#' #'
+#' #' length distribution
+#' #'
+#' #' @param x path to the directory
+#' #'
+#' #' @export
+#' read_hiseq_lendist_stat <- function(x) {
+#'   # search for single dir
+#'   r1_list <- list_hiseq_single_dirs(x)
+#'   rn_list <- list_hiseq_merge_dirs(x)
+#'   dirs    <- sort(c(r1_list, rn_list))
+#'   dirs    <- purrr::discard(dirs, is.null)
+#'   if(length(dirs) > 0) {
+#'     lapply(dirs, function(i){
+#'       px <- read_hiseq(i)
+#'       f  <- px$args$lendist_txt
+#'       if(file.exists(f)) {
+#'         read_text(f)
+#'       }
+#'     }) %>%
+#'       dplyr::bind_rows()
+#'   }
+#' }
+#'
+#'
+#'
+#'
+#'
+#'
+#'
+#' #'
+#' #' Fraction in peak
+#' #'
+#' #' @param x path to the directory
+#' #'
+#' #' @export
+#' read_hiseq_frip_stat <- function(x) {
+#'   # search for single dir
+#'   rep_list   <- list_hiseq_single_dirs(x)
+#'   merge_list <- list_hiseq_merge_dirs(x)
+#'   input_list <- sort(c(rep_list, merge_list))
+#'   lapply(input_list, function(i) {
+#'     px <- read_hiseq(i)
+#'     f  <- px$args$frip_json
+#'     if(file.exists(f)) {
+#'       jsonlite::read_json(f) %>%
+#'         as.data.frame.list %>%
+#'         dplyr::select(all_of(c("id", "n_peaks", "total", "map", "pct"))) %>%
+#'         dplyr::rename(peak_reads = map,
+#'                       FRiP       = pct) %>%
+#'         dplyr::mutate(FRiP = round(FRiP * 100, 2))
+#'       }
+#'   }) %>%
+#'     dplyr::bind_rows()
+#' }
 
 
 
@@ -451,20 +394,23 @@ read_hiseq <- function(x) {
     pk <- list_arguments_file(x)
     if(length(pk)) {
       args <- load_config(pk[1])
-      ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type",
-                   "align_type", "chipseq_type")
-      hiseq_type <- sapply(ht_list, function(ht) {
-        if(ht %in% names(args)) {
-          args[[ht]]
-        }
-      }, simplify = TRUE) %>%
-        unlist %>%
-        head
-      list(
-        hiseq_type = hiseq_type,
-        files      = path_to_list(x[1], recursive = TRUE),
-        args       = args
-      )
+      ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type", "align_type",
+        "chipseq_type")
+      ht_list <- ht_list[ht_list %in% names(args)]
+      if(length(ht_list) > 0) {
+        ht_list <- ht_list[1]
+        ht_type <- args[[ht_list]]
+        list(
+          hiseq_type = ht_type,
+          files      = path_to_list(x[1], recursive = TRUE),
+          args       = args,
+          is_hiseq   = TRUE,
+          is_hiseq_r1 = endsWith(ht_type, "r1"),
+          is_hiseq_rn = endsWith(ht_type, "rn"),
+          is_hiseq_rx = endsWith(ht_type, "rx"),
+          is_hiseq_rp = endsWith(ht_type, "rp")
+        )
+      }
     }
   }
 }
@@ -525,7 +471,6 @@ list_arguments_file <- function(x) {
   f_list <- c(f1, f2)
   Sys.glob(f_list)
 }
-
 
 
 

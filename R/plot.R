@@ -136,7 +136,7 @@ bar_plot_lendist <- function(data, x = "length", y = "count",
 #' @import ggplot2
 #'
 #' @export
-fragsize_plot <- function(data, xmin = 0, xmax = 1000,
+fragsize_plot <- function(data, xmin = 0, xmax = 500,
                           log10_y = FALSE, position = "fill") {
   data <- ggplot2::fortify(data)
   if(! all(c("id", "length", "count") %in% names(data))) {
@@ -150,6 +150,7 @@ fragsize_plot <- function(data, xmin = 0, xmax = 1000,
   xmax <- ifelse(xmax > 1000, 1000, xmax)
   out  <- ggplot(data, aes_(as.name("length"), as.name(y), color = as.name("id"))) +
     geom_line(size = .5) +
+    geom_vline(xintercept = c(100, 200, 400), size = 0.5, color = "grey50", linetype = 2) +
     scale_x_continuous(limits = c(xmin, xmax),
                        expand = c(0, 0)) +
     theme_bw() +
@@ -862,20 +863,25 @@ rnaseq_trim_stat_plot <- function(data, fish = "Trimma_lantana") {
 #'
 #' @export
 rnaseq_align_stat_plot <- function(data,
-                                   mode = 0,
+                                   mode = 1,
                                    columns = NULL,
                                    fish = "Trimma_lantana",
                                    title = "Barplot") {
   if(! is(data, "data.frame")) {
     stop("`data` expect data.frame, failed")
   }
-  if(! "fqname" %in% names(data)) {
-    stop("`data` missing the column: fqname")
+  # id column
+  id_column <- c("fqname", "id", "name")
+  if(! any(id_column %in% names(data))) {
+    stop("`data` missing the column: [fqname, id, name]")
   }
+  id_column <- id_column[id_column %in% colnames(data)]
+  id_column <- id_column[1]
   # columns
   g1 <- switch(mode,
                c("map", "unmap"),
-               c("unique", "multiple", "unmap"),
+               c("unique", "multi", "unmap"),
+               c("chrM, spikein, map", "unmap"),
                c("total"))
   if(length(g1)) {
     columns <- g1
@@ -886,13 +892,17 @@ rnaseq_align_stat_plot <- function(data,
     stop("`columns` missing, expect: ", d_line)
   }
   # subset data.frame
-  data %>%
-    dplyr::select(any_of(c("fqname", columns))) %>%
-    tidyr::pivot_longer(names_to = "group", values_to = "count", -fqname) %>%
+  df <- data %>%
+    dplyr::rename(id = !!id_column) %>%
+    dplyr::select(any_of(c("id", columns))) %>%
+    tidyr::pivot_longer(names_to = "group", values_to = "count", -1) %>%
     dplyr::mutate(group = factor(group, levels = columns)) %>%
-    dplyr::group_by(fqname) %>%
-    dplyr::mutate(pct = round(count / sum(count) * 100, 2)) %>%
-    bar_plot(x = "pct", y = "fqname", direction = "horizontal",
+    dplyr::group_by(id) %>%
+    dplyr::mutate(pct = round(count / sum(count) * 100, 2))
+
+  # plot
+  df %>%
+    bar_plot(x = "pct", y = "id", direction = "horizontal",
              fill = "group", label = NULL) +
     fishualize::scale_fill_fish(discrete = TRUE, option = fish) +
     ylab(NULL) +
@@ -989,27 +999,5 @@ cor_plot <- function(df){
                     colour = "grey90", size = 3) +
     ggplot2::ggtitle("Pearson coefficient correlation")
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
