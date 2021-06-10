@@ -1,0 +1,324 @@
+---
+title: "HiSeq Report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: false
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r}
+library(hiseqr)
+library(ggplot2)
+library(patchwork)
+library(fishualize)
+library(dplyr)
+library(glue)
+library(patchwork)
+```
+
+
+```{r init, eval = T}
+input_dir  <- params$input_dir
+# input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/rnaseq/results/rnaseq_se/RNAseq_I_R_Hybrid_Dys_6h.vs.RNAseq_I_R_Hybrid_None_Dys_6h/"
+input_dir  <- normalizePath(input_dir)
+if(! is_hiseq_dir(input_dir, "rnaseq_rx")) {
+  stop(paste0("Not a RNAseq single directory, rnaseq_rx: ", input_dir))
+}
+```
+
+## Config data
+
+```{r config, eval = T, results = "asis"}
+# check paired
+is_paired <- all(list_hiseq_file(input_dir, "is_paired", "r1"))
+n_samples <- length(list_hiseq_file(input_dir, "smp_name", "_r1"))
+genome    <- list_hiseq_file(input_dir, "genome", "_rx")
+organism  <- genome
+gtf       <- list_hiseq_file(input_dir, "gene_gtf", "_rx")
+wt_name   <- list_hiseq_file(input_dir, "wt_name", "_rx")
+mut_name  <- list_hiseq_file(input_dir, "mut_name", "_rx")
+project_name <- list_hiseq_file(input_dir, "project_name", "_rx")
+
+msg <- glue::glue(
+  "Configuration:",
+  "   wildtype: {wt_name}",
+  "     mutant: {mut_name}",
+  "     genome: {genome}",
+  " paired-end: {is_paired}",
+  "project_dir: {project_name}",
+  .sep = "\n"
+)
+print(msg)
+```
+
+
+```{r plot_data}
+df_trim_stat  <- read_hiseq_trim_stat(input_dir)
+df_align_stat <- read_hiseq_align_stat(input_dir)
+```
+
+## 1 Summary
+
+```{r summary, results="asis"}
+total      <- df_align_stat %>% pull(total) %>% mean()
+map        <- df_align_stat %>% pull(map) %>% mean()
+map_pct    <- round(map / total * 100, 1) %>% mean()
+unique_m   <- df_align_stat %>% pull(unique) %>% mean()
+unique_pct <- round(unique_m / total * 100, 1) %>% mean()
+total    <- round(total / 1e6, 1) # Million
+map      <- round(map / 1e6, 1) # Million
+unique_m <- round(unique_m / 1e6, 1) # Million
+sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
+    "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
+    "{unique_m}M ({unique_pct}%) unique mapped.")
+
+print(sum_text)
+```
+
+## 2 Results
+
+
+### 2.1 Table1. number of reads
+
+```{r table1_mito_pct}
+hiseqr::to_DT(df_align_stat)
+```
+
+
+### 2.2 Figure 1. Number of mapped reads
+
++ Clean data percentage
+
+```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
+plot_hiseq_trim(input_dir)
+```
+
++ Map percentage
+
+```{r figure1_align_reads, fig.height = 3}
+plot_hiseq_align(input_dir, columns = c("map", "rRNA", "spikein", "unmap"))
+```
+
++ Unique percentage
+
+```{r figure1_unique_reads, fig.height = 3}
+plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```
+
+
+### 2.3 RNAseq library type
+
+Check the RNAseq library type, check if the reads from forward strand or reverse strand of mRNA;
+
+Using `featureCounts` to count reads on mRNAs.
+
+For strand-specific library
+
+| sens | anti | library | example | 
+| -- | -- | -- | -- |
+| -s 1 | -s 2 | `read1: ++ -- / read2: -- ++` | - | 
+| -s 2 | -s 1 | `read1: +- ++ / read2: +- -+` | dUTP library, NSR library |
+
+
+```{r lib type, results="asis"}
+lib1 = "read1: ++ -- / read2: -- ++"
+lib2 = "read1: +- ++ / read2: +- -+"
+lib3 = "read1, read2, non-strand-specific"
+
+f <- list_hiseq_file(input_dir, "strandness_json", "rnaseq_rn")
+s <- jsonlite::read_json(f[1])
+a = switch(as.character(s$sense),
+        "0" = {print(lib3)},
+        "1" = {print(lib1)},
+        "2" = {print(lib2)})
+# print(a)
+```
+
+### 2.4 Quantification
+
+```{r, results="asis"}
+msg <- glue::glue(
+  "Count reads on features:",
+  "Genome: {genome}",
+  "   GTF: {basename(gtf)}",
+  .sep = "\n"
+)
+print(msg)
+```
+**na**, indicate the `Not Assigned reads`.
+
+```{r table2_sens_summary}
+p4 <- plot_rnaseq_featureCounts(input_dir)
+# show table
+df4 <- p4$data %>%
+  dplyr::select(sample, total, strand, count) %>%
+  tidyr::pivot_wider(names_from = strand, values_from = count) %>%
+  dplyr::mutate(sens_pct = round(sense / total * 100, 1))
+hiseqr::to_DT(df4)
+```
+
+
+**na**, indicate the `Not Assigned reads`.
+```{r count strand, fig.height=3}
+print(p4)
+```
+
+
+### 2.5 Correlation between replicates
+
+#### 1 Distribution of reads on gene body
+
+#### 2 Correlation - PCA
+
+#### 3 Correlation - heatmap
+
+```{r}
+g1 <- list_hiseq_file(input_dir, "genebody_enrich_png", "_rx")
+g2 <- list_hiseq_file(input_dir, "bam_cor_pca_png", "_rn")
+g3 <- list_hiseq_file(input_dir, "bam_cor_heatmap_png", "_rn")
+g  <- purrr::keep(c(g1, g2, g3), file.exists)
+if(file.exists(g)) {
+  include_graphics(g)
+}
+```
+
+
+
+## 3 Differentially expressed genes
+
+### 3.1 Info
+
+```{r , results="asis"}
+msg <- glue::glue(
+  "Configuration:",
+  " Compare: log2( {mut_name} / {wt_name} )",
+  " Project: {project_name}",
+  "  Genome: {genome}",
+  "wildtype: {wt_name}",
+  "  mutant: {mut_name}",
+  "quantification: featureCounts (v2.0.0)",
+  "DE analysis: DESeq2 (v1.30.1)",
+  "cutoff: pajd < 0.05 and |log2fc| >= 1",
+  .sep = "\n")
+print(msg)
+```
+
+```{r read_deseq, results="asis"}
+df_deseq <- read_rnaseq_deseq(input_dir)
+# add link to database: ENSEMBL, FlyBase
+df_deseq$link <- gene_to_link(df_deseq$Gene, organism, style = "html",
+                              site = "http://www.flybase.org", readable = TRUE)
+```
+
+
+### 3.2 Number of differentially expressed genes
+
+Here are the numbers of significant changed genes, criteria: `foldChange >= 2, pvalue < 0.05`
+
+```{r}
+table(df_deseq$sig) %>% as.data.frame %>% to_DT
+```
+
+```{r, fig.width = 4, fig.height = 4}
+plot_rnaseq_sig_count(input_dir)
+```
+
+```{r, fig.width=5, fig.height=4}
+deseq_dir <- list_hiseq_file(input_dir, "deseq_dir", "rx")
+p1 <- file.path(deseq_dir, "publish.1.scatter.png")
+p2 <- file.path(deseq_dir, "publish.3.volcano.png")
+p3 <- file.path(deseq_dir, "publish.4.heatmap.png")
+p  <- purrr::keep(c(p1, p2, p3), file.exists)
+if(length(p) > 0) {
+  knitr::include_graphics(p)
+}
+```
+
+### 3.3 Up-regulated genes
+
+```{r}
+df_deseq %>%
+  dplyr::filter(sig == "up") %>%
+  dplyr::select(1, link, 2:3, log2FoldChange, padj, sig) %>%
+  dplyr::mutate(across(where(is.numeric), ~round(.x, digits =2 ))) %>%
+  to_DT(mode = 3)
+```
+
+
+### 3.4 Down-regulated genes
+
+```{r}
+df_deseq %>%
+  dplyr::filter(sig == "down") %>%
+  dplyr::select(1, link, 2:3, log2FoldChange, padj, sig) %>%
+  dplyr::mutate(across(where(is.numeric), ~round(.x, digits =2 ))) %>%
+  to_DT(mode = 3)
+```
+
+
+
+## 3 Detail report
+
+
+```{r, report_list}
+data_dir <- "data"
+dir.create(data_dir, showWarnings = FALSE)
+rpt_html <- list_hiseq_file(input_dir, "report_html", hiseq_type = TRUE)
+rpt_html <- purrr::keep(rpt_html, file.exists)
+
+if(length(rpt_html) > 0) {
+  local_html <- sapply(rpt_html, function(f) {
+    f_prefix <- basename(dirname(dirname(f)))
+    f_html   <- file.path(data_dir, paste0(f_prefix, ".rnaseq_report.html"))
+    if(! file.exists(f_html)) {
+      file.copy(f, f_html)
+    }
+    f_html
+  })
+} else {
+  local_html = NULL
+}
+# show in table
+if(length(local_html) > 0) {
+  data.frame(id = basename(dirname(dirname(rpt_html))),
+             url = local_html
+  ) %>%
+    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
+    dplyr::select(link) %>% 
+    tibble::remove_rownames() %>%
+    to_DT(mode = 3)
+}
+```
+
+
+**END**

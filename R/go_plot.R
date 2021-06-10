@@ -312,12 +312,15 @@ go_wego_plot <- function(x, ...) {
       message("to-do: wego plot for GSEA result, not available now, skipped")
     }
   } else {
-    stop("`x` expect, list of GO Result")
+    on.exit("`x` expect, list of GO Result")
+    return(NULL)
   }
   # prepare data
   x_list <- lapply(x, function(d){
-    d@result %>%
-      dplyr::mutate(ontology = d@ontology)
+    if(is_go_result(d)) {
+      d@result %>%
+        dplyr::mutate(ontology = d@ontology)
+    }
   })
   # for group/enrich
   df <- dplyr::bind_rows(x_list) %>%

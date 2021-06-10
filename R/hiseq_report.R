@@ -18,54 +18,29 @@
 #'
 #' @export
 hiseq_report <- function(input, output, template_rmd = NULL) {
-  ## input
-  input  <- normalizePath(input)
-  if(! dir.exists(output)) {
-    dir.create(output, recursive = TRUE)
-  }
+  input <- normalizePath(input)
+  if(! dir.exists(output)) dir.create(output, recursive = TRUE)
   output <- normalizePath(output)
-  ## output
   outhtml <- file.path(output, "HiSeq_report.html")
-
-  ## determine the template
-  hiseq_type = get_hiseq_type(input)
-
-  # hiseq (hiseq, atacseq, chipseq, rnaseq, ...)
-  if(is_hiseq_dir(input)) {
-    if(startsWith(hiseq_type, "hiseq_")) {
-      hiseq_dir = "hiseq"
-    } else if(startsWith(hiseq_type, "cnr_")) {
-      hiseq_dir = "cnr"
-    } else if(startsWith(hiseq_type, "atacseq_")) {
-      hiseq_dir = "atacseq"
-    } else if(startsWith(hiseq_type, "chipseq_")) {
-      hiseq_dir = "chipseq"
-    } else if(startsWith(hiseq_type, "rnaseq_")) {
-      hiseq_dir = "rnaseq"
-    } else {
-      hiseq_dir = "hiseq"
-    }
-  }
-
   # subtype
-  if(is_hiseq_single_dir(input)) {
-    hiseq_subtype = "hiseq_report_single.Rmd"
-  } else if(is_hiseq_merge_dir(input)) {
-    hiseq_subtype = "hiseq_report_merge.Rmd"
-  } else if(is_hiseq_multiple_dir(input)) {
-    hiseq_subtype = "hiseq_report_multiple.Rmd"
+  if(is_hiseq_dir(input, "_r1")) {
+    hiseq_report_rmd = "hiseq_report_r1.Rmd"
+  } else if(is_hiseq_dir(input, "_rn")) {
+    hiseq_report_rmd = "hiseq_report_rn.Rmd"
+  } else if(is_hiseq_dir(input, "_rx")) {
+    hiseq_report_rmd = "hiseq_report_rx.Rmd"
   } else {
-    hiseq_subtype = "tmp"
+    hiseq_report_rmd = "tmp"
   }
-
   # template
+  hiseq_type <- list_hiseq_file(input, "hiseq_type")
+  hiseq_type <- gsub("_\\w+$", "", hiseq_type[1])
   if(is.null(template_rmd)) {
-    template <- system.file(hiseq_dir, hiseq_subtype, package = "hiseqr")
+    template <- system.file(hiseq_type, hiseq_report_rmd, package = "hiseqr")
   } else {
     template <- template_rmd
   }
   stopifnot(file.exists(template))
-
   ## copy template to output
   template_to <- file.path(output, basename(template))
   file.copy(template, template_to, overwrite = TRUE)
@@ -162,6 +137,9 @@ fig_to_panel <- function(x, nm = NULL, ...) {
   alt   <- ifelse("alt" %in% names(args), args$alt, "figure")
   glue::glue('<img src="{x}" alt="{alt}" style="{style}">')
 }
+
+
+
 
 # add image to panel
 .single_panel <- function(x, n=NULL, ...) {

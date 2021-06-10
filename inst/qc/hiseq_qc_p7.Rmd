@@ -61,7 +61,7 @@ p_list    <- hiseqr::hiseq_p7(f_list)
 
 ## 1. HiSeq library structure 
 
-```{r, fig.height=1, fig.width=8}
+```{r hiseq_lib_structure, fig.height=1, fig.width=8}
 ft <- c("P5", "Insert", "barcode", "P7_a", "i7", "P7_b")
 ds <- data.frame(
   hiseq = "TruSeq",
@@ -124,7 +124,7 @@ df1 %>% hiseqr::to_DT()
 
 Check the frequency of each `i7` sequences; `x-axis` is percentage of sequence.
 
-```{r, fig.width=7, fig.height=1.3}
+```{r p7_component, fig.width=7, fig.height=1.3}
 p7_list <- lapply(p_list, function(p) { print(p$p7) })
 ```
 
@@ -151,7 +151,7 @@ df3 %>% hiseqr::to_DT()
 
 Check the frequency of each `barcode` sequences; `x-axis` is percentage of sequence.
 
-```{r, fig.width=7, fig.height=1.5}
+```{r i7_sequence, fig.width=7, fig.height=1.5}
 i7_list <- lapply(p_list, function(p) { print(p$i7) })
 ```
 
@@ -176,7 +176,7 @@ df2 %>% hiseqr::to_DT()
 
 ### 3.2 Plots for barcode sequence 
 
-```{r, fig.width=7, fig.height=1.5}
+```{r barcode_sequence, fig.width=7, fig.height=1.5}
 bc_list <- lapply(p_list, function(p) { print(p$bc) })
 ```
 

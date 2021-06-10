@@ -98,6 +98,7 @@ is_named_num <- function(x) {
 #' support:
 #' groupGOResult,
 #' enrichResult,
+#' enrichKEGG,
 #' ...
 #'
 #' @param x object
@@ -514,8 +515,10 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
 #' markdown: [name](url)
 #' html: <a href=url target="_blank">name</a>
 #'
+#' conflict with: hiseq_reprot.R/.url_to_link2
+#'
 #' @export
-.url_to_link <- function(url, name, style = "markdown") {
+.url_to_link2 <- function(url, name, style = "markdown") {
   if(! is(url, "character") | ! is(url, "character")) {
     stop("`url` and `name` only accept character")
   }
@@ -617,7 +620,7 @@ gene_to_link <- function(x, organism, style = "url",
   } else {
     name <- gene_list
   }
-  .url_to_link(url, name, style = style)
+  .url_to_link2(url, name, style = style)
 }
 
 

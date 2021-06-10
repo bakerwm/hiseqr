@@ -30,20 +30,15 @@ fastqc_report <- function (indir, outdir, preview = FALSE) {
   ## input
   indir  <- normalizePath(indir)
   outdir <- normalizePath(outdir)
-
-  report_template <- system.file("fastqc_report.Rmd",
+  report_template <- system.file("qc", "fastqc_report.Rmd",
                                  package = "hiseqr")
-
   if(! dir.exists(outdir)){
     dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
   }
-
   output_html <- file.path(outdir, "fastqc_report.html")
-
   rmarkdown::render(input = report_template,
                     output_file = output_html,
-                    params = list(qc_path = indir))
-
+                    params = list(input_dir = indir))
   if (preview) {
     utils::browseURL(output_html)
   }

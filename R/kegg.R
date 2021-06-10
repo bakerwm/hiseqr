@@ -149,26 +149,43 @@ enrich_kegg <- function(gene_list, organism, outdir = NULL, ...) {
   if(file.exists(kegg_data_rds) & ! arg_vars$overwrite) {
     kegg_data <- readRDS(kegg_data_rds)
   } else {
-    kk <- clusterProfiler::enrichKEGG(
-      gene          = arg_vars$kegg_gene,
-      organism      = arg_vars$kegg_code,
-      keyType       = arg_vars$kegg_keyType,
-      pAdjustMethod = "BH",
-      pvalueCutoff  = arg_vars$pval_cutoff,
-      qvalueCutoff  = arg_vars$qval_cutoff)
-    # readable
-    arg_vars$orgdb <- get_orgdb(arg_vars$organism)
-    kegg_data <- clusterProfiler::setReadable(kk, arg_vars$orgdb,
-                                              arg_vars$keytype)
-    #--Save to rds
-    saveRDS(kegg_data, file = kegg_data_rds)
+    kegg_data <- tryCatch(
+      {
+        kk <- clusterProfiler::enrichKEGG(
+          gene          = arg_vars$kegg_gene,
+          organism      = arg_vars$kegg_code,
+          keyType       = arg_vars$kegg_keyType,
+          pAdjustMethod = "BH",
+          pvalueCutoff  = arg_vars$pval_cutoff,
+          qvalueCutoff  = arg_vars$qval_cutoff)
+        # readable
+        arg_vars$orgdb <- get_orgdb(arg_vars$organism)
+        if(is_go_result(kk)) {
+          kegg_data <- clusterProfiler::setReadable(kk, arg_vars$orgdb,
+                                                    arg_vars$keytype)
+        } else {
+          kegg_data <- kk
+        }
+        #--Save to rds
+        saveRDS(kegg_data, file = kegg_data_rds)
+        return(kegg_data)
+      },
+      error=function(cond) {
+        warning("enrichKEGG() failed")
+        return(NULL)
+      }
+    )
   }
   #--KEGG plotting: plot
   if(file.exists(kegg_plot_rds) & ! arg_vars$overwrite) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
-    kegg_plot <- enrich_kegg_plots(kegg_data) # !!!! enrich_kegg_plot
-    saveRDS(kegg_plot, file = kegg_plot_rds)
+    if(is_go_result(kegg_data)) {
+      kegg_plot <- enrich_kegg_plots(kegg_data) # !!!! enrich_kegg_plot
+      saveRDS(kegg_plot, file = kegg_plot_rds)
+    } else {
+      kegg_plot <- NULL
+    }
   }
   #--KEGG plotting: save to png
   prefix <- gsub(".rds$", "", basename(kegg_plot_rds))
@@ -223,27 +240,40 @@ gsea_kegg <- function(gene_list, organism, outdir = NULL, ...) {
   if(file.exists(kegg_data_rds) & ! arg_vars$overwrite) {
     kegg_data <- readRDS(kegg_data_rds)
   } else {
-    kk <- clusterProfiler::gseKEGG(
-      geneList      = arg_vars$kegg_gsea_gene,
-      organism      = arg_vars$kegg_code,
-      keyType       = arg_vars$kegg_keyType,
-      minGSSize     = 120,
-      pvalueCutoff   = arg_vars$pval_cutoff,
-      pAdjustMethod = "BH",
-      verbose       = FALSE)
-    # readable
-    arg_vars$orgdb <- get_orgdb(arg_vars$organism)
-    kegg_data <- clusterProfiler::setReadable(kk, arg_vars$orgdb,
-                                              arg_vars$keytype)
-    #--Save to rds
-    saveRDS(kegg_data, file = kegg_data_rds)
+    kegg_data <- tryCatch(
+      {
+        kk <- clusterProfiler::gseKEGG(
+          geneList      = arg_vars$kegg_gsea_gene,
+          organism      = arg_vars$kegg_code,
+          keyType       = arg_vars$kegg_keyType,
+          minGSSize     = 120,
+          pvalueCutoff   = arg_vars$pval_cutoff,
+          pAdjustMethod = "BH",
+          verbose       = FALSE)
+        # readable
+        arg_vars$orgdb <- get_orgdb(arg_vars$organism)
+        kegg_data <- clusterProfiler::setReadable(kk, arg_vars$orgdb,
+                                                  arg_vars$keytype)
+        #--Save to rds
+        saveRDS(kegg_data, file = kegg_data_rds)
+        return(kegg_data)
+      },
+      error=function(cond) {
+        warning("enrichKEGG() failed")
+        return(NULL)
+      }
+    )
   }
   #--KEGG plotting: plot
   if(file.exists(kegg_plot_rds) & ! arg_vars$overwrite) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
-    kegg_plot <- gsea_kegg_plots(kegg_data) # !!!! enrich_kegg_plot
-    saveRDS(kegg_plot, file = kegg_plot_rds)
+    if(is_go_result(kegg_data)) {
+      kegg_plot <- gsea_kegg_plots(kegg_data) # !!!! enrich_kegg_plot
+      saveRDS(kegg_plot, file = kegg_plot_rds)
+    } else {
+      kegg_plot <- NULL
+    }
   }
   #--KEGG plotting: save to png
   prefix <- gsub(".rds$", "", basename(kegg_plot_rds))

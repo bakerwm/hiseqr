@@ -19,7 +19,6 @@ params:
 
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
-
 knitr::opts_chunk$set(fig.width  = 12, 
                       fig.height = 8, 
                       fig.path   = "Figures/",
@@ -57,52 +56,37 @@ input_dir <- normalizePath(input_dir)
 
 
 ```{r fig_qc, fig.align = "middle", fig.cap = "overview of analysis"}
-qc    <- qc_aggregate(input_dir, progressbar = FALSE)
-qcgs <- qc_stats(qc)
-qcgs <- dplyr::mutate(qcgs, 
-               tot.seq = as.numeric(tot.seq),
-               pct.dup = paste0(pct.dup, '%'),
-               pct.gc  = paste0(pct.gc, '%')) %>%
-  dplyr::select(sample, tot.seq, pct.dup, pct.gc, seq.length)
-names(qcgs) <- c('Sample', 'Reads', '% Dup', '% GC', 'Length (nt)')
+fx_name <- function(x) {
+  gsub(".gz$|.fq|.fastq", "", x)
+}
 
-DT::datatable(qcgs, rownames = FALSE, filter = "top", 
-              options = list(pageLength = 10, scrollX = TRUE))
+qc   <- qc_aggregate(input_dir, progressbar = FALSE)
+qcgs <- qc_stats(qc) %>%
+  dplyr::mutate(
+    tot.seq = as.numeric(tot.seq),
+    sample = fx_name(sample)) %>%
+  dplyr::rename(
+    Sample = sample,
+    Dup = pct.dup,
+    Reads = tot.seq,
+    Length = seq.length,
+    GC = pct.gc
+  )
+
+qcgs %>%
+  hiseqr::to_DT()
 ```
 
 
 ## Number of reads
 
-```{r num_reads, }
-nmax <- 10^(nchar(max(qcgs$Reads)) - 1)
-ymax <- ceiling(max(qcgs$Reads) / nmax) * nmax
-ymax <- ymax / 1e6
-
-p1 <- qcgs %>%
-  mutate(count = round(as.numeric(Reads) / 1e6, 2)) %>%
-  ggplot(aes(Sample, count)) +
-  geom_bar(stat = "identity", fill = "grey80", color = "black", size = .5) +
-  geom_text(aes(label = count), vjust = .5, hjust = -0.1) +
-  scale_x_discrete(limits = rev(unique(sort(qcgs$Sample)))) +
-  scale_y_continuous(limits = c(0, ymax),
-                     breaks = seq(0, ymax, length.out = 5),
-                     labels = seq(0, ymax, length.out = 5),
-                     position = "right") +
-  coord_flip() +
-  xlab(NULL) + 
-  ylab(paste0("Number of reads (Million)")) +
-  theme_bw() +
-  theme(panel.grid   = element_blank(),
-        panel.border = element_blank(),
-        plot.title   = element_text(color = "black", size = rel(1.5),
-                                    face = "bold", hjust = .5),
-        axis.line    = element_line(color = "black", size = .5),
-        axis.title   = element_text(color = "black", size = rel(1.2)),
-        axis.text.x  = element_text(color = "black", size = rel(1.2)),
-        axis.text.y  = element_text(color = "black", size = rel(1.2)))
-
-print(p1)
+```{r num_reads}
+qcgs %>%
+  dplyr::mutate(million = round(Reads / 1e6, 1)) %>%
+  hiseqr::bar_plot(x = "million", y = "Sample", label = "million", 
+                   direction = "horizontal")
 ```
+
 
 ## Distribution of Base Quality
 
@@ -134,7 +118,7 @@ Score = "Phred Quality Score", Incorrect = "Probability of Incorrect Base Call",
 
 ```{r , fig.height = 5.5}
 ## grid plots
-qcFiles <- fastqc_files(qc_path)
+qcFiles <- fastqc_files(input_dir)
 r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
 r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
 
@@ -159,7 +143,7 @@ for(i in seq_len(length(r1Files))) {
 
 ```{r , fig.height = 5.5}
 ## grid plots
-qcFiles <- fastqc_files(qc_path)
+qcFiles <- fastqc_files(input_dir)
 r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
 r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
 
@@ -183,7 +167,7 @@ for(i in seq_len(length(r1Files))) {
 
 ```{r , fig.height = 5.5}
 ## grid plots
-qcFiles <- fastqc_files(qc_path)
+qcFiles <- fastqc_files(input_dir)
 r1Files <- qcFiles[grepl("_1_fastqc.zip", qcFiles)]
 r2Files <- qcFiles[grepl("_2_fastqc.zip", qcFiles)]
 
@@ -207,7 +191,7 @@ for(i in seq_len(length(r1Files))) {
 ## Quality Control Report in details
 
 ```{r details, results = "asis"}
-qc_html <- list.files(qc_path, "*_fastqc.html", all.files = TRUE, 
+qc_html <- list.files(input_dir, "*_fastqc.html", all.files = TRUE, 
                       full.names = FALSE, recursive = FALSE)
 qc_html_name <- gsub("_fastqc.html", "", basename(qc_html))
 qc_url <- glue::glue("[{qc_html_name}](./{qc_html})")

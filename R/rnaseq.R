@@ -26,11 +26,11 @@
 #' @name rnaseq
 
 
-library(ggplot2)
-library(ggrepel)
-library(patchwork)
-library(dplyr)
-library(ggthemes)
+# library(ggplot2)
+# library(ggrepel)
+# library(patchwork)
+# library(dplyr)
+# library(ggthemes)
 
 
 # --Main: Port for pipeline ----------------------------------------------------
@@ -56,34 +56,32 @@ library(ggthemes)
 #'
 #' @export
 rnaseq_hub <- function(x, ...) {
-  if(! is_hiseq_multiple_dir(x)) {
-    msg <- paste0("`x` expect a RNAseqRx, eg: a.vs.b directory, failed: ", x)
+  if(! is_hiseq_dir(x, "rnaseq_rx")) {
+    msg <- paste0("`x` expect a rnaseq_rx, ", x)
     stop(msg)
   }
   # Prepare data for DESeq2 analysis: count.matrix, ctl_name, tret_name
   pd <- prep_deseq(x)
-
   # Convert to dds for DESeq2 analysis
   dds <- import_matrix(pd$ma, pd$control_name, pd$treatment_name)
-
-  # Add meta data to dds, for FPKM/RPKM
-  pa     <- read_hiseq(x)
-  df     <- read_fc(pd$control_count[1], get_gene_length = TRUE)
-  m_data <- data.frame(basepairs = df$Length)
+  # Add meta data (Length) to dds, for FPKM/RPKM
+  r1_list <- list_hiseq_file(x, "count_sens", "_r1")
+  df      <- read_fc(r1_list[1], get_gene_length = TRUE)
+  m_data  <- data.frame(basepairs = df$Length)
   S4Vectors::mcols(dds) <- S4Vectors::DataFrame(S4Vectors::mcols(dds), m_data)
-
   # Run standard DEseq2
   # Add extra arguments: fc_cutoff, pval_cutoff, readable
-  deseq2_main(dds, outdir = pa$args$deseq_dir, organism = pa$args$genome, ...)
-
+  deseq2_main(dds,
+              outdir = list_hiseq_file(x, "deseq_dir", "_rx"),
+              organism = list_hiseq_file(x, "genome", "_rx"))
   # Publish quality figures: scatter, MA, volcano
-  fix_xls <- get_fix_xls(x)
-  if(file.exists(fix_xls)) {
-    message("Generating publish quality plots")
-    message(paste0("found DESeq2 ouptut: ", fix_xls))
-    make_publish_plots(fix_xls)
-  }
-
+  make_publish_plots(x)
+  # fix_xls <- get_fix_xls(x)
+  # if(file.exists(fix_xls)) {
+  #   message("Generating publish quality plots")
+  #   message(paste0("found DESeq2 ouptut: ", fix_xls))
+  #   make_publish_plots(x)
+  # }
   # #-- Done in python code, pipeline
   # #-- To-Do: report
   # report_dir <- file.path(x, "report")
@@ -107,7 +105,6 @@ rnaseq_hub <- function(x, ...) {
 #' - layout       : nicely, kk
 #' - show_category: 12
 #'
-#'
 #' @import dplyr
 #' @import DESeq2
 #'
@@ -115,7 +112,7 @@ rnaseq_hub <- function(x, ...) {
 #'
 #' @export
 rnaseq_enrich_hub <- function(x, ...) {
-  if(! is_hiseq_multiple_dir(x)) {
+  if(! is_hiseq_dir(x, "rnaseq_rx")) {
     msg <- paste0("`x` expect a RNAseqRx, eg: a.vs.b directory, failed: ", x)
     stop(msg)
   }
@@ -136,7 +133,8 @@ rnaseq_enrich_hub <- function(x, ...) {
       tmp <- do.call(enrich_hub, arg_vars)
     })
     #-- Report: for RNAseq
-    template    <- system.file("rnaseq", "hiseq_report_enrich_multiple.Rmd",
+    template    <- system.file("rnaseq",
+                               "hiseq_report_rx_enrich.Rmd",
                                package = "hiseqr")
     report_dir  <- file.path(x, "enrich", "report")
     rnaseq_report(x, report_dir, template)
@@ -171,14 +169,14 @@ deseq2_main <- function(dds,
                         pval_cutoff = 0.05,
                         organism = NULL,
                         readable = TRUE) {
+  # parallel
+  BiocParallel::register(BiocParallel::MulticoreParam(4))
   # Check dds, DESeq2 object
   stopifnot(inherits(dds, "DESeqDataSet"))
-
   # Prepare output directory
-  if (!dir.exists(outdir)) {
+  if (! dir.exists(outdir)) {
     dir.create(outdir, showWarnings = FALSE, recursive = TRUE, mode = "0755")
   }
-
   # Default output files
   dds_rds   <- file.path(outdir, "DESeq2_dds.rds")
   de_fpkm   <- file.path(outdir, "gene_fpkm.csv")
@@ -205,11 +203,9 @@ deseq2_main <- function(dds,
     "volcano"
   )
   )
-
   de_plots <- sapply(plot_name, function(i) {
     file.path(outdir, i)
   }, USE.NAMES = TRUE, simplify = FALSE)
-
   # Run the DESeq pipeline
   if(file.exists(dds_rds)) {
     dds <- readRDS(dds_rds)
@@ -218,19 +214,18 @@ deseq2_main <- function(dds,
     # Save dds to file
     saveRDS(dds, file = dds_rds)
   }
-
   # Get table
   res <- DESeq2::results(dds)
-
   # Test models
   # Get differential expression results
   res_lfc <- DESeq2::lfcShrink(dds, coef = 2, res = res, type = "apeglm")
-  rld <- DESeq2::rlogTransformation(dds, blind = FALSE)
   ntd <- DESeq2::normTransform(dds)
+  vsd <- DESeq2::vst(dds, blind=FALSE)
+  rld <- DESeq2::rlog(dds, blind=FALSE)
+  # rld <- DESeq2::rlogTransformation(dds, blind = FALSE)
   res <- res[order(res$padj), ] # Order by adjusted p-value
-  # res_sig <- subset(as.data.frame(res), padj < pval_cutoff)
+  res_sig <- subset(as.data.frame(res), padj < pval_cutoff)
   ncount <- DESeq2::counts(dds, normalized = TRUE) # Normalied counts
-
   # Add annotation, gene_symbol, entrezid
   if (isTRUE(readable) & is.character(organism)) {
     keytype <- guess_keytype(rownames(res), organism = organism) # !!!! error mm10
@@ -246,16 +241,7 @@ deseq2_main <- function(dds,
     ## to symbol
     to_symbol  <- setNames(df_gene$SYMBOL, nm = df_gene[, keytype])
     res$symbol <- dplyr::recode(rownames(res), !!!to_symbol)
-    # res$symbol   <- df_gene$SYMBOL
-    # res$entrezid <- df_gene$ENTREZID
-    # merge(data, df_gene, by.x = "Gene", by.y = keytype, all.x = TRUE)
-    # g <- convert_id(rownames(res),
-    #                 to_keytype = c("SYMBOL", "ENTREZID"),
-    #                 organism = organism)
-    # res$symbol <- gene_to_symbol(rownames(res), organism, "SYMBOL")
-    # res$entrezid <- gene_to_symbol(rownames(res), organism, "ENTREZID")
   }
-
   # Merge with normalized count data
   resdata <- merge(as.data.frame(ncount),
                    as.data.frame(res),
@@ -264,47 +250,38 @@ deseq2_main <- function(dds,
   )
   resdata <- resdata[order(resdata$padj), ]
   names(resdata)[1] <- "Gene"
-
   # Save results to file, csv
   # resdata2 <- read_deseq_csv(resdata, fc_cutoff, pval_cutoff)
   write.csv(resdata, de_count, quote = TRUE, row.names = TRUE)
-
   # Save results to file, xls
   df_csv <- read_deseq_csv(de_count, fc_cutoff, pval_cutoff, readable = TRUE,
                            organism = organism)
   readr::write_delim(df_csv, de_xls, delim = "\t", col_names = TRUE)
-
   # Save FPKM to file, xls
   df_fpkm <- DESeq2::fpkm(dds) %>%
     as.data.frame.matrix() %>%
     tibble::rownames_to_column("Gene")
   readr::write_csv(df_fpkm, de_fpkm, quote_escape = "double")
-
   # MA plot
   png(de_plots$ma, width = 1200, height = 1200, res = 300)
   DESeq2::plotMA(res, ylim = c(-2, 2))
   dev.off()
-
   # MA for LFC
   png(de_plots$ma_lfc, width = 1200, height = 1200, res = 300)
   DESeq2::plotMA(res_lfc, ylim = c(-2, 2))
   dev.off()
-
   # Sample counts
   png(de_plots$counts, width = 1200, height = 1200, res = 300)
   DESeq2::plotCounts(dds, gene = which.min(res$padj), intgroup = "condition")
   dev.off()
-
   # PCA
   png(de_plots$pca, width = 2000, height = 2000, res = 300)
   print(DESeq2::plotPCA(rld, intgroup = c("condition")))
   dev.off()
-
   # Dispersion
   png(de_plots$dispersion, width = 1500, height = 1500, res = 300)
   DESeq2::plotDispEsts(dds)
   dev.off()
-
   # Sample distance
   png(de_plots$sample_distance, width = 1000, height = 1000, res = 300)
   sample_dist <- dist(t(SummarizedExperiment::assay(rld)))
@@ -318,7 +295,6 @@ deseq2_main <- function(dds,
                      col = colors
   )
   dev.off()
-
   # Top genes
   png(de_plots$top_gene, width = 1200, height = 1200, res = 300)
   s <- order(rowMeans(DESeq2::counts(dds, normalized = TRUE)),
@@ -335,7 +311,6 @@ deseq2_main <- function(dds,
                      annotation_col = df
   )
   dev.off()
-
   # output
   de_xls
 }
@@ -362,20 +337,16 @@ deseq2_main <- function(dds,
 import_matrix <- function(ma, control_name, treatment_name) {
   # Check arguments
   stopifnot(inherits(ma, "matrix"))
-
   # Check sample names in ma
   stopifnot(all(c(control_name, treatment_name) %in% colnames(ma)))
-
   # Convert to integers, if float exists
   ma <- round(ma, digits = 0)
-
   # Save only positive values
   neg_cols <- apply(ma < 0, 1, any)
   if (sum(neg_cols) > 0) {
     warning(paste0("Remove ", sum(neg_cols), " records, with negative counts"))
     ma <- ma[! neg_cols, ]
   }
-
   # create design
   col_data <- data.frame(condition = factor(c(
     rep("control", times = length(control_name)),
@@ -384,9 +355,8 @@ import_matrix <- function(ma, control_name, treatment_name) {
   levels = c("control", "treatment")
   ))
   rownames(col_data) <- c(control_name, treatment_name)
-
   # return dds
-  dds <- DESeq2::DESeqDataSetFromMatrix(
+  DESeq2::DESeqDataSetFromMatrix(
     countData = ma,
     colData   = col_data,
     design    = ~condition
@@ -406,53 +376,39 @@ import_matrix <- function(ma, control_name, treatment_name) {
 #'
 #' @export
 prep_deseq <- function(x) {
-  hiseq_type <- get_hiseq_type(x)
-
-  if (! hiseq_type == "rnaseq_rx") {
-    stop(glue::glue("rnaseq_rx dir expected, {hiseq_type} found: {x}"))
+  if(! is_hiseq_dir(x, "rnaseq_rx")) {
+    msg <- paste0("`x` expect a RNAseqRx, eg: a.vs.b directory, failed: ", x)
+    stop(msg)
   }
-
   # Load control/treatment, wildtype/mutant files
   pd <- read_hiseq(x)
-
   # Wildtype dir, smp_name
-  wt_dir    <- pd$args$wildtype_dir
-  wt_r1     <- list_hiseq_single_dirs(wt_dir)
-  wt_names  <- sapply(wt_r1, function(i) {
-    read_hiseq(i)$args$smp_name
-  }, simplify = TRUE)
-  wt_count_files <- get_rnaseq_count_txt(wt_dir, "sens")
-
+  wt_dir    <- list_hiseq_file(x, "wt_dir", "_rx")
+  wt_r1     <- list_hiseq_dir(wt_dir, "_r1")
+  wt_names  <- list_hiseq_file(wt_dir, "smp_name", "_r1")
+  wt_count_files <- list_hiseq_file(wt_dir, "count_sens", "r1")
   # Mutant dir, smp_name
-  mut_dir   <- pd$args$mutant_dir
-  mut_r1    <- list_hiseq_single_dirs(mut_dir)
-  mut_names <- sapply(mut_r1, function(i) {
-    read_hiseq(i)$args$smp_name
-  }, simplify = TRUE)
-  mut_count_files <- get_rnaseq_count_txt(mut_dir, "sens")
-
+  mut_dir   <- list_hiseq_file(x, "mut_dir", "_rx")
+  mut_r1    <- list_hiseq_dir(mut_dir, "_r1")
+  mut_names <- list_hiseq_file(mut_dir, "smp_name", "r1")
+  mut_count_files <- list_hiseq_file(mut_dir, "count_sens", "r1")
   # Parsing the genome
-  genome <- read_hiseq(wt_r1[1])$args$genome
-
+  genome <- list_hiseq_file(x, "genome", "_rx")
   # Parsing count.txt files
-  # c_files <- c(pd$args$wildtype_count_sens,
-  #              pd$args$mutant_count_sens)
   c_files <- c(wt_count_files, mut_count_files)
-  df <- read_fc2(c_files)
-  colnames(df) <- c("id", wt_names, mut_names)
-
+  df <- hiseqr::read_fc2(c_files)
+  colnames(df) <- c("id", wt_names, mut_names) # shorter names?!!!!
   # Convert data.frame to matrix
   ma <- df %>%
     tibble::column_to_rownames("id") %>%
     as.matrix()
-
   # Output
   list(
-    ma             = ma,
-    control_name   = wt_names,
-    treatment_name = mut_names,
-    genome         = genome,
-    control_count  = wt_count_files,
+    ma              = ma,
+    control_name    = wt_names,
+    treatment_name  = mut_names,
+    genome          = genome,
+    control_count   = wt_count_files,
     treatment_count = mut_count_files
   )
 }
@@ -472,21 +428,12 @@ prep_deseq <- function(x) {
 #'
 #' @export
 prep_rnaseq_enrich <- function(x) {
-  hiseq_type <- get_hiseq_type(x)
-  if(is(hiseq_type, "character")) {
-    if(! hiseq_type == "rnaseq_rx") {
-      msg <- paste0("`x` is not RNASeqRx, a.vs.b dir, ", x)
-      warning(msg)
-      return(NULL)
-    }
-  } else {
-    msg <- paste0("`x` require character, failed, ", class(x))
-    warning(msg)
-    return(NULL)
+  if(! is_hiseq_dir(x, "rnaseq_rx")) {
+    stop(glue::glue("rnaseq_rx dir expected, faild {x}"))
   }
   #--Parsing config.toml
   px       <- read_hiseq(x[1])
-  organism <- get_organism_name(px$args$genome)
+  organism <- list_hiseq_file(x, "genome", "rnaseq_rx")
   if(is.null(organism)) {
     msg <- paste0("`organism` not supported, [", as.character(organism), "], ",
                   "see `Organism.dplyr::supportedOrganisms()` ",
@@ -700,7 +647,7 @@ deseq_csv_mean <- function(data) {
 
 #' @describeIn make_publish_plots Create plots with pubilsh quality
 #'
-#' @param x character Path to the .fix.xls file of DEseq2 output
+#' @param x deseq directory, file of DEseq2 output
 #' @param outdir character Path to the directory, saving the plots
 #' @param save2pdf bool Save the plots in PDF file,
 #'
@@ -709,14 +656,12 @@ deseq_csv_mean <- function(data) {
 #'
 #' @export
 make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
-  if(! is.character(x)) {
-    on.exit(message("x, expect character, failed"))
-  }
-  if(! file.exists(x)) {
-    on.exit(message("x, file not exists"))
+  fix_xls <- get_fix_xls(x)
+  if(is.null(fix_xls)) {
+    on.exit(paste0("not a a.vs.b directory: ", x))
   }
   # prepare data
-  df <- readr::read_delim(x, "\t", col_types = readr::cols())
+  df <- readr::read_delim(fix_xls, "\t", col_types = readr::cols())
   if("symbol" %in% names(df)) {
     df$label <- df$symbol
   } else if("SYMBOL" %in% names(df)) {
@@ -725,31 +670,27 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
     df$label <- df$Gene
   }
   #--args: output dir
+  deseq_dir <- list_hiseq_file(x, "deseq_dir", "rnaseq_rx")
   if(is.null(outdir)) {
-    outdir <- dirname(x)
+    outdir <- deseq_dir
   }
   if(! dir.exists(outdir)) {
     dir.create(outdir, showWarnings = FALSE, recursive = TRUE, mode = "0740")
   }
-
   #--args: deseq_dir
-  deseq_dir <- dirname(dirname(x))
-  pa    <- read_hiseq(deseq_dir)
-  xname <- pa$args$wildtype_name
-  yname <- pa$args$mutant_name
+  xname <- list_hiseq_file(x, "wt_name", "rnaseq_rx")
+  yname <- list_hiseq_file(x, "mut_name", "rnaseq_rx")
   #--args: in case xname,yname is NULL (not from deseq_dir)
   if(is.null(xname) | is.null(yname)) {
     xname <- names(df)[2]
     yname <- names(df)[3]
   }
-
   #--check: required columns
   req_cols <- c("Gene", "baseMean", "log2FoldChange", "padj", "sig", xname,
                 yname)
   if(! all(req_cols %in% names(df))) {
     on.exit(message("required columns not found"))
   }
-
   #--labels: sig genes, label
   labels <- df %>%
     dplyr::filter(sig %in% c("up", "down")) %>%
@@ -757,20 +698,12 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
     dplyr::pull(label) %>%
     head(5)
   labels <- purrr::discard(labels, is.na)
-
   # png files
-  p1_png <- file.path(outdir, "pulish.1.scatter.png")
-  p2_png <- file.path(outdir, "pulish.2.ma.png")
-  p3_png <- file.path(outdir, "pulish.3.volcano.png")
-  p4_png <- file.path(outdir, "pulish.4.heatmap.png")
-
-  # # plot-1: scatter
-  # p1 <- scatter_plot(df,
-  #                    x           = xname,
-  #                    y           = yname,
-  #                    labels      = labels,
-  #                    show_sig    = TRUE,
-  #                    show_abline = TRUE)
+  p1_png <- file.path(outdir, "publish.1.scatter.png")
+  p2_png <- file.path(outdir, "publish.2.ma.png")
+  p3_png <- file.path(outdir, "publish.3.volcano.png")
+  p4_png <- file.path(outdir, "publish.4.heatmap.png")
+  # plot-1: scatter
   p1 <- scatter_plot2(
     df, xname, yname,
     highlight_column = "sig",
@@ -781,13 +714,11 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
   png(p1_png, width = 5, height = 4.5, units = "in", res = 150)
   print(p1)
   dev.off()
-
   # plot-2: ma
   p2 <- ma_plot(df, labels = labels)
   png(p2_png, width = 5, height = 4.5, units = "in", res = 150)
   print(p2)
   dev.off()
-
   # plot-3: volcano
   df$log10pval <- sapply(df$padj, function(i) {
     ifelse(is.null(i), 0, -log10(i))
@@ -796,59 +727,59 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
   png(p3_png, width = 5, height = 4.5, units = "in", res = 150)
   print(p3)
   dev.off()
-
   # plot-4: heatmap
   # fpkm
-  library(ComplexHeatmap)
+  # library(ComplexHeatmap)
   df_sig <- df %>%
     dplyr::filter(sig %in% c("up", "down"))
   f_fpkm <- file.path(outdir, "gene_fpkm.csv")
   if(file.exists(f_fpkm)) {
-    df3 <- readr::read_csv(f_fpkm, col_types = readr::cols())
-    # only sig genes
-    df4 <- df3 %>%
-      dplyr::filter(Gene %in% df_sig$Gene) %>%
-      tibble::column_to_rownames("Gene") %>%
-      as.matrix()
-    # check sig
-    sig_list <- dplyr::recode(rownames(df4), !!! setNames(df_sig$sig, df_sig$Gene))
-    df5 <- log10(df4+1)
-    # df6 <- head(df6, 10)
-    png(p4_png, width = 4, height = 10, units = "in", res = 150)
-    p4 <- ComplexHeatmap::Heatmap(
-      df5,
-      show_row_names = nrow(df5) < 30,
-      cluster_columns = FALSE,
-      row_split = sig_list,
-      heatmap_legend_param = list(
-        title = "log10(FPKM+1)",
-        legend_height = unit(4, "cm"),
-        title_position = "lefttop-rot"))
-    print(p4)
-    dev.off()
+    if(nrow(df_sig) > 0) {
+      df3 <- readr::read_csv(f_fpkm, col_types = readr::cols())
+      # only sig genes
+      df4 <- df3 %>%
+        dplyr::filter(Gene %in% df_sig$Gene) %>%
+        tibble::column_to_rownames("Gene") %>%
+        as.matrix()
+      # check sig
+      sig_list <- dplyr::recode(rownames(df4), !!! setNames(df_sig$sig, df_sig$Gene))
+      df5 <- log10(df4+1)
+      png(p4_png, width = 4, height = 10, units = "in", res = 150)
+      p4 <- ComplexHeatmap::Heatmap(
+        df5,
+        show_row_names = nrow(df5) < 30,
+        cluster_columns = FALSE,
+        row_split = sig_list,
+        heatmap_legend_param = list(
+          title = "log10(FPKM+1)",
+          legend_height = unit(4, "cm"),
+          title_position = "lefttop-rot"))
+      print(p4)
+      dev.off()
+    }
   }
-
   # Add legend
   legend <- glue::glue(
     "Figure. Differentially expression analysis. ",
     "(A-B) Comparasion of ene expression is shown as rpm from two conditions.",
     "Dashed lines indicate two fold change. A. Scatter plot, B. MA plot.",
     "(C) Volcano plot showing enrichment values and corresponding significance levels.", .sep = "\n")
-
-  p <- p1 / p2 / p3 + plot_annotation(tag_levels = "A", title = "RNAseq plot", caption = legend)
-
+  p <- patchwork::wrap_plots(list(p1, p2, p3), ncol = 1) +
+    patchwork::plot_annotation(tag_levels = "A",
+                               title = "RNAseq plot",
+                               caption = legend)
   # save plots to RDS
   px <- list(
     p1     = p1,
     p2     = p2,
     p3     = p3,
+    p4     = p4,
     data   = df,
     labels = labels,
     xname  = xname,
     yname  = yname)
   px_file <- file.path(outdir, "publish_plot_data.rds")
   saveRDS(px, file = px_file)
-
   # save plots to PDF
   if(isTRUE(to_pdf)) {
     pdf_fname <- glue::glue("DESeq2.{xname}.vs.{yname}.publish.pdf")
@@ -870,7 +801,6 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
 
 
 
-#'
 #' #' @describeIn get_fix_xls Parsing the fix.xls file from DESeq2
 #' #'
 #' #'
@@ -918,44 +848,33 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
 
 #' @describeIn get_fix_xls Parsing the fix.xls file from DESeq2
 #'
+#' @param x character, path to the a.vs.b, rnaseq_rx directory
 #'
 #' @export
 get_fix_xls <- function(x) {
-  if(is(x, "character")) {
-    # x/deseq/transcripts_deseq2.fix.xls
-    x <- x[1]
-    hiseq_type <- get_hiseq_type(x)
-    if(is(hiseq_type, "character")) {
-      if(hiseq_type == "rnaseq_rx") {
-        pd        <- read_hiseq(x)
-        organism  <- pd$args$genome
-        deseq_dir <- pd$args$deseq_dir
-        fix_xls   <- file.path(deseq_dir, "transcripts_deseq2.fix.xls")
-        de_csv    <- file.path(deseq_dir, "transcripts_deseq2.csv")
-        # convert csv to fix_xls
-        if(! file.exists(fix_xls)) {
-          message("Fix deseq csv: add mean, symbol, sig")
-          fix_df <- read_deseq_csv(de_csv, fc_cutoff = 2, pval_cutoff = 0.05,
-                                   readable = TRUE, organism = organism)
-          readr::write_delim(fix_df, fix_xls, delim = "\t", col_names = TRUE)
-        }
-        if(file.exists(fix_xls)) {
-          fix_xls
-        } else {
-          warning("`x` transcript_deseq2.fix.xls file not exists")
-          NULL
-        }
-      } else {
-        warning("`x` not hiseq_rx directory")
-        NULL
+  if(! is_hiseq_dir(x, "rnaseq_rx")) {
+    stop(glue::glue("rnaseq_rx dir expected, failed: {x}"))
+  }
+  # x/deseq/transcripts_deseq2.fix.xls
+  if(is_hiseq_dir(x[1], "rnaseq_rx")) {
+    organism  <- list_hiseq_file(x, "genome", "rnaseq_rx")
+    deseq_dir <- list_hiseq_file(x, "deseq_dir", "rnaseq_rx")
+    fix_xls   <- file.path(deseq_dir, "transcripts_deseq2.fix.xls")
+    de_csv    <- file.path(deseq_dir, "transcripts_deseq2.csv")
+    # convert csv to fix_xls
+    if(! file.exists(fix_xls)) {
+      if(file.exists(de_csv)) {
+        message("Fix deseq csv: add mean, symbol, sig")
+        fix_df <- read_deseq_csv(de_csv, fc_cutoff = 2, pval_cutoff = 0.05,
+                                 readable = TRUE, organism = organism)
+        readr::write_delim(fix_df, fix_xls, delim = "\t", col_names = TRUE)
       }
-    } else {
-      warning("`x` not hiseq directory")
-      NULL
     }
-  } else {
-    warning("`x` not character")
-    NULL
+    if(file.exists(fix_xls)) {
+      fix_xls
+    } else {
+      warning("`x` transcript_deseq2.fix.xls file not exists")
+    }
   }
 }
 
@@ -982,34 +901,28 @@ rnaseq_report <- function(input, output, template_rmd = NULL) {
   output <- normalizePath(output)
   # output
   outhtml <- file.path(output, "HiSeq_report.html")
-
-  # determine the template
-  hiseq_type = get_hiseq_type(input)
-
   # subtype
-  if(grepl("_r1$", hiseq_type)) {
-    hiseq_subtype = "rnaseq_report_single.Rmd"
-  } else if(grepl("_rn$", hiseq_type)) {
-    hiseq_subtype = "rnaseq_report_merge.Rmd"
-  } else if(grepl("_rx$", hiseq_type)) {
-    hiseq_subtype = "rnaseq_report_multiple.Rmd"
+  if(is_hiseq_dir(input, "rnaseq_r1")) {
+    hiseq_subtype = "hiseq_report_r1.Rmd"
+  } else if(is_hiseq_dir(input, "rnaseq_rn")) {
+    hiseq_subtype = "hiseq_report_rn.Rmd"
+  } else if(is_hiseq_dir(input, "rnaseq_rx")) {
+    hiseq_subtype = "hiseq_report_rx.Rmd"
   } else {
     hiseq_subtype = "tmp"
   }
-
   # template
-  # template <- system.file(hiseq_dir, "rnaseq", package = "hiseqr")
+  hiseq_type <- list_hiseq_file(input, "hiseq_type")
+  hiseq_type <- gsub("_\\w+$", "", hiseq_type[1])
   if(is.null(template_rmd)) {
-    template <- system.file(hiseq_dir, hiseq_subtype, package = "hiseqr")
+    template <- system.file(hiseq_type, hiseq_subtype, package = "hiseqr")
   } else {
     template <- template_rmd
   }
   stopifnot(file.exists(template))
-
   ## copy template to output
   template_to <- file.path(output, basename(template))
   file.copy(template, template_to, overwrite = TRUE)
-
   rmarkdown::render(input       = template_to,
                     output_file = outhtml,
                     params      = list(input_dir = input))
@@ -1018,224 +931,223 @@ rnaseq_report <- function(input, output, template_rmd = NULL) {
 
 
 
-#' @describeIn list_rnaseq_single_dirs
-#'
-#' @param x path to the input directories
-#' @param log boolen, whether print the log status, default: FALSE
-#'
-#' @export
-list_rnaseq_single_dirs <- function(x){
-  if(is_hiseq_dir(x)) {
-    if(is_hiseq_single_dir(x)) {
-      x
-    } else if(is_hiseq_merge_dir(x)) {
-      px   <- read_hiseq(x)
-      dirs <- px$args$rep_list
-      dirs <- purrr::discard(dirs, is.null)
-      if(length(dirs) > 0) {
-        sapply(dirs, list_rnaseq_single_dirs, simplify = TRUE)
-      }
-    } else if(is_hiseq_multiple_dir(x)) {
-      px   <- read_hiseq(x)
-      dirs <- c(px$args$wildtype_dir, px$args$mutant_dir)
-      dirs <- purrr::discard(dirs, is.null)
-      if(length(dirs) > 0) {
-        sapply(dirs, list_rnaseq_single_dirs, simplify = TRUE)
-      }
-    }
-  }
-}
-
-
-
-#' @describeIn list_rnaseq_merge_dirs
-#' rnaseq_merge_dirs
-#'
-#' @param x path to the input directories
-#'
-#' @export
-list_rnaseq_merge_dirs <- function(x){
-  if(is_hiseq_dir(x)) {
-    if(is_hiseq_single_dir(x)) {
-      NULL
-    } else if(is_hiseq_merge_dir(x)) {
-      x
-    } else if(is_hiseq_multiple_dir(x)) {
-      px   <- read_hiseq(x)
-      dirs <- c(px$args$wildtype_dir, px$args$mutant_dir)
-      dirs <- purrr::discard(dirs, is.null)
-      if(length(dirs) > 0) {
-        sapply(dirs, list_rnaseq_merge_dirs, simplify = TRUE)
-      }
-    }
-  }
-}
-
-
-
-
-#' @describeIn list_rnaseq_multiple_dirs
-#' rnaseq_merge_dirs
-#'
-#' @param x path to the input directories
-#'
-#' @export
-list_rnaseq_multiple_dirs <- function(x){
-  if(is_hiseq_dir(x)) {
-    if(is_hiseq_multiple_dir(x)) {
-      x
-    }
-  }
-}
-
-
-
-#' @describeIn get_rnaseq_align_stat, read TOML files
-#'
-#' read align from rnaseq seq
-#' @export
-get_rnaseq_align_stat <- function(x) {
-  dirs <- list_rnaseq_single_dirs(x)
-  dirs <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    lapply(dirs, function(i) {
-      px <- read_hiseq(i)
-      px$args$align_toml %>%
-        read_align
-    }) %>%
-      dplyr::bind_rows() %>%
-      tidyr::pivot_wider(names_from = "group", values_from = "count") %>%
-      dplyr::mutate(map_pct    = round(map / total * 100, 2),
-                    unique_pct = round(unique / total * 100, 2),
-                    unmap_pct  = round(100 - map_pct)) %>%
-      dplyr::select(fqname, index_name, total, map, unique, multiple,
-                    unmap, map_pct, unique_pct, unmap_pct)
-  }
-}
-
-
-
-#' @describeIn get_rnaseq_count_txt
-#'
-#' @export
-get_rnaseq_count_txt <- function(x, strand = "sens") {
-  dirs <- list_rnaseq_single_dirs(x)
-  dirs <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    sapply(dirs, function(i) {
-      px <- read_hiseq(i)
-      if(strand == "anti") {
-        px$args$count_anti
-      } else {
-        px$args$count_sens
-      }
-    })
-  }
-}
-
-
-
-
-
-#' @describeIn get_rnaseq_trim_stat
-#'
-#' parsing the trimming status
-#'
-#' @param x path to hiseq, single
-#' @import dplyr
-#' @import readr
-#'
-#' @export
-get_rnaseq_trim_stat <- function(x) {
-  dirs <- list_rnaseq_single_dirs(x)
-  dirs <- purrr::discard(dirs, is.null)
-  if(length(dirs) > 0) {
-    lapply(dirs, function(i) {
-      px <- read_hiseq(i)
-      px$args$trim_summary_toml %>%
-        read_toml # to-do; read_toml
-    }) %>%
-      dplyr::bind_rows() %>%
-      dplyr::select(id, input, output, out_pct, rm_pct) %>%
-      dplyr::mutate(across(-id, as.numeric)) %>%
-      dplyr::mutate(id        = forcats::fct_rev(id),
-                    out_pct   = as.numeric(out_pct),
-                    rm_pct    = as.numeric(rm_pct)) %>%
-      dplyr::rename(raw       = input,
-                    clean     = output,
-                    clean_pct = out_pct,
-                    short_pct = rm_pct)
-  }
-}
-
-
-
-
-
-#' @describeIn get_rnaseq_strandness
+#' #' @describeIn list_rnaseq_single_dirs
+#' #'
+#' #' @param x path to the input directories
+#' #' @param log boolen, whether print the log status, default: FALSE
+#' #'
+#' #' @export
+#' list_rnaseq_single_dirs <- function(x){
+#'   if(is_hiseq_dir(x)) {
+#'     if(is_hiseq_single_dir(x)) {
+#'       x
+#'     } else if(is_hiseq_merge_dir(x)) {
+#'       px   <- read_hiseq(x)
+#'       dirs <- px$args$rep_list
+#'       dirs <- purrr::discard(dirs, is.null)
+#'       if(length(dirs) > 0) {
+#'         sapply(dirs, list_rnaseq_single_dirs, simplify = TRUE)
+#'       }
+#'     } else if(is_hiseq_multiple_dir(x)) {
+#'       px   <- read_hiseq(x)
+#'       dirs <- c(px$args$wildtype_dir, px$args$mutant_dir)
+#'       dirs <- purrr::discard(dirs, is.null)
+#'       if(length(dirs) > 0) {
+#'         sapply(dirs, list_rnaseq_single_dirs, simplify = TRUE)
+#'       }
+#'     }
+#'   }
+#' }
 #'
 #'
-#' extract strandness info
-#' 1. strandness.txt
-#' 2. count.txt.cmd.sh
 #'
-#' sens: 1, anti: 2, ++ -- / +- -+
-#' sens: 2, anti: 1, +- -+ / ++ --
+#' #' @describeIn list_rnaseq_merge_dirs
+#' #' rnaseq_merge_dirs
+#' #'
+#' #' @param x path to the input directories
+#' #'
+#' #' @export
+#' list_rnaseq_merge_dirs <- function(x){
+#'   if(is_hiseq_dir(x)) {
+#'     if(is_hiseq_single_dir(x)) {
+#'       NULL
+#'     } else if(is_hiseq_merge_dir(x)) {
+#'       x
+#'     } else if(is_hiseq_multiple_dir(x)) {
+#'       px   <- read_hiseq(x)
+#'       dirs <- c(px$args$wildtype_dir, px$args$mutant_dir)
+#'       dirs <- purrr::discard(dirs, is.null)
+#'       if(length(dirs) > 0) {
+#'         sapply(dirs, list_rnaseq_merge_dirs, simplify = TRUE)
+#'       }
+#'     }
+#'   }
+#' }
 #'
 #'
-#' @export
-get_rnaseq_strandness <- function(x) {
-  if(! is(x, "character")) {
-    stop("`x` expect character, failed")
-  }
-  if(! is_hiseq_single_dir(x)) {
-    stop("`x` expect RNAseqR1 directory, failed")
-  }
-  msg = "The strandness for sens strand:"
-  message(msg)
-  pd <- read_hiseq(x)
-  f1 <- pd$args$strandness_file
-  f2 <- paste0(pd$args$count_sens, ".cmd.sh")
-  if(file.exists(f1)) {
-    read.delim(f1, header = FALSE, sep = ":", strip.white = TRUE) %>%
-      dplyr::filter(V1 == "sens") %>%
-      dplyr::pull(V2) %>%
-      as.numeric
-  } else if(file.exists(f2)) {
-    readLines(f2) %>%
-      stringr::str_match(" -s ([012]) ") %>%
-      as.data.frame %>%
-      dplyr::pull(V2) %>%
-      as.numeric
-  } else {
-    stop("`x` directory truncated, failed")
-  }
-}
+#'
+#'
+#' #' @describeIn list_rnaseq_multiple_dirs
+#' #' rnaseq_merge_dirs
+#' #'
+#' #' @param x path to the input directories
+#' #'
+#' #' @export
+#' list_rnaseq_multiple_dirs <- function(x){
+#'   if(is_hiseq_dir(x)) {
+#'     if(is_hiseq_multiple_dir(x)) {
+#'       x
+#'     }
+#'   }
+#' }
 
 
 
 
 
-#' @export
-get_rnaseq_report <- function(x) {
-  # search for single dir
-  rep_list      <- list_rnaseq_single_dirs(x)
-  merge_list    <- list_rnaseq_merge_dirs(x)
-  multiple_list <- list_rnaseq_multiple_dirs(x)
-  dirs          <- sort(c(rep_list, merge_list, multiple_list))
-  dirs          <- purrr::discard(dirs, is.null)
-  report_list <- sapply(dirs, function(i){
-    px <- read_hiseq(i)
-    report_dir <- px$args$report_dir
-    f_html  <- list.files(report_dir, "*.html", full.names = TRUE)
-    if(length(f_html) > 0) {
-      f_html[1]
-    }
-  }, simplify = TRUE, USE.NAMES = FALSE) %>%
-    unlist()
 
-  purrr::discard(report_list, is.null)
-}
+#' #' @describeIn get_rnaseq_trim_stat
+#' #'
+#' #' parsing the trimming status
+#' #'
+#' #' @param x path to hiseq, single
+#' #' @import dplyr
+#' #' @import readr
+#' #'
+#' #' @export
+#' get_rnaseq_trim_stat <- function(x) {
+#'   f <- list_hiseq_file(x, "trim_summary_json", "r1")
+#'   df <- lapply(f, function(i) {
+#'     jsonlite::read_json(i) %>%
+#'       as.data.frame()
+#'   }) %>%
+#'     dplyr::bind_rows()
+#'   if(nrow(df) > 0) {
+#'     df %>%
+#'       dplyr::select(name, input, output, out_pct, rm_pct) %>%
+#'       dplyr::mutate(across(-name, as.numeric)) %>%
+#'       dplyr::mutate(name = forcats::fct_rev(name)) %>%
+#'       dplyr::rename(raw       = input,
+#'                     clean     = output,
+#'                     clean_pct = out_pct,
+#'                     short_pct = rm_pct)
+#'   }
+#' }
+#'
+#'
+#'
+#'
+#' #' @describeIn get_rnaseq_align_stat, read TOML files
+#' #'
+#' #' read align from rnaseq seq
+#' #' @export
+#' get_rnaseq_align_stat <- function(x) {
+#'   f <- list_hiseq_file(x, "align_summary_json", "r1")
+#'   df <- lapply(f, function(i) {
+#'     jsonlite::read_json(i) %>%
+#'       as.data.frame()
+#'   }) %>%
+#'     dplyr::bind_rows()
+#'   if(nrow(df) > 0) {
+#'     df %>%
+#'       dplyr::mutate(
+#'         map_pct = round(map / total * 100, 2),
+#'         unique_pct = round(unique / total * 100, 2),
+#'         unmap_pct = round(unmap / total * 100, 2)
+#'       ) %>%
+#'       dplyr::select(
+#'         name, index, total, map, unique, multi, spikein, rRNA, unmap,
+#'         map_pct, unique_pct, unmap_pct
+#'       )
+#'   }
+#' }
+
+
+
+#' #' @describeIn get_rnaseq_strandness
+#' #'
+#' #' extract strandness info
+#' #' 1. strandness.json
+#' #'
+#' #' sens: 1, anti: 2, ++ -- / +- -+
+#' #' sens: 2, anti: 1, +- -+ / ++ --
+#' #'
+#' #' @export
+#' get_rnaseq_strandness <- function(x) {
+#'   # sense strand
+#'   f1 <- list_hiseq_file(x, "count_sens", "r1")
+#'   if(is.character(f1)) {
+#'     f1_json <- paste0(f1, ".summary.json")
+#'     df1 <- lapply(f1_json, function(i) {
+#'       m = jsonlite::read_json(i)
+#'       as.data.frame(m[[1]])
+#'     }) %>%
+#'       dplyr::bind_rows() %>%
+#'       dplyr::mutate(strand = "sense")
+#'   } else {
+#'     df1 <- NULL
+#'   }
+#'   # antisense strand
+#'   f2 <- list_hiseq_file(x, "count_anti", "r1")
+#'   if(is.character(f2)) {
+#'     f2_json <- paste0(f2, ".summary.json")
+#'     df2 <- lapply(f2_json, function(i) {
+#'       m = jsonlite::read_json(i)
+#'       as.data.frame(m[[1]])
+#'     }) %>%
+#'       dplyr::bind_rows() %>%
+#'       dplyr::mutate(strand = "antisense")
+#'   } else {
+#'     df2 <- NULL
+#'   }
+#'   # output
+#'   dplyr::bind_rows(list(df1, df2))
+#' }
+
+
+
+
+
+#' #' @describeIn get_rnaseq_count_txt
+#' #'
+#' #' @export
+#' get_rnaseq_count_txt <- function(x, strand = "sens") {
+#'   dirs <- list_rnaseq_single_dirs(x)
+#'   dirs <- purrr::discard(dirs, is.null)
+#'   if(length(dirs) > 0) {
+#'     sapply(dirs, function(i) {
+#'       px <- read_hiseq(i)
+#'       if(strand == "anti") {
+#'         px$args$count_anti
+#'       } else {
+#'         px$args$count_sens
+#'       }
+#'     })
+#'   }
+#' }
+
+
+
+#' #' @export
+#' get_rnaseq_report <- function(x) {
+#'   # search for single dir
+#'   rep_list      <- list_rnaseq_single_dirs(x)
+#'   merge_list    <- list_rnaseq_merge_dirs(x)
+#'   multiple_list <- list_rnaseq_multiple_dirs(x)
+#'   dirs          <- sort(c(rep_list, merge_list, multiple_list))
+#'   dirs          <- purrr::discard(dirs, is.null)
+#'   report_list <- sapply(dirs, function(i){
+#'     px <- read_hiseq(i)
+#'     report_dir <- px$args$report_dir
+#'     f_html  <- list.files(report_dir, "*.html", full.names = TRUE)
+#'     if(length(f_html) > 0) {
+#'       f_html[1]
+#'     }
+#'   }, simplify = TRUE, USE.NAMES = FALSE) %>%
+#'     unlist()
+#'
+#'   purrr::discard(report_list, is.null)
+#' }
 
 
 

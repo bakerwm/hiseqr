@@ -55,8 +55,6 @@
 #'   )
 #' do.call(enrich_hub, dots)
 #'
-#'
-#'
 #' @export
 enrich_hub <- function(gene_list, organism, outdir = NULL, ...) {
   outdir   <- ifelse(is(outdir, "character"), outdir, getwd()) # working dir

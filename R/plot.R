@@ -157,7 +157,8 @@ fragsize_plot <- function(data, xmin = 0, xmax = 500,
     theme(
       axis.text  = element_text(color = "grey20"),
       panel.grid = element_blank(),
-      plot.title = element_text(hjust = 0.5)
+      plot.title = element_text(hjust = 0.5),
+      legend.position = c(.8, .8)
     )
   # log10 of y axis
   if(isTRUE(log10_y)) {
@@ -461,7 +462,7 @@ scatter_plot <- function(data, x, y, labels = NULL, add_label_point = TRUE,
     xlab(xtitle) +
     ylab(ytitle) +
     labs(color = "Group") +
-    theme_clean() +
+    ggthemes::theme_clean() +
     theme(
       panel.border = element_rect(color = "black", fill = NA, size = .5),
       plot.title   = element_text(color = "black", hjust = .5, size = 14),
@@ -605,7 +606,7 @@ scatter_plot2 <- function(data, x, y, ...) {
           as.name(pd$x), as.name(pd$y)),
         data = pd$df_label, shape = 16, size = point_size_highlight, # !!!! tmp
         color = "grey30") +
-      geom_text_repel(
+      ggrepel::geom_text_repel(
         aes_string(as.name(pd$x), as.name(pd$y), label = "is_label"),
         data = pd$df_label, inherit.aes = FALSE,
         color              = "black",
@@ -812,104 +813,6 @@ prep_scatter_data <- function(data, x, y, ...) {
 
 #--Custome: for specific mission: RNAseq ---------------------------------------
 
-
-
-#' @describeIn rnaseq_trim_stat_plot Create bar_plot for trim stat
-#'
-#' output from get_rnaseq_trim_stat(),
-#' including columns:
-#' id, raw, clean, clean_pct, short_pct
-#'
-#'
-#' @param data data.frame From get_trim_stat
-#' @param fish string Name of the fish, use `fishualize::fish_palettes()` list
-#' all available fish names
-#'
-#' @export
-rnaseq_trim_stat_plot <- function(data, fish = "Trimma_lantana") {
-  if(is(data, "data.frame")) {
-    col_required <- c("id", "clean_pct", "short_pct")
-    if(! all(col_required %in% names(data))) {
-      stop("`data` required columns missing: ",
-           paste(col_required, collapse = ", "))
-    }
-  } else {
-    stop("`data` expect data.frame, failed")
-  }
-  data %>%
-    dplyr::select(id, clean_pct, short_pct) %>%
-    tidyr::pivot_longer(names_to  = "group",
-                        values_to = "count",
-                        c(clean_pct, short_pct)) %>%
-    bar_plot(x = "count", y = "id", fill = "group", label = "count") +
-    fishualize::scale_fill_fish(discrete = TRUE, option = fish) +
-    ggtitle("Trim reads")
-
-}
-
-
-
-
-#' @describeIn rnaseq_align_stat_plot Create bar_plot for align_stat
-#'
-#' Output from get_rnaseq_align_stat()
-#' including columns:
-#' fqname, map, unique, multiple
-#'
-#' @param data data.frame From get_rnaseq_align_stat()
-#' @param mode integer map=1, unique/multiple=2, default: 1
-#' @param fish string Name of the fish, use `fishualize::fish_palettes()` list
-#'  all availabel fish names
-#'
-#' @export
-rnaseq_align_stat_plot <- function(data,
-                                   mode = 1,
-                                   columns = NULL,
-                                   fish = "Trimma_lantana",
-                                   title = "Barplot") {
-  if(! is(data, "data.frame")) {
-    stop("`data` expect data.frame, failed")
-  }
-  # id column
-  id_column <- c("fqname", "id", "name")
-  if(! any(id_column %in% names(data))) {
-    stop("`data` missing the column: [fqname, id, name]")
-  }
-  id_column <- id_column[id_column %in% colnames(data)]
-  id_column <- id_column[1]
-  # columns
-  g1 <- switch(mode,
-               c("map", "unmap"),
-               c("unique", "multi", "unmap"),
-               c("chrM, spikein, map", "unmap"),
-               c("total"))
-  if(length(g1)) {
-    columns <- g1
-  }
-  columns <- purrr::discard(columns, is.null)
-  if(! all(columns %in% names(data))) {
-    d_line <- paste(names(data), collapse = ", ")
-    stop("`columns` missing, expect: ", d_line)
-  }
-  # subset data.frame
-  df <- data %>%
-    dplyr::rename(id = !!id_column) %>%
-    dplyr::select(any_of(c("id", columns))) %>%
-    tidyr::pivot_longer(names_to = "group", values_to = "count", -1) %>%
-    dplyr::mutate(group = factor(group, levels = columns)) %>%
-    dplyr::group_by(id) %>%
-    dplyr::mutate(pct = round(count / sum(count) * 100, 2))
-
-  # plot
-  df %>%
-    bar_plot(x = "pct", y = "id", direction = "horizontal",
-             fill = "group", label = NULL) +
-    fishualize::scale_fill_fish(discrete = TRUE, option = fish) +
-    ylab(NULL) +
-    xlab("Percentage%") +
-    # theme(legend.position = "top") +
-    ggtitle(title)
-}
 
 
 

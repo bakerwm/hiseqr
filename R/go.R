@@ -162,28 +162,41 @@ group_go <- function(gene_list, organism, outdir = NULL, ...) {
     if(file.exists(go_ont_data_rds) & ! arg_vars$overwrite) {
       go_ont_data <- readRDS(go_ont_data_rds)
     } else {
-      go_ont_data <- clusterProfiler::groupGO(
-        gene     = arg_vars$gene_list,
-        OrgDb    = arg_vars$orgdb,
-        keyType  = arg_vars$keytype,
-        ont      = ont,
-        level    = arg_vars$level,
-        readable = arg_vars$readable)
-      saveRDS(go_ont_data, file = go_ont_data_rds)
+      go_ont_data <- tryCatch(
+        {
+          go_ont_data <- clusterProfiler::groupGO(
+            gene     = arg_vars$gene_list,
+            OrgDb    = arg_vars$orgdb,
+            keyType  = arg_vars$keytype,
+            ont      = ont,
+            level    = arg_vars$level,
+            readable = arg_vars$readable)
+          saveRDS(go_ont_data, file = go_ont_data_rds)
+          return(go_ont_data)
+        },
+        error=function(cond) {
+          warning("groupGO() failed")
+          return(NULL)
+        }
+      )
     }
     #--GO plotting: plot
-    if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
-      go_ont_plot <- readRDS(go_ont_plot_rds)
+    if(is.null((go_ont_data))) {
+      warning("groupGO() failed, not results")
     } else {
-      go_ont_plot <- group_go_plots(go_ont_data)# !!!! group_go_plot
-      saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
+        go_ont_plot <- readRDS(go_ont_plot_rds)
+      } else {
+        go_ont_plot <- group_go_plots(go_ont_data)# !!!! group_go_plot
+        saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      }
+      #--GO plotting: save to png
+      prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
+      save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
+      #--GO table: save result to csv
+      prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
+      save_go_table(go_ont_data, arg_vars$outdir, prefix)
     }
-    #--GO plotting: save to png
-    prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
-    save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
-    #--GO table: save result to csv
-    prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
-    save_go_table(go_ont_data, arg_vars$outdir, prefix)
     #--Return:
     go_ont_data
   }, USE.NAMES = TRUE)
@@ -261,34 +274,51 @@ enrich_go <- function(gene_list, organism, outdir = NULL, ...) {
     if(file.exists(go_ont_data_rds) & ! arg_vars$overwrite) {
       go_ont_data <- readRDS(go_ont_data_rds)
     } else {
-      ego <- clusterProfiler::enrichGO(
-        gene          = arg_vars$gene_list,
-        OrgDb         = arg_vars$orgdb,
-        ont           = ont,
-        keyType       = arg_vars$keytype,
-        pvalueCutoff  = arg_vars$pval_cutoff,
-        qvalueCutoff  = arg_vars$qval_cutoff,
-        pAdjustMethod = "BH",
-        readable      = arg_vars$readable)
-      go_ont_data <- clusterProfiler::simplify(
-        ego, cutoff = 0.7, by = "p.adjust",
-        select_fun = min) # redundant
-      #--Save to rds
-      saveRDS(go_ont_data, file = go_ont_data_rds)
+      go_ont_data <- tryCatch(
+        {
+          ego <- clusterProfiler::enrichGO(
+            gene          = arg_vars$gene_list,
+            OrgDb         = arg_vars$orgdb,
+            ont           = ont,
+            keyType       = arg_vars$keytype,
+            pvalueCutoff  = arg_vars$pval_cutoff,
+            qvalueCutoff  = arg_vars$qval_cutoff,
+            pAdjustMethod = "BH",
+            readable      = arg_vars$readable)
+          if(class(ego) == "enrichResult") {
+            go_ont_data <- clusterProfiler::simplify(
+              ego, cutoff = 0.7, by = "p.adjust",
+              select_fun = min) # redundant
+            #--Save to rds
+            saveRDS(go_ont_data, file = go_ont_data_rds)
+          } else {
+            go_ont_data <- ego # skipped
+          }
+          return(go_ont_data)
+        },
+        error=function(cond) {
+          warning("enrichGO() failed")
+          return(NULL)
+        }
+      )
     }
     #--GO plotting: plot
-    if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
-      go_ont_plot <- readRDS(go_ont_plot_rds)
+    if(is.null(go_ont_data)) {
+      message("enrichGO() failed, no results")
     } else {
-      go_ont_plot <- enrich_go_plots(go_ont_data) # !!!! enrich_go_plot
-      saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
+        go_ont_plot <- readRDS(go_ont_plot_rds)
+      } else {
+        go_ont_plot <- enrich_go_plots(go_ont_data) # !!!! enrich_go_plot
+        saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      }
+      #--GO plotting: save to png
+      prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
+      save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
+      #--GO table: save result to csv
+      prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
+      save_go_table(go_ont_data, arg_vars$outdir, prefix)
     }
-    #--GO plotting: save to png
-    prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
-    save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
-    #--GO table: save result to csv
-    prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
-    save_go_table(go_ont_data, arg_vars$outdir, prefix)
     #--Return: data
     go_ont_data
   }, USE.NAMES = TRUE)
@@ -358,32 +388,45 @@ gsea_go <- function(gsea_gene, organism, outdir = NULL, ...) {
     if(file.exists(go_ont_data_rds) & ! arg_vars$overwrite) {
       go_ont_data <- readRDS(go_ont_data_rds)
     } else {
-      go_ont_data <- clusterProfiler::gseGO(
-        gene         = arg_vars$gsea_gene,
-        keyType      = arg_vars$keytype,
-        OrgDb        = arg_vars$orgdb,
-        ont          = ont,
-        # nPerm        = 1000,
-        minGSSize    = 120,
-        # maxGSSize    = 500,
-        pvalueCutoff = arg_vars$pval_cutoff,
-        verbose      = FALSE)
-      #--Save to rds
-      saveRDS(go_ont_data, file = go_ont_data_rds)
+      go_ont_data <- tryCatch(
+        {
+          go_ont_data <- clusterProfiler::gseGO(
+            gene         = arg_vars$gsea_gene,
+            keyType      = arg_vars$keytype,
+            OrgDb        = arg_vars$orgdb,
+            ont          = ont,
+            # nPerm        = 1000,
+            minGSSize    = 120,
+            # maxGSSize    = 500,
+            pvalueCutoff = arg_vars$pval_cutoff,
+            verbose      = FALSE)
+          #--Save to rds
+          saveRDS(go_ont_data, file = go_ont_data_rds)
+          return(go_ont_data)
+        },
+        error=function(cond) {
+          warning("gseaGO() failed")
+          return(NULL)
+        }
+      )
     }
     #--GO plotting: plot
-    if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
-      go_ont_plot <- readRDS(go_ont_plot_rds)
+    if(is.null(go_ont_data)) {
+      message("gseaGO() failed, no results")
     } else {
-      go_ont_plot <- gsea_go_plots(go_ont_data) # !!!! enrich_go_plot
-      saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      if(file.exists(go_ont_plot_rds) & ! arg_vars$overwrite) {
+        go_ont_plot <- readRDS(go_ont_plot_rds)
+      } else {
+        go_ont_plot <- gsea_go_plots(go_ont_data) # !!!! enrich_go_plot
+        saveRDS(go_ont_plot, file = go_ont_plot_rds)
+      }
+      #--GO plotting: save to png
+      prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
+      save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
+      #--GO table: save result to csv
+      prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
+      save_go_table(go_ont_data, arg_vars$outdir, prefix)
     }
-    #--GO plotting: save to png
-    prefix <- gsub(".rds$", "", basename(go_ont_plot_rds))
-    save_go_plot(go_ont_plot, arg_vars$outdir, prefix)
-    #--GO table: save result to csv
-    prefix <- gsub(".rds$", "", basename(go_ont_data_rds))
-    save_go_table(go_ont_data, arg_vars$outdir, prefix)
     #--Return: data
     go_ont_data
   }, USE.NAMES = TRUE)
@@ -546,7 +589,15 @@ save_go_plot <- function(x, outdir, name = NULL) {
     if(file.exists(plot_file)) {
       message(paste0("file exists, skipped: ", basename(plot_file)))
     } else {
-      ggplot2::ggsave(plot_file, plot = x, width = 8, height = 8, dpi = 200)
+      tryCatch(
+        {
+          ggplot2::ggsave(plot_file, plot = x, width = 8, height = 8, dpi = 200)
+        },
+        error=function(cond) {
+          warning(glue::glue("ggsave() failed, {class(x)}"))
+          return(NULL)
+        }
+      )
     }
     plot_file
   } else if(is(x, "list")) {
