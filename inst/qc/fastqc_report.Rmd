@@ -74,6 +74,7 @@ qcgs <- qc_stats(qc) %>%
   )
 
 qcgs %>%
+  dplyr::select(Sample, Reads, Length, Dup, GC) %>%
   hiseqr::to_DT()
 ```
 

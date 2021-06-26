@@ -52,7 +52,6 @@ library(GenomicRanges)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
-input_dir <- "/data/yulab/wangming/work/yu_2021/projects/20210626_lxh_ATAC_shAub_Ago3/results/ATACseq/ATACseq_Nos_DaGal4XshAub_Ago3_6h"
 input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rn")) {
   stop(paste0("Input file is not a HiSeq rn directory, _rn: ", input_dir))
@@ -101,25 +100,25 @@ pd$align %>%
 
 + Clean data percentage
 
-```{r figure1_trim_reads, fig.height=3, fig.width=6}
+```{r figure1_trim_reads, fig.height = 3}
 plot_hiseq_trim(input_dir)
 ```
 
 + Map percentage
 
-```{r figure1_align_reads, fig.height=3, fig.width=6}
+```{r figure1_align_reads, fig.height=3}
 plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, fig.height=3, fig.width=6}
+```{r figure1_unique_reads, fig.height=3}
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.height=4, fig.width=6}
+```{r figure2_peaks, fig.height=5}
 p1 <- plot_hiseq_align(input_dir, 
                        columns = "unique", 
                        position = "identity", 
@@ -150,7 +149,7 @@ if(nrow(pd$frip) > 0) {
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height = 4}
+```{r figure3_fragment_length, fig.height = 5}
 plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
 ```
 

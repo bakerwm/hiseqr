@@ -51,10 +51,11 @@ library(glue)
 # main
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
-f_list    <- list.files(input_dir, "*.config.yaml$", full.names = TRUE)
+f_list    <- list.files(input_dir, "*stat.log$", full.names = TRUE)
 if(length(f_list) == 0) {
-  stop("No *config.yaml files detected")
+  stop("No *stat.log files detected")
 }
+p_list    <- hiseqr::hiseq_p7(f_list)
 ```
 
 
@@ -103,57 +104,82 @@ P7_b: ATCTCGTATGCCGTCTTCTGCTTG, 24nt
 
 ```
 
-
-```{r}
-pd <- hiseq_p7(input_dir)
-```
-
-
-## 1. Overview 
-
-```{r}
-df1 <- lapply(pd, function(i) {
-  data.frame(
-    name  = i$smp_name,
-    HiSeq = i$hiseq_type
-  )
-}) %>% 
-  dplyr::bind_rows()
-
-hiseqr::to_DT(df1)
-```
-
-
-## 2 The distribution of P7 components
+## 1 The distribution of P7 components
 
 ### 1.1 Table1. P7 components
 
-The Percentage of the reads
-
 ```{r}
-df2 <- lapply(pd, function(i) {
-  i$p7$data
+df1 <- lapply(p_list, function(p) {
+  p$p7_table
 }) %>%
   dplyr::bind_rows() %>%
-  dplyr::select(sample, group, pct) %>%
-  tidyr::pivot_wider(names_from = "group",
-                     values_from = "pct") %>%
-  dplyr::select(sample, p7a, p7a_p7b, p7b, no_ad)
-hiseqr::to_DT(df2)
+  dplyr::select(sample, total, group, pct) %>%
+  dplyr::mutate(pct = paste0(pct, "%")) %>%
+  tidyr::pivot_wider(names_from = "group", values_from = "pct")
+df1 %>% hiseqr::to_DT()
 ```
+
 
 ### 1.2 Plots of P7 components
 
 Check the frequency of each `i7` sequences; `x-axis` is percentage of sequence.
 
-```{r, fig.height=5, fig.width=7, results="asis"}
-tmp <- lapply(pd, function(i) {
-  p <- patchwork::wrap_plots(i$p7, i$i7, i$barcode, ncol = 1) +
-    patchwork::plot_layout(heights = c(1, 3, 3))
-  print(p)
-})
-
+```{r p7_component, fig.width=7, fig.height=1.3}
+p7_list <- lapply(p_list, function(p) { print(p$p7) })
 ```
+
+
+## 2 The distribution of index7 sequence
+
+### 2.1 Table2 the distribution of index7 sequence 
+
+```{r}
+df3 <- lapply(p_list, function(p) {
+  p$i7_table
+}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::ungroup() %>%
+  dplyr::select(rank, sample, total, demx_name, demx_pct) %>%
+  dplyr::mutate(demx_label = paste0(demx_name, " (", demx_pct, "%)")) %>%
+  dplyr::select(sample, total, demx_label, rank) %>%
+  tidyr::pivot_wider(names_from = "rank", values_from = "demx_label")
+  
+df3 %>% hiseqr::to_DT()
+```
+
+### 2.2 Plots for index7 sequence
+
+Check the frequency of each `barcode` sequences; `x-axis` is percentage of sequence.
+
+```{r i7_sequence, fig.width=7, fig.height=1.5}
+i7_list <- lapply(p_list, function(p) { print(p$i7) })
+```
+
+
+## 3 The distribution of barcode sequence
+
+### 3.1 Table3 the distribution of barcode sequence
+
+```{r}
+df2 <- lapply(p_list, function(p) {
+  p$bc_table
+}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::ungroup() %>%
+  dplyr::select(rank, sample, total, demx_name, demx_pct) %>%
+  dplyr::mutate(demx_label = paste0(demx_name, " (", demx_pct, "%)")) %>%
+  dplyr::select(sample, total, demx_label, rank) %>%
+  tidyr::pivot_wider(names_from = "rank", values_from = "demx_label")
+  
+df2 %>% hiseqr::to_DT()
+```
+
+### 3.2 Plots for barcode sequence 
+
+```{r barcode_sequence, fig.width=7, fig.height=1.5}
+bc_list <- lapply(p_list, function(p) { print(p$bc) })
+```
+
 
 
 >EOF

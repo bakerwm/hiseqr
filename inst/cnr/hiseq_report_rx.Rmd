@@ -17,6 +17,7 @@ params:
   input_dir: ""
 ---
 
+
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
 
@@ -52,17 +53,15 @@ library(GenomicRanges)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
-input_dir <- "/data/yulab/wangming/work/yu_2021/projects/20210626_lxh_ATAC_shAub_Ago3/results/ATACseq/ATACseq_Nos_DaGal4XshAub_Ago3_6h"
 input_dir <- normalizePath(input_dir)
-if(! is_hiseq_dir(input_dir, "rn")) {
-  stop(paste0("Input file is not a HiSeq rn directory, _rn: ", input_dir))
+if(! is_hiseq_dir(input_dir, "rx")) {
+  stop(paste0("Input file is not a HiSeq rx directory: ", input_dir))
 }
 ```
 
 
-```{r loading data}
+```{r}
 pd <- summary_hiseq(input_dir, TRUE)
-
 # summary
 n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
 total    <- pd$trim %>% pull(input) %>% mean()
@@ -98,7 +97,6 @@ pd$align %>%
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
-
 + Clean data percentage
 
 ```{r figure1_trim_reads, fig.height=3, fig.width=6}
@@ -117,16 +115,20 @@ plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 
+
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.height=4, fig.width=6}
+```{r figure2_peaks, fig.height=5, fig.width=8}
 p1 <- plot_hiseq_align(input_dir, 
                        columns = "unique", 
                        position = "identity", 
-                       add_label = FALSE)
-
+                       add_label = TRUE) + 
+  theme(legend.position = "none")
+# print(p1)
 p2 <- plot_hiseq_peak(input_dir, hiseq_type = TRUE)
-patchwork::wrap_plots(p1, p2, ncol = 1)
+# print(p2)
+patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)) + 
+  patchwork::plot_layout(guides = "collect")
 ```
 
 ### 2.4 FRiP.
@@ -137,6 +139,7 @@ patchwork::wrap_plots(p1, p2, ncol = 1)
 
 > The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
 > source: https://www.encodeproject.org/atac-seq/
+
 
 ```{r table2_frip}
 if(nrow(pd$frip) > 0) {
@@ -150,8 +153,9 @@ if(nrow(pd$frip) > 0) {
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height = 4}
-plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
+```{r figure3_fragment_length, fig.height=3, fig.width=8}
+plot_hiseq_lendist(input_dir, hiseq_type = TRUE) + 
+  theme(legend.position = "None")
 ```
 
 ### 2.6 Figure4. TSS enrichment
@@ -160,92 +164,94 @@ plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
+#### TSS
+
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
 tss_list <- lapply(pd$enrich, function(i) {
-  i$tss
+  s <- i$tss
+  sdir <- dirname(dirname(s))
+  if(! is_hiseq_dir(sdir, "r1")) {
+    s
+  }
 }) %>% unlist()
 tss_list <- purrr::keep(tss_list, file.exists)
-
-gb_list <-  lapply(pd$enrich, function(i) {
-  i$genebody
-}) %>% unlist()
-gb_list <- purrr::keep(gb_list, file.exists)
 
 # TSS
 if(length(tss_list) > 0) {
   knitr::include_graphics(tss_list)
 }
+
+```
+
+
+#### Genebody
+
+```{r figure4_genebody_enrich, eval = T, fig.height = 4}
+gb_list <-  lapply(pd$enrich, function(i) {
+  s <- i$genebody
+  sdir <- dirname(dirname(s))
+  if(! is_hiseq_dir(sdir, "r1")) {
+    s
+  }
+}) %>% unlist()
+gb_list <- purrr::keep(gb_list, file.exists)
+
 if(length(gb_list) > 0) {
   knitr::include_graphics(gb_list)
 }
 ```
 
-### 2.7 Figure5. Peaks overlap between samples
 
-```{r figure5_peak_overlap, eval = T, fig.height = 4}
-f5 <- pd$cor[[1]]$overlap
-if(length(f5) > 0) {
-    knitr::include_graphics(f5)
-  }
-```
-
-
-### 2.8 Figure6. IDR, Irreproducibility Discovery Rate
-
-用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
-
-> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
- 
-Why IDR?
-
-  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
-  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
-  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
-  
-See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
-
-```{r firug6_idr, eval = T, fig.height=5}
-f6 <- pd$cor[[1]]$idr
-f6 <- purrr::keep(f6, file.exists)
-if(is(f6, "character") & length(f6) > 0) {
-  if(length(f6)) {
-    knitr::include_graphics(f6)
-  }
-}
-```
-
-### 2.9 Figure7. Correlation between replicates
+### 2.7 Figure7. Correlation between replicates
 
 The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
 
-```{r fig7_cor_pearson, eval = T, fig.height = 4}
-f1 <- pd$cor[[1]]$heatmap
-f2 <- pd$cor[[1]]$pca
-if(is(f1, "character") & length(f1) > 0) {
-  if(file.exists(f1)) { 
-    knitr::include_graphics(f1)
-  }
-}
+```{r fig7_bam_cor, eval = TRUE, fig.height = 4}
+hm_list <- lapply(pd$cor, function(i) i$heatmap) %>% unlist()
+hm_list <- purrr::keep(hm_list, file.exists)
+hm_list <- purrr::keep(hm_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
 
-if(is(f2, "character") & length(f2) > 0) {
-  if(file.exists(f2)) {
-    knitr::include_graphics(f2)
-  }
+if(length(hm_list) > 0) {
+  knitr::include_graphics(hm_list)
+}
+```
+
+#### PCA analysis for each replicate
+
+```{r fig7_bam_pca, eval = TRUE, fig.width=5, fig.height=5}
+pca_list <- lapply(pd$cor, function(i) i$pca) %>% unlist()
+pca_list <- purrr::keep(pca_list, file.exists)
+pca_list <- purrr::keep(pca_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
+
+if(length(pca_list) > 0) {
+  knitr::include_graphics(pca_list)
+}
+```
+
+#### Overlap between peaks in each replicate
+
+```{r fig7_peak_overlap, eval = TRUE, fig.height = 4}
+ov_list <- lapply(pd$cor, function(i) {
+  i$overlap
+}) %>% unlist()
+ov_list <- purrr::keep(ov_list, file.exists)
+if(length(ov_list) > 0) {
+  knitr::include_graphics(ov_list)
 }
 ```
 
 
-### 2.10 Figure 8. Bam fingerPrint
+
+### 2.8 Figure 8. Bam fingerPrint
 
 Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
 
 ```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6}
-f8 <- pd$cor[[1]]$fingerprint
-f8 <- purrr::keep(f8, file.exists)
-if(is(f8, "character") & length(f8) > 0) {
-  if(length(f8)) {
-    knitr::include_graphics(f8)
-  }
+bf_list <- lapply(pd$cor, function(i) i$fingerprint ) %>%
+  unlist()
+bf_list <- purrr::keep(bf_list, file.exists)
+if(length(bf_list) > 0) {
+  knitr::include_graphics(bf_list)
 }
 ```
 

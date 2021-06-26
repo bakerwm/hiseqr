@@ -30,15 +30,18 @@ fastqc_report <- function (indir, outdir, preview = FALSE) {
   ## input
   indir  <- normalizePath(indir)
   outdir <- normalizePath(outdir)
-  report_template <- system.file("qc", "fastqc_report.Rmd",
+  template <- system.file("qc", "fastqc_report.Rmd",
                                  package = "hiseqr")
   if(! dir.exists(outdir)){
     dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
   }
-  output_html <- file.path(outdir, "fastqc_report.html")
-  rmarkdown::render(input = report_template,
-                    output_file = output_html,
-                    params = list(input_dir = indir))
+  outhtml <- file.path(outdir, "fastqc_report.html")
+  ## copy template to output
+  template_to <- file.path(outdir, basename(template))
+  file.copy(template, template_to, overwrite = TRUE)
+  rmarkdown::render(input       = template_to,
+                    output_file = outhtml,
+                    params      = list(input_dir = indir))
   if (preview) {
     utils::browseURL(output_html)
   }
@@ -180,19 +183,16 @@ fastqc_plot <- function(r1_path, r2_path = NULL, module = "base quality") {
   } else {
     return(NULL)
   }
-
   # make plot
   fname <- gsub("_fastqc.zip$", "", basename(r1_path))
-  p1 <- plot_function(r1_df, fname)
-  p2 <- plot_function(r2_df, "read2")
-
-  # # for modules
-  # p1 <- plot_function(r1_df, "read1")
-  # p2 <- plot_function(r2_df, "read2")
-
-  p <- cowplot::plot_grid(p1, p2, nrow = 1)
-
-  return(p)
+  if(nrow(r1_df) > 0) {
+    p1 <- plot_function(r1_df, fname)
+    p2 <- plot_function(r2_df, "read2")
+    # # for modules
+    # p1 <- plot_function(r1_df, "read1")
+    # p2 <- plot_function(r2_df, "read2")
+    cowplot::plot_grid(p1, p2, nrow = 1)
+  }
 }
 
 

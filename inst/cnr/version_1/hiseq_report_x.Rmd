@@ -17,6 +17,7 @@ params:
   input_dir: ""
 ---
 
+
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
 
@@ -38,96 +39,132 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```{r}
 library(hiseqr)
 library(ggplot2)
-library(ggthemes)
-library(ggrepel)
 library(patchwork)
 library(fishualize)
 library(dplyr)
-library(tidyr)
 library(glue)
 library(ggcor)
 library(GenomicRanges)
+library(patchwork)
 ```
 
 
 ```{r config, eval = T}
-input_dir <- params$input_dir
-input_dir <- "/data/yulab/wangming/work/yu_2021/projects/20210626_lxh_ATAC_shAub_Ago3/results/ATACseq/ATACseq_Nos_DaGal4XshAub_Ago3_6h"
-input_dir <- normalizePath(input_dir)
-if(! is_hiseq_dir(input_dir, "rn")) {
-  stop(paste0("Input file is not a HiSeq rn directory, _rn: ", input_dir))
+input_dir  <- "../"
+input_dir  <- normalizePath(input_dir)
+hiseq_type <- get_hiseq_type(input_dir)
+if(! endsWith(hiseq_type, "_from_design")) {
+  stop(paste0("Input file is not a multiple HiSeq directory, _design: ", input_dir))
 }
 ```
 
 
-```{r loading data}
-pd <- summary_hiseq(input_dir, TRUE)
+```{r}
+pd <- hiseqr::read_hiseq(input_dir)
 
-# summary
-n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
-total    <- pd$trim %>% pull(input) %>% mean()
-mito     <- pd$align %>% pull(chrM) %>% mean()
-map      <- pd$align %>% pull(map) %>% mean()
-mito_pct <- round(mito / total * 100, 2)
-map_pct  <- round(map / total * 100, 2)
-total <- round(total / 1e6, 2)
-map   <- round(map / 1e6, 2)
-mito  <- round(mito / 1e6, 2)
+# list hiseq_r1 dirs
+d1 <- list.dirs(input_dir, recursive = FALSE)
+rep_list      <- purrr::keep(d1, is_hiseq_single_dir)
+merge_list    <- purrr::keep(d1, is_hiseq_merge_dir)
+multiple_list <- purrr::keep(d1, is_hiseq_multiple_dir)
+report_html_list <- lapply(multiple_list, list_hiseq_report) %>% unlist %>% unique
+
+## peaks for merge
+df_trim_stat    <- lapply(merge_list, read_hiseq_trim_stat) %>% dplyr::bind_rows()
+df_align_stat   <- lapply(merge_list, read_hiseq_align_stat) %>% dplyr::bind_rows()
+df_peak_stat    <- lapply(merge_list, read_hiseq_peak_stat) %>% dplyr::bind_rows()
+df_frip_stat    <- lapply(merge_list, read_hiseq_frip_stat) %>% dplyr::bind_rows()
+df_lendist_stat <- lapply(merge_list, read_hiseq_lendist_stat) %>% dplyr::bind_rows()
+
+## enrich
+png_list <- lapply(multiple_list, function(i){
+  data.frame(
+    tss = hiseqr::read_hiseq(i)$args$tss_enrich_png,
+    genebody = hiseqr::read_hiseq(i)$args$genebody_enrich_png,
+    fingerprint = hiseqr::read_hiseq(i)$args$bam_fingerprint
+  )
+}) %>%
+  dplyr::bind_rows()
 ```
 
 
 ## 1 Summary
 
 ```{r summary, results="asis"}
+n_smp    <- length(rep_list)
+total    <- df_align_stat %>% pull(total) %>% mean()
+mito     <- df_align_stat %>% pull(chrM) %>% mean()
+mito_pct <- df_align_stat %>% pull(chrm_pct) %>% mean()
+map      <- df_align_stat %>% pull(map) %>% mean()
+map_pct  <- df_align_stat %>% pull(map_pct) %>% mean()
+total <- round(total / 1e6, 2)
+map   <- round(map / 1e6, 2)
+mito  <- round(mito / 1e6, 2)
+
 sum_text <- glue::glue(
   "A total of {n_smp} samples; {total}M sequencing depth ",
   "with {map}M ({map_pct}%) reads mapped to reference genome; ",
   "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads."
 )
+
 print(sum_text)
 ```
-
 
 ## 2 Results
 
 ### 2.1 Table1. Total reads
 
 ```{r}
-pd$align %>% 
-  hiseqr::to_DT()
+df_align_stat %>% to_DT
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
 
 + Clean data percentage
 
-```{r figure1_trim_reads, fig.height=3, fig.width=6}
-plot_hiseq_trim(input_dir)
+```{r figure1_trim_reads, out.width = "100%"}
+rnaseq_trim_stat_plot(df_trim_stat)
 ```
 
 + Map percentage
 
-```{r figure1_align_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
+```{r figure1_align_reads, out.width = "100%"}
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("map", "spikein", "chrM", "unmap"),
+                       title   = "Map reads")
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```{r figure1_unique_reads, out.width = "100%"}
+rnaseq_align_stat_plot(df_align_stat, 
+                       columns = c("unique", "multiple", "unmap"),
+                       title   = "Unique map reads")
 ```
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.height=4, fig.width=6}
-p1 <- plot_hiseq_align(input_dir, 
-                       columns = "unique", 
-                       position = "identity", 
-                       add_label = FALSE)
+```{r figure2_peaks, fig.height=5}
+# unique mapped reads
+p1 <- df_align_stat %>%
+  dplyr::mutate(count = round(unique / 1e6, 2)) %>%
+  dplyr::select(fqname, count) %>%
+  dplyr::rename(id = fqname) %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
+  ggtitle("Unique reads on genome") +
+  ylab("Million of reads")
 
-p2 <- plot_hiseq_peak(input_dir, hiseq_type = TRUE)
-patchwork::wrap_plots(p1, p2, ncol = 1)
+# peaks
+p2 <- df_peak_stat %>%
+  dplyr::mutate(id = forcats::fct_rev(id)) %>%
+  bar_plot(x = "count", y = "id", direction = "horizontal", label = "count") +
+  ggtitle("Number of peaks")
+
+print(p1)
+print(p2)
 ```
+
 
 ### 2.4 FRiP.
 
@@ -139,20 +176,23 @@ patchwork::wrap_plots(p1, p2, ncol = 1)
 > source: https://www.encodeproject.org/atac-seq/
 
 ```{r table2_frip}
-if(nrow(pd$frip) > 0) {
-  pd$frip %>% 
-    dplyr::select(name, total, map, n_peaks, pct) %>%
-    hiseqr::to_DT()
-}
+df_frip_stat %>% to_DT
 ```
 
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height = 4}
-plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
+```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
+if(nrow(df_lendist_stat) > 0) {
+  df_lendist_stat %>%
+    dplyr::mutate(sample = gsub(".rmdup$", "", id)) %>%
+    dplyr::mutate(sample = fq_name(sample, fix_rep = TRUE)) %>%
+    fragsize_plot +
+      facet_wrap(sample~., ncol = 2)
+}
 ```
+
 
 ### 2.6 Figure4. TSS enrichment
 
@@ -161,95 +201,27 @@ plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
 > source: https://www.encodeproject.org/data-standards/terms/
 
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
-tss_list <- lapply(pd$enrich, function(i) {
-  i$tss
-}) %>% unlist()
-tss_list <- purrr::keep(tss_list, file.exists)
-
-gb_list <-  lapply(pd$enrich, function(i) {
-  i$genebody
-}) %>% unlist()
-gb_list <- purrr::keep(gb_list, file.exists)
-
-# TSS
-if(length(tss_list) > 0) {
-  knitr::include_graphics(tss_list)
-}
-if(length(gb_list) > 0) {
-  knitr::include_graphics(gb_list)
-}
-```
-
-### 2.7 Figure5. Peaks overlap between samples
-
-```{r figure5_peak_overlap, eval = T, fig.height = 4}
-f5 <- pd$cor[[1]]$overlap
-if(length(f5) > 0) {
-    knitr::include_graphics(f5)
-  }
+f4 <- png_list$tss
+f4 <- purrr::keep(f4, file.exists)
+knitr::include_graphics(f4)
 ```
 
 
-### 2.8 Figure6. IDR, Irreproducibility Discovery Rate
-
-用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
-
-> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
- 
-Why IDR?
-
-  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
-  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
-  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
-  
-See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
-
-```{r firug6_idr, eval = T, fig.height=5}
-f6 <- pd$cor[[1]]$idr
-f6 <- purrr::keep(f6, file.exists)
-if(is(f6, "character") & length(f6) > 0) {
-  if(length(f6)) {
-    knitr::include_graphics(f6)
-  }
-}
+```{r figure5_genebody_enrich, eval = T, fig.height = 4}
+f5 <- png_list$genebody
+f5 <- purrr::keep(f5, file.exists)
+knitr::include_graphics(f5)
 ```
 
-### 2.9 Figure7. Correlation between replicates
-
-The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
-
-```{r fig7_cor_pearson, eval = T, fig.height = 4}
-f1 <- pd$cor[[1]]$heatmap
-f2 <- pd$cor[[1]]$pca
-if(is(f1, "character") & length(f1) > 0) {
-  if(file.exists(f1)) { 
-    knitr::include_graphics(f1)
-  }
-}
-
-if(is(f2, "character") & length(f2) > 0) {
-  if(file.exists(f2)) {
-    knitr::include_graphics(f2)
-  }
-}
-```
-
-
-### 2.10 Figure 8. Bam fingerPrint
+### 2.7 Figure 8. Bam fingerPrint
 
 Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
 
-```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6}
-f8 <- pd$cor[[1]]$fingerprint
+```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 5}
+f8 <- png_list$fingerprint
 f8 <- purrr::keep(f8, file.exists)
-if(is(f8, "character") & length(f8) > 0) {
-  if(length(f8)) {
-    knitr::include_graphics(f8)
-  }
-}
+knitr::include_graphics(f8)
 ```
-
-
 
 ## 3 Detail report
 
@@ -257,11 +229,6 @@ if(is(f8, "character") & length(f8) > 0) {
 data_dir <- "data"
 dir.create(data_dir, showWarnings = FALSE)
 
-# from html
-report_dirs <- list_hiseq_file(input_dir, "report_dir", TRUE)
-report_html_list <- file.path(report_dirs, "HiSeq_report.html")
-
-# to html
 if(length(report_html_list)) {
   local_html <- sapply(report_html_list, function(f) {
     f_prefix <- basename(dirname(dirname(f)))
@@ -281,9 +248,8 @@ if(length(local_html)) {
              url = local_html
   ) %>%
     dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-    dplyr::select(link) %>%
-    tibble::remove_rownames() %>% 
-    to_DT(mode = 3)
+    dplyr::select(link) %>% 
+    to_DT(mode = 3) # keep html code
 }
 ```
 

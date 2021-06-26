@@ -97,28 +97,29 @@ pd$align %>%
 ```
 
 ### 2.2 Figure 1. Number of mapped reads
+
 + Clean data percentage
 
-```{r figure1_trim_reads, fig.width = 6}
+```{r figure1_trim_reads, fig.height=5, fig.width=6}
 plot_hiseq_trim(input_dir)
 ```
 
 + Map percentage
 
-```{r figure1_align_reads, fig.width = 6}
+```{r figure1_align_reads, fig.height=5, fig.width=6}
 plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, fig.width = 6}
+```{r figure1_unique_reads, fig.height=5, fig.width=6}
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.width = 6}
+```{r figure2_peaks, fig.height=5, fig.width=6}
 p1 <- plot_hiseq_align(input_dir, 
                        columns = "unique", 
                        position = "identity", 
@@ -151,7 +152,7 @@ if(nrow(pd$frip) > 0) {
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, out.width = "100%", fig.width = 6}
+```{r figure3_fragment_length, fig.height=5, fig.width=8}
 plot_hiseq_lendist(input_dir, hiseq_type = TRUE) + 
   theme(legend.position = "None")
 ```
@@ -164,24 +165,41 @@ plot_hiseq_lendist(input_dir, hiseq_type = TRUE) +
 
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
 tss_list <- lapply(pd$enrich, function(i) {
-  i$tss
+  if(is(i, "list")) {
+    s <- i$tss
+    sdir <- dirname(dirname(s))
+    if(! is_hiseq_dir(sdir, "r1")) {
+      s
+    }
+  }
 }) %>% unlist()
 tss_list <- purrr::keep(tss_list, file.exists)
-
-gb_list <-  lapply(pd$enrich, function(i) {
-  i$genebody
-}) %>% unlist()
-gb_list <- purrr::keep(gb_list, file.exists)
 
 # TSS
 if(length(tss_list) > 0) {
   knitr::include_graphics(tss_list)
 }
+
+```
+
+#### Genebody
+
+```{r figure4_genebody_enrich, eval = T, fig.height = 4}
+gb_list <-  lapply(pd$enrich, function(i) {
+  if(is(i, "list")) {
+    s <- i$genebody
+    sdir <- dirname(dirname(s))
+    if(! is_hiseq_dir(sdir, "r1")) {
+      s
+    }
+  }
+}) %>% unlist()
+gb_list <- purrr::keep(gb_list, file.exists)
+
 if(length(gb_list) > 0) {
   knitr::include_graphics(gb_list)
 }
 ```
-
 
 ### 2.7 Figure7. Correlation between replicates
 
@@ -190,6 +208,7 @@ The Pearson correlation coefficient were caculated, using the reads coverage on 
 ```{r fig7_bam_cor, eval = TRUE, fig.height = 4}
 hm_list <- lapply(pd$cor, function(i) i$heatmap) %>% unlist()
 hm_list <- purrr::keep(hm_list, file.exists)
+hm_list <- purrr::keep(hm_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rn"))
 if(length(hm_list) > 0) {
   knitr::include_graphics(hm_list)
 }
@@ -200,6 +219,7 @@ if(length(hm_list) > 0) {
 ```{r fig7_bam_pca, eval = TRUE, fig.height = 4}
 pca_list <- lapply(pd$cor, function(i) i$pca) %>% unlist()
 pca_list <- purrr::keep(pca_list, file.exists)
+pca_list <- purrr::keep(pca_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rn"))
 if(length(pca_list) > 0) {
   knitr::include_graphics(pca_list)
 }

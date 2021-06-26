@@ -220,7 +220,7 @@ deseq2_main <- function(dds,
   # Get differential expression results
   res_lfc <- DESeq2::lfcShrink(dds, coef = 2, res = res, type = "apeglm")
   ntd <- DESeq2::normTransform(dds)
-  vsd <- DESeq2::vst(dds, blind=FALSE)
+  # vsd <- DESeq2::vst(dds, blind=FALSE)
   rld <- DESeq2::rlog(dds, blind=FALSE)
   # rld <- DESeq2::rlogTransformation(dds, blind = FALSE)
   res <- res[order(res$padj), ] # Order by adjusted p-value
@@ -647,7 +647,7 @@ deseq_csv_mean <- function(data) {
 
 #' @describeIn make_publish_plots Create plots with pubilsh quality
 #'
-#' @param x deseq directory, file of DEseq2 output
+#' @param x character rnaseq_rx directory, a.vs.b
 #' @param outdir character Path to the directory, saving the plots
 #' @param save2pdf bool Save the plots in PDF file,
 #'
@@ -708,7 +708,7 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
     df, xname, yname,
     highlight_column = "sig",
     highlight_values = c("up", "down"),
-    label_column     = "SYMBOL",
+    label_column     = "label",
     label_values     = labels,
     point_color      = "grey60")
   png(p1_png, width = 5, height = 4.5, units = "in", res = 150)
