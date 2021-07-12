@@ -52,7 +52,6 @@ library(glue)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
-input_dir <- "/data/yulab/wangming/work/yu_2021/projects/20210626_lxh_ATAC_shAub_Ago3/results/ATACseq/ATACseq_Nos_DaGal4XshAub_Ago3_6h_rep1"
 input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "r1")) {
   stop(paste0("Input file is not a single HiSeq r1 directory: ", input_dir))

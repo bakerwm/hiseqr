@@ -1,6 +1,48 @@
 
 ## Alignment
 
+
+#' @describeIn read_hiseq_align
+#' @description read alignment from alignment_r* directory
+#'
+#' @param x character or json
+#'
+#' @export
+read_hiseq_align <- function(x) {
+  if(is(x, "character")) {
+    if(endsWith(x, ".json")) {
+      df <- tryCatch(
+        error = function(cnd) NULL,
+        jsonlite::read_json(x) %>%
+          as.data.frame
+      )
+      # basic
+      required_cols <- c("name", "index", "total", "map",
+                         "unique", "multi", "unmap")
+      if(all(rlang::has_name(df, required_cols))) {
+        dplyr::select(df, all_of(required_cols))
+      } else {
+        warning(glue::glue("unknown .json file:"))
+      }
+    } else if(is_hiseq_dir(x, TRUE)) {
+      pd <- read_hiseq(x)
+      if(pd$hiseq_type == "alignment") {
+        j <- list_hiseq_file(x, "align_json", TRUE)
+        lapply(j, read_hiseq_align) %>%
+          dplyr::bind_rows()
+      } else {
+        warning(glue::glue("unknown hiseq dir: {pd$hiseq_type}"))
+      }
+    } else {
+      warning(glue::glue("not a hiseq dir: {x}"))
+    }
+  } else {
+    warning(glue::glue("unknown x: {x}"))
+  }
+}
+
+##-- old functions --##
+
 ##----------------------------------------------------------------------------##
 ## For hiseq package, parsing directory
 ##

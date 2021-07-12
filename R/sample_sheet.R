@@ -27,7 +27,6 @@ read_sheet <- function(x, n_max=10000, autofix = TRUE,
     }
   )
   # retrieve date from filename
-  # YY01_20170114_GJQ_...
   f_date <- stringr::str_extract(basename(x), "20[\\d]{6}")
   if(is.na(f_date)) {
     f_date <- Sys.Date()

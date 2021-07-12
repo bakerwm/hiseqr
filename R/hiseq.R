@@ -44,17 +44,24 @@ list_hiseq_dir <- function(x, hiseq_type = "_r1"){
   }
   #--02.get dirs
   # getattr, hasattr ?
-  if(is_hiseq_dir(x, "_r1")) {
+  # for alignment_rn/rx
+  if(is_hiseq_dir(x, "alignment")) {
+    x_dirs <- c(x, pd$args$rep_list)
+    x_dirs <- unique(x_dirs)
+    purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
+  } else if(is_hiseq_dir(x, "_r1")) {
     x_dirs <- x
     purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
   } else if(is_hiseq_dir(x, "_rn")) {
     x_dirs <- c(x, pd$args$rep_list) # r1 + rn
+    x_dirs <- unique(x_dirs)
     purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
   } else if(is_hiseq_dir(x, "_rx")) {
     # report: r1+rn+rx
     if(is_hiseq_dir(x, "atac")) { # ATACseq
       x_dirs <- list.dirs(x, recursive = FALSE)
       x_dirs <- c(x, x_dirs)
+      x_dirs <- unique(x_dirs)
       x_dirs <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type = TRUE))
     } else {
       if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {

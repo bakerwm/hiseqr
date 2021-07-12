@@ -18,20 +18,23 @@
 plot_hiseq_trim <- function(x, fish = "Trimma_lantana") {
   if(is(x, "data.frame")) {
     col_required <- c("name", "input", "output")
-    if(! all(col_required %in% names(data))) {
-      on.exit("`data` required columns missing: ",
-              paste(col_required, collapse = ", "))
+    if(! all(rlang::has_name(x, c("name", "input", "output")))) {
+      warning(glue::glue("unknown data.frame, {}"))
+      return(NULL)
     }
     df <- x
-  } else if(is(x, "character")) {
-    df <- read_hiseq_trim_stat(x)
+  } else if(is_hiseq_dir(x, "trim")) {
+    df <- read_hiseq_trim(x) # for single trim
+  } else if(is_hiseq_dir(x, TRUE)) {
+    df <- read_hiseq_trim_stat(x) # for pipeline
   } else {
-    on.exit("`data` expect data.frame, failed")
+    warning("`data` expect data.frame, failed")
+    return(NULL)
   }
   df %>%
-    dplyr::select(name, out_pct, rm_pct) %>%
-    dplyr::rename(clean_pct = out_pct,
-                  short_pct = rm_pct) %>%
+    dplyr::mutate(clean_pct = round(output / input * 100, 2),
+                  short_pct = round(100 - clean_pct, 2)) %>%
+    dplyr::select(name, clean_pct, short_pct) %>%
     tidyr::pivot_longer(names_to  = "group",
                         values_to = "count",
                         c(clean_pct, short_pct)) %>%

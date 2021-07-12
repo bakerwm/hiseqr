@@ -53,7 +53,6 @@ library(GenomicRanges)
 
 ```{r config, eval = T}
 input_dir  <- params$input_dir
-input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/atac/output/fruitfly"
 input_dir  <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rx")) {
   stop(paste0("Input file is not a HiSeq rx directory: ", input_dir))
