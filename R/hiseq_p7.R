@@ -63,8 +63,10 @@ hiseq_p7 <- function(x) {
     #-- 2.3 json data
     p1 <- hiseq_lib_p7(pd$p7_json)[[1]] +
       ggtitle(paste0(pd$fname, ": ", st))
-    p2 <- hiseq_lib_i7(pd$i7_json)[[1]] +
-      ggtitle("i7 index")
+    p2 <- hiseq_lib_i7(pd$i7_json)[[1]]
+    if(is(p2, "ggplot")) {
+      p2 <- p2 + ggtitle("i7 index")
+    }
     p3 <- hiseq_lib_barcode(pd$barcode_json)[[1]] +
       ggtitle("barcode")
     #-- 2.4 output
@@ -94,6 +96,9 @@ hiseq_lib_i7 <- function(x) {
     fname <- gsub(".i7.json", "", basename(f))
     #-- 1. load data
     l <- jsonlite::read_json(f)
+    if(length(l) == 0) {
+      return(NULL)
+    }
     df <- lapply(l, as.data.frame.list) %>%
       dplyr::bind_rows() %>%
       dplyr::mutate(sample = fname) %>%

@@ -2,6 +2,57 @@ library(hiseqr)
 library(dplyr)
 library(ggplot2)
 
+
+## RNAseq pipeline
+
+
+## DESeq2
+## construct table
+sampleTable <- data.frame(
+  sampleName = f_list,
+  fileName   = basename(f_list),
+  condition  = stringr::str_extract(basename(f_list), "(auxin|pbs)"),
+  batch      = rep(c("a", "b", "c"), 2)
+) %>%
+  dplyr::mutate(condition = factor(condition , c("pbs", "auxin")),
+                batch     = as.factor(batch))
+
+ddsHTSeq <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
+                                       directory   = directory,
+                                       design      = ~ batch + condition)
+## load te names
+df_te <- readr::read_delim(
+  "count/RNA-Seq_degron_embryo_2_2.5h_auxin_treat_rna_rep1.te.count.htseq",
+  comment = "_", col_names = c("gene", "count"), col_types = readr::cols())
+
+dds <- DESeq(ddsHTSeq)
+res <- results(dds)
+saveRDS(dds, "degron.DESeq2.dds.rds")
+
+
+## edgeR
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # # library(clusterProfiler)
 
 # data(geneList, package="DOSE")
@@ -125,10 +176,10 @@ library(ggplot2)
 # rnaseq_pipe(deseq_dir, feature, ctl_vs_exp)
 
 
-deseq_dir <- "/data/yulab/wangming/work/devel_pipeline/hiseq/rnaseq/results/RNAseq/pe_control.vs.pe_treatment"
-feature <- "te"
-rnaseq_pipe(deseq_dir, feature)
-
+# deseq_dir <- "/data/yulab/wangming/work/devel_pipeline/hiseq/rnaseq/results/RNAseq/pe_control.vs.pe_treatment"
+# feature <- "te"
+# rnaseq_pipe(deseq_dir, feature)
+#
 
 
 

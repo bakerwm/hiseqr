@@ -82,48 +82,61 @@ bar_plot <- function(data = NULL, x, y, label = y, group = NULL, fill = group,
 }
 
 
-
 #' length distribution
 #'
 #' @describeIn barplot for length distribution
 #'
+#' @param ... optional arguments
+#' range 18:40
+#' color_list c("red", "blue")
 #'
 #' @export
-bar_plot_lendist <- function(data, x = "length", y = "count",
-                             range = c(18:40)) {
-  # columns
-  if(all(c("length", "count", "id") %in% names(data))) {
-    data <- data %>%
-      dplyr::filter(length %in% range)
-    if("strand" %in% names(data)) {
+bar_plot_lendist <- function(df, x = "length", y = "count", ...) {
+  df <- tidyr::as_tibble(df)
+  # arguments
+  args <- rlang::list2(...)
+  # default arguments
+  if(! rlang::has_name(args, "length_range")) {
+    length_range <- 18:40
+  } else {
+    length_range <- args$length_range
+  }
+  if(! rlang::has_name(args, "color_list")) {
+    color_list <- c("red", "blue")
+  } else {
+    color_list <- args$color_list
+  }
+  # check: columns
+  if(all(c("length", "count", "id") %in% names(df))) {
+    df <- df %>%
+      dplyr::filter(length %in% length_range)
+    if("strand" %in% names(df)) {
       # v2: strand
-      out <- data %>%
-        dplyr::mutate(count = ifelse(strand == "+", count, -count)) %>%
+      out <- df %>%
+        dplyr::mutate(count = ifelse(strand == "-", -count, count)) %>%
         bar_plot(x = x, y = y, label = NA, group = "strand",
                  fill = "strand") +
-        scale_fill_manual(values = c("red", "blue")) +
+        scale_fill_manual(values = color_list) +
         scale_y_continuous(labels = abs)
     } else {
       # v3: no-strand
-      out <- data %>%
+      out <- df %>%
         bar_plot(x = x, y = y, label = NA)
     }
   } else {
     stop("file format unknown")
   }
+  # for multi samples
+  if(length(unique(df$id)) > 1) {
+    out <- out +
+      ggplot2::facet_wrap(~id, ncol = 2)
+  }
   out
 }
 
 
-
-
-
-
-
-
-
-
 #' @describeIn fragsize_plot line plot for fragment size
+#' for x-range
 #'
 #' @param data data.frame for plotting
 #' @param xmin int Min of the fragsize, default: 0
@@ -135,35 +148,61 @@ bar_plot_lendist <- function(data, x = "length", y = "count",
 #' @import dplyr
 #' @import ggplot2
 #'
+#' @param ... optional arguments
+#' log10_y = FALSE
+#' position = "fill"
+#'  = 18:40,
+#' color_list = c("red", "blue")
+#'
 #' @export
 fragsize_plot <- function(data, xmin = 0, xmax = 500,
-                          log10_y = FALSE, position = "fill") {
-  data <- ggplot2::fortify(data)
+                          log10_y = FALSE, position = "fill", ...) {
+  data <- tidyr::as_tibble(data)
+  # arguments
+  args <- rlang::list2(...)
+  # default arguments
+  if(! rlang::has_name(args, "log10_y")) {
+    log10_y <- FALSE
+  } else {
+    log10_y <- args$log10_y
+  }
+  if(! rlang::has_name(args, "position")) {
+    position <- "fill"
+  } else {
+    position <- args$position
+  }
+  # check data
   if(! all(c("id", "length", "count") %in% names(data))) {
     on.exit(message("id, length, count columns missing"), add = TRUE)
   }
-  data <- data %>%
-    group_by(id) %>%
-    mutate(frac = count / sum(count))
-  y    <- ifelse(position == "fill", "frac", "count")
-  xmin <- ifelse(xmin < 0, 0, xmin)
-  xmax <- ifelse(xmax > 1000, 1000, xmax)
-  out  <- ggplot(data, aes_(as.name("length"), as.name(y), color = as.name("id"))) +
-    geom_line(size = .5) +
-    geom_vline(xintercept = c(100, 200, 400), size = 0.5, color = "grey50", linetype = 2) +
-    scale_x_continuous(limits = c(xmin, xmax),
-                       expand = c(0, 0)) +
-    theme_bw() +
-    theme(
-      axis.text  = element_text(color = "grey20"),
-      panel.grid = element_blank(),
-      plot.title = element_text(hjust = 0.5),
-      legend.position = c(.8, .8)
-    )
-  # log10 of y axis
-  if(isTRUE(log10_y)) {
-    out <- out +
-      scale_y_log10()
+  # for small RNA < 51nt, SE50
+  if(max(data$length) < 51) {
+    out <- bar_plot_lendist(data, ...)
+  } else {
+    # for other data
+    data <- data %>%
+      group_by(id) %>%
+      mutate(frac = count / sum(count))
+    y    <- ifelse(position == "fill", "frac", "count")
+    xmin <- ifelse(xmin < 0, 0, xmin)
+    xmax <- ifelse(xmax > 1000, 1000, xmax)
+    out  <- ggplot(data, aes_(as.name("length"), as.name(y), color = as.name("id"))) +
+      geom_line(size = .5) +
+      geom_vline(xintercept = c(100, 200, 400), size = 0.5, color = "grey50", linetype = 2) +
+      scale_x_continuous(limits = c(xmin, xmax),
+                         expand = c(0, 0)) +
+      theme_bw() +
+      theme(
+        axis.text  = element_text(color = "grey20"),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = c(.8, .8)
+      )
+    # log10 of y axis
+    if(isTRUE(log10_y)) {
+      out <- out +
+        scale_y_log10()
+    }
   }
   out
 }

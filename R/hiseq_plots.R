@@ -12,14 +12,17 @@
 #'
 #' @param x data.frame From get_trim_stat
 #' @param fish string Name of the fish, use `fishualize::fish_palettes()` list
+#' @param direction string ["horizontal", "vertical"]
+#' @param position string ["stack", "fill"]
 #' all available fish names
 #'
 #' @export
-plot_hiseq_trim <- function(x, fish = "Trimma_lantana") {
+plot_hiseq_trim <- function(x, fish = "Trimma_lantana",
+                            direction = "horizontal", position = "fill") {
   if(is(x, "data.frame")) {
     col_required <- c("name", "input", "output")
-    if(! all(rlang::has_name(x, c("name", "input", "output")))) {
-      warning(glue::glue("unknown data.frame, {}"))
+    if(! all(rlang::has_name(x, col_required))) {
+      warning(glue::glue("failed, missing columns {read_hiseq_trim}"))
       return(NULL)
     }
     df <- x
@@ -32,18 +35,72 @@ plot_hiseq_trim <- function(x, fish = "Trimma_lantana") {
     return(NULL)
   }
   df %>%
-    dplyr::mutate(clean_pct = round(output / input * 100, 2),
-                  short_pct = round(100 - clean_pct, 2)) %>%
-    dplyr::select(name, clean_pct, short_pct) %>%
-    tidyr::pivot_longer(names_to  = "group",
-                        values_to = "count",
-                        c(clean_pct, short_pct)) %>%
-    bar_plot(x = "count", y = "name", fill = "group", label = "count",
-             direction = "horizontal") +
+    # dplyr::mutate(clean_pct = round(output / input * 100, 1),
+    #               short_pct = round(100 - clean_pct, 1)) %>%
+    dplyr::mutate(clean = round(output / 1e6, 2),
+                  short = round((input - output) / 1e6, 2)) %>%
+    dplyr::select(name, clean, short) %>%
+    tidyr::pivot_longer(c(clean, short),
+                        names_to  = "group",
+                        values_to = "count") %>%
+    bar_plot(x = "count", y = "name", fill = "group", label = NA,
+             direction = direction, position = position) +
     fishualize::scale_fill_fish(discrete = TRUE, option = fish) +
     ggtitle("Trim reads") +
     theme(legend.position = "top")
 }
+
+
+
+#' @describeIn plot_hiseq_trim2
+#' for all available columns
+#' Create bar_plot for trim stat
+#'
+#' output from get_rnaseq_trim_stat(),
+#' including columns:
+#' id, raw, clean, clean_pct, short_pct
+#'
+#' @param x data.frame From get_trim_stat
+#' @param fish string Name of the fish, use `fishualize::fish_palettes()` list
+#' @param direction string ["horizontal", "vertical"]
+#' @param position string ["stack", "fill"]
+#' all available fish names
+#'
+#' @export
+plot_hiseq_trim2 <- function(x, fish = "Trimma_lantana",
+                             direction = "horizontal", position = "fill") {
+  if(is(x, "data.frame")) {
+    col_required <- c("name", "input", "output")
+    if(! all(rlang::has_name(x, col_required))) {
+      warning(glue::glue("failed, missing columns {read_hiseq_trim}"))
+      return(NULL)
+    }
+    df <- x
+  } else if(is_hiseq_dir(x, "trim")) {
+    df <- read_hiseq_trim(x) # for single trim
+  } else if(is_hiseq_dir(x, TRUE)) {
+    df <- read_hiseq_trim_stat(x) # for pipeline
+  } else {
+    warning("`data` expect data.frame, failed")
+    return(NULL)
+  }
+  df %>%
+    tidyr::pivot_longer(-c(name, input, percent),
+                        names_to  = "group",
+                        values_to = "count") %>%
+    dplyr::group_by(name) %>%
+    # dplyr::mutate(pct = round(count / sum(count) * 100, 1),
+    #               group = forcats::fct_relevel(group, "output")) %>%
+    dplyr::mutate(count = round(count / 1e6, 2),
+                  group = forcats::fct_relevel(group, "output")) %>%
+    bar_plot(x = "count", y = "name", fill = "group", label = NA,
+             direction = direction, position = position) +
+    fishualize::scale_fill_fish(discrete = TRUE, option = fish) +
+    ggtitle("Trim reads") +
+    theme(legend.position = "top")
+}
+
+
 
 
 
@@ -71,7 +128,10 @@ plot_hiseq_align <- function(x,
   if(is(x, "data.frame")) {
     df <- x
   } else if(is(x, "character")) {
-    df <- read_hiseq_align_stat(x)
+    df <- read_hiseq_align_stat(x) # pipeline
+    if(is.null(df)) {
+      df <- read_hiseq_align(x) # alignment only
+    }
   } else {
     on.exit("`data` expect data.frame, failed")
   }
@@ -290,7 +350,10 @@ plot_hiseq_lendist <- function(x,
   df %>%
     dplyr::mutate(sample = gsub(".rmdup$|_rep\\d", "", id)) %>%
     hiseqr::fragsize_plot() +
-    facet_wrap(.~sample, ncol = 2)
+    facet_wrap(.~sample, ncol = 2) +
+    theme(
+      legend.position = "none"
+    )
 }
 
 

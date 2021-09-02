@@ -17,13 +17,13 @@ params:
   input_dir: ""
 ---
 
+
 ```{r setup, include=FALSE}
 suppressPackageStartupMessages(library(knitr))
 
 knitr::opts_chunk$set(fig.width  = 12, 
                       fig.height = 8, 
                       fig.path   = "Figures/",
-                      eval       = TRUE,
                       echo       = FALSE,
                       cache      = FALSE,
                       prompt     = FALSE,
@@ -36,49 +36,44 @@ knitr::opts_chunk$set(fig.width  = 12,
 ```
 
 
-```{r load pkg}
+```{r}
 library(hiseqr)
-library(knitr)
 library(ggplot2)
 library(ggthemes)
 library(ggrepel)
-library(fishualize)
 library(patchwork)
+library(fishualize)
 library(dplyr)
 library(tidyr)
 library(glue)
+library(ggcor)
+library(GenomicRanges)
 ```
 
 
 ```{r config, eval = T}
-input_dir <- params$input_dir
-input_dir <- normalizePath(input_dir)
-if(! is_hiseq_dir(input_dir, "r1")) {
-  stop(paste0("Input file is not a single HiSeq r1 directory: ", input_dir))
+input_dir  <- params$input_dir
+input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/atac/output/fruitfly"
+input_dir  <- normalizePath(input_dir)
+if(! is_hiseq_dir(input_dir, "rx")) {
+  stop(paste0("Input file is not a HiSeq rx directory: ", input_dir))
 }
 ```
 
 
-```{r loading data}
-pd <- summary_hiseq(input_dir, "r1")
-
-# plot data
-df_trim    <- pd$trim
-df_align   <- pd$align
-df_peak    <- pd$peak
-df_frip    <- pd$frip
-df_lendist <- pd$lendist
+```{r}
+pd <- summary_hiseq(input_dir, TRUE)
 
 # summary
-n_smp    <- 1
-total    <- df_trim %>% pull(input)
-mito     <- df_align %>% pull(chrM)
-map      <- df_align %>% pull(map)
-mito_pct <- round(mito / total * 100, 2)
-map_pct  <- round(map / total * 100, 2)
-total <- round(total / 1e6, 2)
-map   <- round(map / 1e6, 2)
-mito  <- round(mito / 1e6, 2)
+n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
+total    <- pd$trim %>% pull(total)
+mito     <- pd$align %>% pull(chrM)
+map      <- pd$align %>% pull(map)
+mito_pct <- round(mean(mito / total * 100), 2)
+map_pct  <- round(mean(map / total * 100), 2)
+total <- round(mean(total) / 1e6, 2)
+map   <- round(mean(map) / 1e6, 2)
+mito  <- round(mean(mito) / 1e6, 2)
 ```
 
 
@@ -93,10 +88,9 @@ sum_text <- glue::glue(
 print(sum_text)
 ```
 
-
 ## 2 Results
 
-### 2.1 Table1. Mito Percentage
+### 2.1 Table1. Total reads
 
 ```{r}
 pd$align %>% 
@@ -107,36 +101,38 @@ pd$align %>%
 
 + Clean data percentage
 
-```{r figure1_trim_reads, fig.height=3}
-plot_hiseq_trim(input_dir)
+```{r figure1_trim_reads}
+plot_hiseq_trim(input_dir, "r1")
 ```
 
 + Map percentage
 
-```{r figure1_align_reads, out.width = "100%", fig.height=3}
-plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
+```{r figure1_align_reads}
+plot_hiseq_align(input_dir, mode = 3, hiseq_type = "r1")
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, out.width = "100%", fig.height=3}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```{r figure1_unique_reads}
+rnaseq_align_stat_plot(pd$align, mode = 0,
+                       columns = c("unique", "multi", "unmap"),
+                       title   = "Unique map reads")
 ```
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks}
+```{r figure2_peaks, fig.height=5}
 p1 <- plot_hiseq_align(input_dir, 
                        columns = "unique", 
                        position = "identity", 
                        add_label = FALSE)
-
-p2 <- plot_hiseq_peak(input_dir, hiseq_type = "r1")
-
-patchwork::wrap_plots(p1, p2, ncol = 1)
+print(p1)
+p2 <- plot_hiseq_peak(input_dir, hiseq_type = TRUE)
+print(p2)
+# patchwork::wrap_plots(p1, p2, ncol = 1)
 ```
 
-### 2.4 FRiP
+### 2.4 FRiP.
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
 >
@@ -145,24 +141,23 @@ patchwork::wrap_plots(p1, p2, ncol = 1)
 > The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
 > source: https://www.encodeproject.org/atac-seq/
 
-```{r table2_frip}
-if(nrow(pd$frip) > 0) {
-  pd$frip %>% 
-    dplyr::select(name, total, map, n_peaks, pct) %>%
-    hiseqr::to_DT()
-}
-```
 
+```{r table2_frip}
+pd$frip %>% 
+  dplyr::select(id, total, map, n_peaks, pct) %>%
+  hiseqr::to_DT()
+```
 
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height = 5}
-plot_hiseq_lendist(input_dir, "r1")
+```{r figure3_fragment_length, out.width = "100%", fig.height = 5}
+plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
 ```
 
-### 2.6 TSS enrichment
+
+### 2.6 Figure4. TSS enrichment
 
 > Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
 >
@@ -171,18 +166,65 @@ plot_hiseq_lendist(input_dir, "r1")
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
 # TSS
 ph <- pd$enrich[[1]]
-
-# TSS
-if(length(ph$tss) > 0) {
+if(is(ph, "character")) {
   knitr::include_graphics(ph$tss)
 }
-if(length(ph$genebody) > 0) {
+if(is(ph, "character")) {
   knitr::include_graphics(ph$genebody)
 }
 ```
 
 
-## 3 ENCODE standard
+### 2.7 Figure 8. Bam fingerPrint
+
+Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
+
+```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 5}
+f5 <- pd$cor[[1]]$overlap
+if(is(f5, "character")) {
+  knitr::include_graphics(f5)
+}
+```
+
+## 3 Detail report
+
+```{r}
+data_dir <- "data"
+dir.create(data_dir, showWarnings = FALSE)
+
+# from html
+report_dirs <- list_hiseq_file(input_dir, "report_dir", TRUE)
+report_html_list <- file.path(report_dirs, "HiSeq_report.html")
+
+# to html
+if(length(report_html_list)) {
+  local_html <- sapply(report_html_list, function(f) {
+    f_prefix <- basename(dirname(dirname(f)))
+    f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
+    if(! file.exists(f_html)) {
+      file.copy(f, f_html)
+    }
+    f_html
+  })
+} else {
+  local_html <- NULL
+}
+
+# show in table
+if(length(local_html)) {
+  data.frame(id = basename(dirname(dirname(report_html_list))),
+             url = local_html
+  ) %>%
+    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
+    dplyr::select(link) %>%
+    tibble::remove_rownames() %>% 
+    to_DT(mode = 3)
+}
+```
+
+
+
+## 4 ENCODE standard
 
 > source: [https://www.encodeproject.org/atac-seq/#standards](https://www.encodeproject.org/atac-seq/#standards)
 

@@ -33,7 +33,14 @@ hiseq_report <- function(input, output, template_rmd = NULL) {
     hiseq_report_rmd = "tmp"
   }
   # template
-  hiseq_type <- list_hiseq_file(input, "hiseq_type")
+  pd <- read_hiseq(input)
+  if(rlang::has_name(pd, "hiseq_type")) {
+    hiseq_type <- pd$hiseq_type
+  } else {
+    warning(glue::glue("unknown hiseq dir: {input}"))
+    return(NULL)
+  }
+  # hiseq_type <- list_hiseq_file(input, "hiseq_type")
   hiseq_type <- gsub("_\\w+$", "", hiseq_type[1])
   if(is.null(template_rmd)) {
     template <- system.file(hiseq_type, hiseq_report_rmd, package = "hiseqr")

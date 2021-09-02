@@ -53,7 +53,7 @@ library(GenomicRanges)
 
 ```{r config, eval = T}
 input_dir  <- params$input_dir
-input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/atac/output/fruitfly"
+input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/cnr/results/fruitfly_v1/CUT_and_RUN_Piwi_RNAi_embryo_3_4h_H3K4me3.vs.CUT_and_RUN_Piwi_RNAi_embryo_3_4h_IgG/"
 input_dir  <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rx")) {
   stop(paste0("Input file is not a HiSeq rx directory: ", input_dir))
@@ -66,14 +66,18 @@ pd <- summary_hiseq(input_dir, TRUE)
 
 # summary
 n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
-total    <- pd$trim %>% pull(total)
-mito     <- pd$align %>% pull(chrM)
-map      <- pd$align %>% pull(map)
-mito_pct <- round(mean(mito / total * 100), 2)
-map_pct  <- round(mean(map / total * 100), 2)
-total <- round(mean(total) / 1e6, 2)
-map   <- round(mean(map) / 1e6, 2)
-mito  <- round(mean(mito) / 1e6, 2)
+total    <- pd$align %>% pull(total) %>% sum()
+mito     <- pd$align %>% pull(chrM) %>% sum()
+map      <- pd$align %>% pull(map) %>% sum()
+dup      <- pd$align %>% pull(dup) %>% sum()
+nodup    <- pd$align %>% pull(nodup) %>% sum()
+mito_pct <- round(mito / total * 100, 2)
+map_pct  <- round(map / total * 100, 2)
+dup_pct  <- round(dup / total * 100, 2)
+total <- round(total / 1e6, 4)
+map   <- round(map / 1e6, 4)
+mito  <- round(mito / 1e6, 4)
+dup   <- round(dup / 1e6, 4)
 ```
 
 
@@ -83,41 +87,77 @@ mito  <- round(mean(mito) / 1e6, 2)
 sum_text <- glue::glue(
   "A total of {n_smp} samples; {total}M sequencing depth ",
   "with {map}M ({map_pct}%) reads mapped to reference genome; ",
-  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads."
+  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads; ",
+  "and contains {dup}M ({dup_pct}%) PCR_duplication."
 )
 print(sum_text)
 ```
 
 ## 2 Results
 
-### 2.1 Table1. Total reads
+
+### 2.1 Table 1. Trimming reads
 
 ```{r}
-pd$align %>% 
+pd$trim %>%
+  dplyr::select(name, input, output, out_pct, rm_pct) %>%
+  dplyr::rename(clean = output, 
+                clean_pct = out_pct,
+                short_pct = rm_pct) %>%
   hiseqr::to_DT()
 ```
 
-### 2.2 Figure 1. Number of mapped reads
-
-+ Clean data percentage
-
-```{r figure1_trim_reads}
-plot_hiseq_trim(input_dir, "r1")
+```{r figure1_trim_reads, fig.height=3, fig.width=6}
+plot_hiseq_trim(input_dir)
 ```
 
-+ Map percentage
 
-```{r figure1_align_reads}
-plot_hiseq_align(input_dir, mode = 3, hiseq_type = "r1")
+### 2.2 Table 2. Mapping reads
+
+```{r}
+pd$align %>%
+  dplyr::select(name, total, map, unmap) %>%
+  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
+  hiseqr::to_DT()
 ```
 
-+ Unique percentage
-
-```{r figure1_unique_reads}
-rnaseq_align_stat_plot(pd$align, mode = 0,
-                       columns = c("unique", "multi", "unmap"),
-                       title   = "Unique map reads")
+```{r figure1_align_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
 ```
+
++ unique and multiple mapping reads
+
+```{r}
+pd$align %>%
+  dplyr::select(name, total, unique, multi, unmap) %>%
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
+  hiseqr::to_DT()
+```
+
+```{r unique_multi_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```
+
+
++ PCR-Duplication reads
+
+```{r}
+if(all(c("dup", "nodup") %in% colnames(pd$align))) {
+  df_dup <- pd$align %>%
+    dplyr::select(name, total, map, dup, nodup) %>%
+    dplyr::mutate(dup_pct = round(dup / total * 100, 2))
+} else {
+  df_dup <- pd$align %>%
+    dplyr::select(name, total, map)
+}
+df_dup %>% 
+  hiseqr::to_DT()
+```
+
+```{r pcr_dup_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(input_dir, columns = c("nodup", "dup", "unmap"))
+```
+
 
 ### 2.3 Figure2. Number of peaks
 
@@ -144,7 +184,7 @@ print(p2)
 
 ```{r table2_frip}
 pd$frip %>% 
-  dplyr::select(id, total, map, n_peaks, pct) %>%
+  dplyr::select(name, total, map, n_peaks, pct) %>%
   hiseqr::to_DT()
 ```
 
@@ -163,28 +203,98 @@ plot_hiseq_lendist(input_dir, hiseq_type = TRUE)
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
+#### TSS
+
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
+tss_list <- lapply(pd$enrich, function(i) {
+  s <- i$tss
+  sdir <- dirname(dirname(s))
+  if(! is_hiseq_dir(sdir, "r1")) {
+    s
+  }
+}) %>% unlist()
+tss_list <- purrr::keep(tss_list, file.exists)
+
 # TSS
-ph <- pd$enrich[[1]]
-if(is(ph, "character")) {
-  knitr::include_graphics(ph$tss)
+if(length(tss_list) > 0) {
+  knitr::include_graphics(tss_list)
 }
-if(is(ph, "character")) {
-  knitr::include_graphics(ph$genebody)
+
+```
+
+
+#### Genebody
+
+```{r figure4_genebody_enrich, eval = T, fig.height = 4}
+gb_list <-  lapply(pd$enrich, function(i) {
+  s <- i$genebody
+  sdir <- dirname(dirname(s))
+  if(! is_hiseq_dir(sdir, "r1")) {
+    s
+  }
+}) %>% unlist()
+gb_list <- purrr::keep(gb_list, file.exists)
+
+if(length(gb_list) > 0) {
+  knitr::include_graphics(gb_list)
 }
 ```
 
 
-### 2.7 Figure 8. Bam fingerPrint
+### 2.7 Figure7. Correlation between replicates
+
+The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
+
+```{r fig7_bam_cor, eval = TRUE, fig.height = 4}
+hm_list <- lapply(pd$cor, function(i) i$heatmap) %>% unlist()
+hm_list <- purrr::keep(hm_list, file.exists)
+hm_list <- purrr::keep(hm_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
+
+if(length(hm_list) > 0) {
+  knitr::include_graphics(hm_list)
+}
+```
+
+#### PCA analysis for each replicate
+
+```{r fig7_bam_pca, eval = TRUE, fig.width=5, fig.height=5}
+pca_list <- lapply(pd$cor, function(i) i$pca) %>% unlist()
+pca_list <- purrr::keep(pca_list, file.exists)
+pca_list <- purrr::keep(pca_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
+
+if(length(pca_list) > 0) {
+  knitr::include_graphics(pca_list)
+}
+```
+
+#### Overlap between peaks in each replicate
+
+```{r fig7_peak_overlap, eval = TRUE, fig.height = 4}
+ov_list <- lapply(pd$cor, function(i) {
+  i$overlap
+}) %>% unlist()
+ov_list <- purrr::keep(ov_list, file.exists)
+if(length(ov_list) > 0) {
+  knitr::include_graphics(ov_list)
+}
+```
+
+
+
+### 2.8 Figure 8. Bam fingerPrint
 
 Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal? 
 
-```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 5}
-f5 <- pd$cor[[1]]$overlap
-if(is(f5, "character")) {
-  knitr::include_graphics(f5)
+```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6}
+bf_list <- lapply(pd$cor, function(i) i$fingerprint ) %>%
+  unlist()
+bf_list <- purrr::keep(bf_list, file.exists)
+if(length(bf_list) > 0) {
+  knitr::include_graphics(bf_list)
 }
 ```
+
+
 
 ## 3 Detail report
 
@@ -221,8 +331,6 @@ if(length(local_html)) {
     to_DT(mode = 3)
 }
 ```
-
-
 
 ## 4 ENCODE standard
 

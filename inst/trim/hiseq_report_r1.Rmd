@@ -50,6 +50,7 @@ library(glue)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
+# input_dir <- "../"
 input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "trim_r1")) {
   stop(paste0("Input is not trim_r1 directory: ", input_dir))
@@ -61,7 +62,7 @@ if(! is_hiseq_dir(input_dir, "trim_r1")) {
 pd <- read_hiseq(input_dir)
 df <- read_hiseq_trim(input_dir)
 
-n_smp <- length(list_hiseq_file(input_dir, "smp_name", TRUE))
+n_smp <- nrow(df)
 total <- round(sum(df$input) / 1e6, 1)
 clean <- round(sum(df$output) / 1e6, 1)
 clean_pct <- tryCatch(
@@ -75,7 +76,7 @@ clean_pct <- tryCatch(
 
 ```{r summary, results="asis"}
 sum_text <- glue::glue(
-  "A total of {n_smp} samples; {total}M input reads,",
+  "A total of {n_smp} samples; {total}M input reads, ",
   "output {clean}M ({clean_pct}%) reads"
 )
 print(sum_text)
@@ -87,18 +88,56 @@ print(sum_text)
 ### 2.1 Table1. Number of reads
 
 ```{r}
+if(rlang::has_name(df, "percentage")) {
+  df <- df %>%
+    dplyr::mutate(percentage = round(percentage * 100, 1))
+}
 hiseqr::to_DT(df)
 ```
 
-### 2.2 Figure 1. Number of mapped reads
+### 2.2 Figure 1. Number of clean reads
+
++ `clean_pct`: percentage of clean data. 
++ `short_pct`: percentage of reads discarded.
 
 ```{r figure1_trim_reads, fig.width=6, fig.height=3}
-plot_hiseq_trim(input_dir)
+p <- tryCatch(
+  {plot_hiseq_trim(input_dir)},
+  error=function(cond) {
+    message("Unable to generate trim plot2")
+    return(NA)
+  }
+)
+print(p)
 ```
+
+
+### 2.3 Figure 2. Number of reads, in details
+
+Possible groups:
+
++ `output` clean data 
++ `too_short` Number of reads, too short after removing 3' adapter. 
++ `too_shrot2` as above, remove another adapter
++ `dup` number of PCR dup 
++ `no_umi` for small RNA only, not match UMI sequences
+
+
+```{r figure1_trim_reads2, fig.width=6, fig.height=3}
+p <- tryCatch(
+  {plot_hiseq_trim2(input_dir)},
+  error=function(cond) {
+    message("Unable to generate trim plot2")
+    return(NA)
+  }
+)
+print(p)
+```
+
 
 ## 3 Methods
 
-```{r}
+```{r, eval = F}
 df_args <- data.frame(
   group = c(
     "Adapter3(read1)",

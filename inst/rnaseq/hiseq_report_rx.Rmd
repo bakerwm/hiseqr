@@ -90,19 +90,21 @@ df_align_stat <- read_hiseq_align_stat(input_dir)
 ## 1 Summary
 
 ```{r summary, results="asis"}
-total      <- df_align_stat %>% pull(total) %>% mean()
-map        <- df_align_stat %>% pull(map) %>% mean()
-map_pct    <- round(map / total * 100, 1) %>% mean()
-unique_m   <- df_align_stat %>% pull(unique) %>% mean()
-unique_pct <- round(unique_m / total * 100, 1) %>% mean()
-total    <- round(total / 1e6, 1) # Million
-map      <- round(map / 1e6, 1) # Million
-unique_m <- round(unique_m / 1e6, 1) # Million
-sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
-    "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
-    "{unique_m}M ({unique_pct}%) unique mapped.")
-
-print(sum_text)
+if(is(df_align_stat, "data.frame")) {
+  total      <- df_align_stat %>% pull(total) %>% mean()
+  map        <- df_align_stat %>% pull(map) %>% mean()
+  map_pct    <- round(map / total * 100, 1) %>% mean()
+  unique_m   <- df_align_stat %>% pull(unique) %>% mean()
+  unique_pct <- round(unique_m / total * 100, 1) %>% mean()
+  total    <- round(total / 1e6, 1) # Million
+  map      <- round(map / 1e6, 1) # Million
+  unique_m <- round(unique_m / 1e6, 1) # Million
+  sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
+                         "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
+                         "{unique_m}M ({unique_pct}%) unique mapped.")
+  
+  print(sum_text)
+}
 ```
 
 ## 2 Results
@@ -111,7 +113,9 @@ print(sum_text)
 ### 2.1 Table1. number of reads
 
 ```{r table1_mito_pct}
-hiseqr::to_DT(df_align_stat)
+if(is(df_align_stat, "data.frame")) {
+  hiseqr::to_DT(df_align_stat)
+}
 ```
 
 
@@ -120,19 +124,43 @@ hiseqr::to_DT(df_align_stat)
 + Clean data percentage
 
 ```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
-plot_hiseq_trim(input_dir)
+p2_2 <- tryCatch(
+  {
+    plot_hiseq_trim(input_dir)
+  },
+  error=function(cond) {
+    message("Failed plotting: 2.2.number_of_mapped_reads")
+  }
+)
+print(p2_2)
 ```
 
 + Map percentage
 
 ```{r figure1_align_reads, fig.height = 3}
-plot_hiseq_align(input_dir, columns = c("map", "rRNA", "spikein", "unmap"))
+p2_3 <- tryCatch(
+  {
+    plot_hiseq_align(input_dir, columns = c("map", "rRNA", "spikein", "unmap"))
+  },
+  error=function(cond) {
+    message("Failed plotting: 2.3.map_percentage")
+  }
+)
+print(p2_3)
 ```
 
 + Unique percentage
 
 ```{r figure1_unique_reads, fig.height = 3}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+p2_4 <- tryCatch(
+  {
+    plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+  },
+  error=function(cond) {
+    message("Failed plotting: 2.4.unique_map")
+  }
+)
+print(p2_4)
 ```
 
 
@@ -156,22 +184,31 @@ lib2 = "read1: +- ++ / read2: +- -+"
 lib3 = "read1, read2, non-strand-specific"
 
 f <- list_hiseq_file(input_dir, "strandness_json", "rnaseq_rn")
-s <- jsonlite::read_json(f[1])
-a = switch(as.character(s$sense),
-        "0" = {print(lib3)},
-        "1" = {print(lib1)},
-        "2" = {print(lib2)})
+if(length(f) > 0) {
+  s <- jsonlite::read_json(f[1])
+  a <- switch(as.character(s$sense),
+              "0" = {print(lib3)},
+              "1" = {print(lib1)},
+              "2" = {print(lib2)})
+}
 # print(a)
 ```
 
 ### 2.4 Quantification
 
 ```{r, results="asis"}
-msg <- glue::glue(
-  "Count reads on features:",
-  "Genome: {genome}",
-  "   GTF: {basename(gtf)}",
-  .sep = "\n"
+msg <- tryCatch(
+  {
+    glue::glue(
+      "Count reads on features:",
+      "Genome: {genome}",
+      "   GTF: {basename(gtf)}",
+      .sep = "\n"
+    )
+  },
+  error=function(cond) {
+    message("Failed reading quantification")
+  }
 )
 print(msg)
 ```
@@ -179,12 +216,14 @@ print(msg)
 
 ```{r table2_sens_summary}
 p4 <- plot_rnaseq_featureCounts(input_dir)
-# show table
-df4 <- p4$data %>%
-  dplyr::select(sample, total, strand, count) %>%
-  tidyr::pivot_wider(names_from = strand, values_from = count) %>%
-  dplyr::mutate(sens_pct = round(sense / total * 100, 1))
-hiseqr::to_DT(df4)
+if(is(p4, "ggplot")) {
+  # show table
+  df4 <- p4$data %>%
+    dplyr::select(sample, total, strand, count) %>%
+    tidyr::pivot_wider(names_from = strand, values_from = count) %>%
+    dplyr::mutate(sens_pct = round(sense / total * 100, 1))
+  hiseqr::to_DT(df4)
+}
 ```
 
 
@@ -207,7 +246,8 @@ g1 <- list_hiseq_file(input_dir, "genebody_enrich_png", "_rx")
 g2 <- list_hiseq_file(input_dir, "bam_cor_pca_png", "_rn")
 g3 <- list_hiseq_file(input_dir, "bam_cor_heatmap_png", "_rn")
 g  <- purrr::keep(c(g1, g2, g3), file.exists)
-if(file.exists(g)) {
+# if(file.exists(g)) {
+if(length(g) > 0) {
   include_graphics(g)
 }
 ```

@@ -133,12 +133,16 @@ read_hiseq_align_stat <- function(x) {
     t_cols <- c("name", "total", "map", "unique", "multi", "unmap")
     t1 <- c("chrM", "spikein") # atac, cnr
     t2 <- c("rRNA", "spikein") # rnaseq
+    t3 <- c("dup", "nodup")
     if(all(t1 %in% names(df))) {
       t_cols <- c(t_cols, t1)
     } else if(all(t2 %in% names(df))) {
       t_cols <- c(t_cols, t2)
     } else {
       warning(paste0("unknown hiseq: ", x))
+    }
+    if(all(t3 %in% names(df))) {
+      t_cols <- c(t_cols, t3)
     }
     dplyr::select(df, all_of(t_cols))
   }

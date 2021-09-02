@@ -8,6 +8,36 @@
 
 
 
+
+
+#' @describeIn check_path
+#' check if directory exists, if not, create
+#'
+#' @param x character path to the directory
+#'
+#' @export
+check_path <- function(x) {
+  if(is(x, "character")) {
+    if(dir.exists(x)) {
+      out <- TRUE
+    } else {
+      tryCatch(
+        {
+          dir.create(x, showWarnings = FALSE, recursive = TRUE, mode = "0755")
+        },
+        error = function(cond) {
+          message(glue::glue("failed to create directory: {x}"))
+          return(FALSE)
+        }
+      )
+    }
+  } else {
+    warning(glue::glue("x: expect character, got {class(x)}"))
+    out <- FALSE
+  }
+}
+
+
 #' @describeIn read_toml Parse TOML files as data.frame
 #'
 #'
@@ -220,26 +250,6 @@ fq_name <- function(x, fix_pe = TRUE, fix_rep = FALSE){
 
 
 
-
-
-#' @describeIn read_fc2 Parsing multiple featureCounts files
-#'
-#' @param x character featureCount files, or data.frames
-#'
-#' @export
-read_fc2 <- function(x) {
-  # if character
-  chk1 <- sapply(x, is.character)
-  chk2 <- sapply(x, file.exists)
-
-  if(all(chk1, chk2)) {
-    lapply(x, read_fc) %>%
-      bind_cols2()
-  }
-}
-
-
-
 #' @describeIn read_fc Parsing single featureCounts file
 #'
 #' @param x path to count.txt file, featureCounts output
@@ -257,24 +267,46 @@ read_fc <- function(x, digits = 0, get_gene_length = FALSE){
     warning(paste0("Reading file failed: ", x))
     return(NULL)
   }
-
   # Read file
+  df <- read.table(x, header = TRUE, sep = "\t", comment.char = "#") %>%
+    dplyr::rename(id = Geneid)
   if(isTRUE(get_gene_length)) {
-    # readr::read_delim(x, "\t", col_types = readr::cols(), comment = "#") %>%
-    read.table(x, header = TRUE, sep = "\t", comment.char = "#") %>%
-      dplyr::select(Geneid, Length) %>%
-      dplyr::rename(id = Geneid) %>%
+    df %>%
+      dplyr::select(id, Length) %>%
       tibble::as_tibble()
+    # read.table(x, header = TRUE, sep = "\t", comment.char = "#") %>%
+    #   dplyr::select(Geneid, Length) %>%
+    #   dplyr::rename(id = Geneid) %>%
+    #   tibble::as_tibble()
   } else {
-    # readr::read_delim(x, "\t", col_types = readr::cols(), comment = "#") %>%
-    read.table(x, header = TRUE, sep = "\t", comment.char = "#") %>%
+    df %>%
       dplyr::select(-c(2:6)) %>%
-      dplyr::rename(id = Geneid) %>%
       dplyr::mutate_if(is.numeric, round, digits = digits) %>%
       tibble::as_tibble()
+    # read.table(x, header = TRUE, sep = "\t", comment.char = "#") %>%
+    #   dplyr::select(-c(2:6)) %>%
+    #   dplyr::rename(id = Geneid) %>%
+    #   dplyr::mutate_if(is.numeric, round, digits = digits) %>%
+    #   tibble::as_tibble()
   }
 }
 
+
+
+#' @describeIn read_fc2 Parsing multiple featureCounts files
+#'
+#' @param x character featureCount files, or data.frames
+#'
+#' @export
+read_fc2 <- function(x, get_gene_length = FALSE) {
+  # if character
+  chk1 <- sapply(x, is.character)
+  chk2 <- sapply(x, file.exists)
+  if(all(chk1, chk2)) {
+    lapply(x, function(i) read_fc(x, get_gene_length = get_gene_length)) %>%
+      bind_cols2()
+  }
+}
 
 
 #' @describeIn read_fc_summary Parsing the summary file of featureCounts output
@@ -304,10 +336,6 @@ read_fc_summary <- function(x, fix_name=TRUE) {
       dplyr::mutate(sample = fname(sample, fix_name))
   }
 }
-
-
-
-
 
 
 #' @describeIn bind_cols2 Merge multiple data.frame by column

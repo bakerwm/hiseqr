@@ -26,8 +26,10 @@ read_hiseq_align <- function(x) {
       }
     } else if(is_hiseq_dir(x, TRUE)) {
       pd <- read_hiseq(x)
-      if(pd$hiseq_type == "alignment") {
-        j <- list_hiseq_file(x, "align_json", TRUE)
+      # if(pd$hiseq_type == "alignment") {
+      if(is_hiseq_dir(x, "alignment")) {
+        j <- list_hiseq_file(x, "align_json", TRUE) %>%
+          unique()
         lapply(j, read_hiseq_align) %>%
           dplyr::bind_rows()
       } else {

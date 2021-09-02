@@ -20,10 +20,11 @@ read_hiseq_trim <- function(x) {
           as.data.frame
       )
       # basic
-      required_cols <- c("name", "total", "clean", "too_short",
-                         "too_short2", "dup")
+      df_cols       <- colnames(df)
+      required_cols <- c("name", "total", "clean", "too_short", "dup")
+      extra_cols    <- df_cols[! df_cols %in% required_cols]
       if(all(rlang::has_name(df, required_cols))) {
-        dplyr::select(df, all_of(required_cols)) %>%
+        dplyr::select(df, all_of(c(required_cols, extra_cols))) %>%
           dplyr::rename(
             input = total,
             output = clean
@@ -36,11 +37,12 @@ read_hiseq_trim <- function(x) {
       if(pd$hiseq_type == "trim_r1") {
         j_list <- list_hiseq_file(x, "trim_json")
       } else if(pd$hiseq_type == "trim_rn") {
-        project_dir <- list_hiseq_file(x, "project_dir", TRUE)
-        j_list <- sapply(list_hiseq_file(x, "smp_name", TRUE), function(i) {
-          r1 <- file.path(project_dir, i)
-          list_hiseq_file(r1, "trim_json")
-        })
+        j_list <- list_hiseq_file(x, "trim_json", "r1")
+        # project_dir <- list_hiseq_file(x, "project_dir", TRUE)
+        # j_list <- sapply(list_hiseq_file(x, "smp_name", TRUE), function(i) {
+        #   r1 <- file.path(project_dir, i)
+        #   list_hiseq_file(r1, "trim_json")
+        # })
       }
       # load data
       lapply(j_list, read_hiseq_trim) %>%
