@@ -21,7 +21,7 @@ list_hiseq_file <- function(x, keys = "bam", hiseq_type = "r1") {
     # check
     if(is(pd, "list")) {
       if(keys %in% names(pd$args)) {
-        pd$args[[keys]]
+        pd[["args"]][[keys]]
       }
     }
   }) %>%
@@ -82,6 +82,8 @@ list_hiseq_dir <- function(x, hiseq_type = "_r1"){
     purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
   } else if(pd$is_hiseq_rp) {
     x
+  } else if(is_hiseq_dir(x, TRUE)) {
+    x
   } else {
     c()
   }
@@ -103,17 +105,21 @@ list_hiseq_dir <- function(x, hiseq_type = "_r1"){
 #'
 #'
 is_hiseq_dir <- function(x, hiseq_type = TRUE) {
-  sapply(x, function(i) {
-    pd     <- read_hiseq(i)
-    i_type <- ifelse(is(pd, "list"), pd$hiseq_type, "")
-    i_is_hiseq <- ifelse(is(pd, "list"), pd$is_hiseq, FALSE)
-    i_is_hiseq <- i_is_hiseq && (! endsWith(i, "config")) # exclude "config/"
-    if(isTRUE(hiseq_type)) {
-      i_is_hiseq
-    } else if(is(hiseq_type, "character")) {
-      endsWith(i_type, hiseq_type) | startsWith(i_type, hiseq_type)
-    }
-  })
+  if(inherits(x, "character")) {
+    sapply(x, function(i) {
+      pd     <- read_hiseq(i)
+      i_type <- ifelse(is(pd, "list"), pd$hiseq_type, "")
+      i_is_hiseq <- ifelse(is(pd, "list"), pd$is_hiseq, FALSE)
+      i_is_hiseq <- i_is_hiseq && (! endsWith(i, "config")) # exclude "config/"
+      if(isTRUE(hiseq_type)) {
+        i_is_hiseq
+      } else if(is(hiseq_type, "character")) {
+        endsWith(i_type, hiseq_type) | startsWith(i_type, hiseq_type)
+      }
+    })
+  } else {
+    FALSE
+  }
 }
 
 

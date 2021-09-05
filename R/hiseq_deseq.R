@@ -31,10 +31,29 @@
 #' @return DESeqResults, res (shrinked)
 #'
 #' @export
-hiseq_deseq <- function(x, outdir = NULL, shrink = "apeglm", fix_batch = TRUE,
-                        fc = 1, pvalue = 0.1, p_adjust = TRUE,
-                        strandness = "sens", cpu = 4, readable = TRUE,
-                        genome = NULL, overwrite = FALSE) {
+hiseq_deseq <- function(x, outdir = NULL, ...) {
+  #-- Check: default values
+  fix_batch  <- TRUE   # for DESeq(), design: ~ condition + batch
+  shrink     <- "apeglm"   # shrink log2fc, "apeglm", "ashr", "normal"
+  n_max      <- 20
+  cpu        <- 4
+  fc         <- 2
+  pvalue     <- 0.1
+  p_adjust   <- TRUE   # for DESeq2 `padj`
+  genome     <- NULL   # character
+  strandness <- "sens" # "sens", "anti"
+  readable   <- TRUE   # add SYMBOL, ENTREZID, by gene_id
+  overwrite  <- FALSE
+  transform  <- TRUE   # dds transformation, vst(), vlog()
+  label_list <- NULL   # for ma,volcano,scatter
+  label_max  <- 8      # for ma,volcano,scatter
+  density_points <- FALSE  # for scatter plot
+  log2fc_limits  <- c(-2, 2)   # for ma,volcano,scatter
+  #-- Check: arguments
+  dots <- rlang::list2(...)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
   #-- Check: args
   if(!is_hiseq_dir(x, "_rx")) {
     warning(glue::glue("not a `rnaseq_rx` dir: {x}"))
@@ -43,6 +62,7 @@ hiseq_deseq <- function(x, outdir = NULL, shrink = "apeglm", fix_batch = TRUE,
   if(!inherits(outdir, "character")) {
     outdir <- list_hiseq_file(x, "deseq_dir", "_rx")
   }
+  outdir <- normalizePath(outdir) # absolute path
   #-- Check: pre-compute data
   dds_rds <- file.path(outdir, "deseq_dds.rds")
   if(file.exists(dds_rds)) {
@@ -54,14 +74,25 @@ hiseq_deseq <- function(x, outdir = NULL, shrink = "apeglm", fix_batch = TRUE,
     }
   }
   #-- run: deseq
-  genome <- list_hiseq_file(x, "genome", "rx")
   if(inherits(dds, "DESeqDataSet")) {
-    res <- deseq(dds, outdir, shrink, cpu, fc = fc, pvalue = pvalue,
-                 p_adjust = p_adjust, genome = genome, overwrite = overwrite)
+    genome <- list_hiseq_file(x, "genome", "rx") # add genome
+    dots$genome <- genome
+    res <- deseq(dds, outdir, !!!dots)
   } else {
     warning("`deseq()` failed")
     return(NULL)
   }
+  #-- run: save config
+  name_csv <- file.path(outdir, "smp_name.csv")
+  name_rds <- file.path(outdir, "smp_name.rds")
+  coldata  <- colData(dds)
+  name_df  <- data.frame(
+    smp_name  = coldata$smp_name,
+    label     = rownames(coldata),
+    condition = coldata$condition
+  )
+  saveRDS(name_df, name_rds)
+  write.csv(name_df, name_csv, row.names = FALSE)
   #-- run: transcripts_deseq2.csv
   norm_table <- file.path(outdir, "norm_table.csv")
   res_df <- read.csv(norm_table)
@@ -75,24 +106,6 @@ hiseq_deseq <- function(x, outdir = NULL, shrink = "apeglm", fix_batch = TRUE,
   # return
   res
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

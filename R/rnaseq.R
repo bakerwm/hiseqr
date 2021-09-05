@@ -605,35 +605,36 @@ get_sig_gene <- function(data, fc_cutoff = 2, pval_cutoff = 0.05,
 
 
 
-
-#' @describeIn deseq_mean mean value of replicates
+#' deprecated: see deseq_utils.R
 #'
-#' @param data data.frame From res(dds) output
-#'
-#' @export
-deseq_csv_mean <- function(data) {
-  stopifnot(is(data, "data.frame"))
-  col_required <- c("Gene", "baseMean", "padj")
-  if(! all(col_required %in% names(data))) {
-    stop("Missing required columns: ", paste(col_required, collapse = ", "))
-  }
-  # sample names
-  rep_name <- data %>%
-    dplyr::select(Gene:baseMean) %>%
-    dplyr::select(-Gene, -baseMean) %>%
-    names()
-  # groups
-  group_name <- fq_name(rep_name, fix_rep = TRUE) %>% unique
-  if(! length(group_name) == 2) {
-    stop("Only two groups supported")
-  }
-  g1 <- group_name[1]
-  g2 <- group_name[2]
-  data %>%
-    dplyr::mutate(!! g1 := dplyr::select(., starts_with(g1)) %>% rowMeans(),
-                  !! g2 := dplyr::select(., starts_with(g2)) %>% rowMeans()) %>%
-    dplyr::select(Gene, all_of(group_name), all_of(rep_name), baseMean:padj)
-}
+#' #' @describeIn deseq_mean mean value of replicates
+#' #'
+#' #' @param data data.frame From res(dds) output
+#' #'
+#' #' @export
+#' deseq_csv_mean <- function(data) {
+#'   stopifnot(is(data, "data.frame"))
+#'   col_required <- c("Gene", "baseMean", "padj")
+#'   if(! all(col_required %in% names(data))) {
+#'     stop("Missing required columns: ", paste(col_required, collapse = ", "))
+#'   }
+#'   # sample names
+#'   rep_name <- data %>%
+#'     dplyr::select(Gene:baseMean) %>%
+#'     dplyr::select(-Gene, -baseMean) %>%
+#'     names()
+#'   # groups
+#'   group_name <- fq_name(rep_name, fix_rep = TRUE) %>% unique
+#'   if(! length(group_name) == 2) {
+#'     stop("Only two groups supported")
+#'   }
+#'   g1 <- group_name[1]
+#'   g2 <- group_name[2]
+#'   data %>%
+#'     dplyr::mutate(!! g1 := dplyr::select(., starts_with(g1)) %>% rowMeans(),
+#'                   !! g2 := dplyr::select(., starts_with(g2)) %>% rowMeans()) %>%
+#'     dplyr::select(Gene, all_of(group_name), all_of(rep_name), baseMean:padj)
+#' }
 
 
 

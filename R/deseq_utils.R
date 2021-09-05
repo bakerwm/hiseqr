@@ -41,7 +41,8 @@ hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
     names = list_hiseq_file(wt_dir, "smp_name", "r1")
   )
   #-- run: sanitize, suffix
-  wt_suffix <- deseq_sanitize_str(wt_data$names, 20)
+  wt_suffix <- deseq_sanitize_str(wt_data$names, 20, fix_prefix = FALSE)
+  wt_suffix <- paste0("rep", wt_suffix) # rep1, rep2
   #-- Check: required data : mut
   mut_dir  <- list_hiseq_file(x, "mut_dir", "_rx")
   mut_name <- list_hiseq_file(x, "mut_name", "_rx")
@@ -50,10 +51,12 @@ hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
     names = list_hiseq_file(mut_dir, "smp_name", "r1")
   )
   #-- run: sanitize, suffix
-  condition <- deseq_sanitize_str(c(wt_name, mut_name), 20) # wt, mut
-  mut_suffix <- deseq_sanitize_str(mut_data$names, 20)
+  condition  <- deseq_sanitize_str(c(wt_name, mut_name), 20, fix_prefix = TRUE)
+  mut_suffix <- deseq_sanitize_str(mut_data$names, 20, fix_prefix = FALSE)
+  mut_suffix <- paste0("rep", mut_suffix) # rep1, rep2
   #-- Check: condition, batch
   fcdata <- rbind(wt_data, mut_data)
+  fcdata$smp_name  <- c(wt_data$names, mut_data$names)
   fcdata$condition <- c(rep(condition[1], length(wt_suffix)),
                         rep(condition[2], length(mut_suffix)))
   fcdata$names <- paste0(fcdata$condition, ".", c(wt_suffix, mut_suffix))
@@ -113,6 +116,7 @@ import_featurecounts <- function(x) {
   #-- run: coldata
   coldata <- data.frame(
     condition = x$condition,
+    smp_name  = x$smp_name,
     row.names = x$names
   )
   if(rlang::has_name(x, "batch")) {
@@ -215,14 +219,25 @@ valid_featurecounts_input <- function(x) {
 #' @param fc numeric, cutoff for foldchange, default: 2
 #' @param pvalue numeric, cutoff for pvalue, default: 0.05
 #' @param p_adjust bool use p-adjust value instead
+#' @param force logical force calculate sig, default: FALSE
 #'
 #' @import dplyr
 #'
 #' @export
-filt_sig_gene <- function(x, type = "sig", fc = 2, pvalue = 0.05,
-                          p_adjust = TRUE) {
-  # check input `x`, data.frame
-  df <- get_sig_name(x, fc, pvalue, p_adjust, return_dataframe = TRUE)
+filt_sig_gene <- function(x, type = "sig", ...) {
+  #-- Check: arguments
+  fc <- 2
+  pvalue   <- 0.05
+  p_adjust <- TRUE
+  force    <- FALSE  # ignore exists sig column
+  return_dataframe <- TRUE
+  dots <- rlang::list2(...)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  dots[["return_dataframe"]] <- TRUE # force
+  df <- get_sig_name(x, !!!dots)
+  # df <- get_sig_name(x, fc, pvalue, p_adjust, return_dataframe = TRUE)
   if(inherits(df, "data.frame")) {
     sig_type <- switch (
       type,
@@ -232,31 +247,89 @@ filt_sig_gene <- function(x, type = "sig", fc = 2, pvalue = 0.05,
       "down" = "down",
       "not"  = "not"
     )
-    out <- df[df$sig %in% sig_type, ]
+    if(inherits(sig_type, "character")) {
+      #-- return: subset
+      df[df$sig %in% sig_type, ]
+    }
   } else {
     warning("unknown data, expect `data.frame`, got {class(x)}")
-    out <- NULL
   }
-  out
 }
 
 
 #' @describeIn get_sig_name
 #'
-#' add sig name
+#' add sig name, based on fc:foldchange (not log2), pvalue
 #'
-#' @param data data.frame, csv, xls output of `DESeq2::results(dds)`
+#' x could be `data.frame`, `.csv`
+#' required columns: `log2FoldChange`, `pvlaue`, `padj`
+#'
+#'
+#' @param x data.frame, csv, xls output of `DESeq2::results(dds)`
 #' @param fc numeric, cutoff for foldchange, default: 2
 #' @param pvalue numeric, cutoff for pvalue, default: 0.05
-#' @param p_adjust bool use p-adjust value instead
+#' @param p_adjust logical use p-adjust value instead
+#' @param return_dataframe logical return a new data.frame, contain `sig` col
+#' @param force logical force calculate sig, default: FALSE
+#' @param .col_sig character name of the column for `sig`, default: "sig"
+#' @param .col_log2fc character name of the log2fc column, default: "log2FoldChange"
+#' @param .col_pvalue character name of the pvalue column, default: "pvalue"
+#' @param .col_padj character name of adjust pvalue, default: "padj"
+#' @param .sig_up character assign name for up-regulated genes, default: "up"
+#' @param .sig_down character assign name for down-regulated genes, default: "down"
+#' @param .sig_not character assign name for not changed genes, default: "not"
 #'
 #' @import dplyr
 #'
 #' @return vector, sig names
 #'
 #' @export
-get_sig_name <- function(x, fc = 2, pvalue = 0.05, p_adjust = TRUE,
-                         return_dataframe = FALSE) {
+get_sig_name <- function(x, ...) {
+  #-- Check: optional, specify columns for log2fc, pvalue
+  fc <- 2
+  pvalue   <- 0.05
+  p_adjust <- TRUE
+  force    <- FALSE  # ignore sig column
+  return_dataframe <- FALSE
+  .col_sig    <- "sig"
+  .col_log2fc <- "log2FoldChange"
+  .col_pvalue <- "pvalue"
+  .col_padj   <- "padj"
+  .sig_up     <- "up"   # mark for up regulated genes
+  .sig_down   <- "down" # mark for down regulated genes
+  .sig_not    <- "not"  # mark for not changed genes
+  dots <- rlang::list2(...)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #-- Check: arguments
+  if(inherits(fc, "numeric") & inherits(pvalue, "numeric")) {
+    if(fc <= 0 | pvalue <= 0 | pvalue > 1) {
+      warning(glue::glue("`fc={fc}`, expect (0-Inf), greater than 0; ",
+                         "`pvalue={pvalue}`, expect (0-1)"))
+      return(NULL)
+    }
+  } else {
+    warning(glue::glue("`fc` is {class(fc)}, expect `numeric`, ",
+                       "`pvalue` is {class(pvalue)}, expect `numeric`"))
+    return(NULL)
+  }
+  if(!inherits(p_adjust, "logical")) {
+    warning(glue::glue("`p_value` is {class(pvalue)}, expect logical"))
+    return(NULL)
+  }
+  if(!inherits(return_dataframe, "logical")) {
+    warning(glue::glue(
+      "`return_dataframe` is {class(return_dataframe)}, expect logical"))
+    return(NULL)
+  }
+  if(!inherits(force, "logical")) {
+    warning(glue::glue(
+      "`force` is {class(force)}, expect logical"))
+    return(NULL)
+  }
+  #-- Check: arguments
+  df <- NULL
   if(inherits(x, "character")) {
     if(file.exists(x)) {
       if(endsWith(x, ".csv")) {
@@ -264,57 +337,71 @@ get_sig_name <- function(x, fc = 2, pvalue = 0.05, p_adjust = TRUE,
       } else if(endsWith(x, ".xls")) {
         df <- readr::read_delim(x, "\t", col_names = TRUE, col_types = readr::cols)
       } else {
-        warning(glue::glue("unknown x, expect `.csv`, `.xls` file, get: {x}"))
-        return(NULL)
+        warning(glue::glue("x is {class(x)}, expect `.csv` file"))
+        # return(NULL)
       }
     } else {
-      warning(glue::glue("x, file not exists: {x}"))
+      warning(glue::glue("file not exists, `x=`: {x}"))
     }
   } else if(inherits(x, "data.frame")) {
     df <- x
-  } else if(inherits(x, "DESeqResults")) {
-    df <- as.data.frame(x)
   } else if(inherits(x, "matrix")) {
     df <- as.data.frame(x)
+  } else if(inherits(x, "DESeqResults")) {
+    df <- as.data.frame(x)
   } else {
-    warning(glue::glue("unknown data, expect `data.frame`, get: {class(x)}"))
+    warning(glue::glue("x is {class(x)}, expect `.csv` or `data.frame` file"))
+    # return(NULL)
+  }
+  #-- Check: data.frame
+  if(!inherits(df, "data.frame")) {
     return(NULL)
   }
-  df <- tibble::tibble(df)
   #-- Check: required columns
-  rc <- c("log2FoldChange", "pvalue", "padj")
+  df <- tibble::tibble(df)
+  if(.col_sig %in% names(df) & !force) {
+    message(glue::glue(
+      "column `{.col_sig}` exists, set `force=TRUE` to re-calculate sig"))
+    if(return_dataframe) {
+      out <- df
+    } else {
+      out <- df[[.col_sig]]
+    }
+    return(out)
+  }
+  #-- run: re-run, sig values
+  if(isTRUE(p_adjust)) {
+    rc <- c(.col_log2fc, .col_padj)
+  } else {
+    rc <- c(.col_log2fc, .col_pvalue)
+  }
   if(!all(rc %in% names(df))) {
-    warning(glue::glue(
-      "missing required columns, [{paste(rc, collapse = ', ')}]")
-    )
+    rc_str <- paste(rc, collapse = ", ")
+    warning(glue::glue("missing required columns, [{rc_str}]"))
     return(NULL)
   }
-  #-- run: add sig mark
-  # fix NA: log2fc NA -> 0, pval NA -> 1
-  log2fc <- dplyr::pull(df, "log2FoldChange")
-  if(isTRUE(p_adjust)) {
-    pval <- dplyr::pull(df, "padj")
-  } else {
-    pval <- dplyr::pull(df, "pvalue")
+  df_sub <- df[, c(.col_log2fc, .col_pvalue)]
+  #-- Check: numeric columns
+  if(!all(apply(df_sub, 2, is.numeric))) {
+    warning("expect numeric columns, but get:")
+    str(df_sub)
+    return(NULL)
   }
-  log2fc[is.na(log2fc)] <- 0 # 1,2,4
-  pval[is.na(pval)]     <- 1 # 1,2,4
-  #-- run: add sig; up=1, down=-1, not=0
-  up   <- as.numeric(pval < pvalue & log2fc >= log2(fc))   # +1
-  down <- -as.numeric(pval < pvalue & log2fc <= -log2(fc)) # -1
-  sig  <- up + down
-  #-- run: convert to marks
-  sig[sig == 1]  = "up"
-  sig[sig == -1] = "down"
-  sig[sig == 0]  = "not"
+  #-- run: assign marks
+  up   <- df[[.col_pvalue]] < pvalue & df[[.col_log2fc]] >= log2(fc)
+  down <- df[[.col_pvalue]] < pvalue & df[[.col_log2fc]] <= -log2(fc)
+  up[is.na(up)] <- FALSE
+  down[is.na(down)] <- FALSE
+  #-- add
+  df[[.col_sig]]       <- .sig_not # init
+  df[[.col_sig]][up]   <- .sig_up
+  df[[.col_sig]][down] <- .sig_down
   #-- return
-  if(isTRUE(return_dataframe)) {
-    df$sig <- sig
-    out <- df
+  if(return_dataframe) {
+    df
   } else {
-    out <- sig
+    df[[.col_sig]]
   }
-  out
 }
 
 
@@ -325,35 +412,32 @@ get_sig_name <- function(x, fc = 2, pvalue = 0.05, p_adjust = TRUE,
 #' condition
 #' rownames
 #'
-#' @param x data.frame norm table, see `deseq()`
 #' @param dds DESeqDataSet, parsing design from `colData(dds)`
 #'
 #' @return data.frame
 #'
 #' @export
 deseq_mean <- function(dds, outdir = NULL) {
-  #-- Check: dds
-  if(!inherits(dds, "DESeqDataSet")) {
-    warning(glue::glue(
-      "illegal input, ",
-      "dds is {class(dds)} (expect `DESeqDataSet`)"))
-    return(NULL)
-  }
-  #-- Check: norm_table.csv, `run_deseq()`
-  df <- NULL #
-  if(inherits(outdir, "character")) {
-    norm_table <- file.path(outdir, "norm_table.csv")
-    if(file.exists(norm_table)) {
-      message(glue::glue("loading data from: {norm_table}"))
-      df <- read.csv(norm_table)
+  #-- support; csv
+  if(inherits(dds, "data.frame") & inherits(dds, "character")) {
+    df <- deseq_csv_mean(dds)
+    if(inherits(df, "data.frame")) {
+      return(df)
     }
+  } else if(inherits(dds, "DESeqDataSet")) {
+    dd   <- run_deseq_res(dds, outdir, shrink = FALSE, transform = FALSE) #!!!
+    df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized counts
+    df   <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
+    colnames(df)[1] <- "gene_id"
+  } else {
+      warning(glue::glue(
+        "illegal input, ",
+        "dds is {class(dds)} (expect `DESeqDataSet`)"))
+      return(NULL)
   }
   #-- run: `run_deseq()`
   if(!inherits(df, "data.frame")) {
-    dd  <- run_deseq(dds, outdir)
-    df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized counts
-    df  <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
-    colnames(df)[1] <- "gene_id"
+    return(NULL)
   }
   #-- run: choose columns
   coldata <- SummarizedExperiment::colData(dds)
@@ -363,12 +447,74 @@ deseq_mean <- function(dds, outdir = NULL) {
   mut_names <- rownames(coldata[coldata$condition == mut,])
   df %>%
     dplyr::mutate(
-      !! wt := dplyr::select(., all_of(wt_names)) %>% rowMeans(),
-      !! mut := dplyr::select(., all_of(mut_names)) %>% rowMeans()) %>%
+      !!wt := dplyr::select(., all_of(wt_names)) %>% rowMeans(),
+      !!mut := dplyr::select(., all_of(mut_names)) %>% rowMeans()) %>%
     dplyr::select(gene_id, all_of(c(wt, mut)), all_of(names(df)[-1]))
 }
 
 
+#' @describeIn deseq_csv_mean
+#' calculate the mean values
+#' support old version: transcripts_deseq2.csv
+#' @param x data.frame
+deseq_csv_mean <- function(x) {
+  #-- Check: arguments
+  df <- NULL
+  if(inherits(x, "data.frame")) {
+    df <- x
+  } else if(inherits(x, "character")) {
+    if(file.exists(x)) {
+      if(endsWith(x, ".csv")) {
+        df <- read.csv(x)
+      }
+    }
+  }
+  if(!inherits(df, "data.frame")) {
+    warning(glue::glue("'x' is {class(x)}, expect 'data.frame'"))
+    return(NULL)
+  }
+  #-- Check: columns
+  # columns before 'baseMean', remove 'gene_id', 'Gene'
+  # i: baseMean
+  # g: first of sample
+  rc <- "baseMean"
+  if(rc %in% names(df)) {
+    i <- grep(rc, names(df), fixed = TRUE) # baseMean
+    g <- ifelse(names(df)[1] == "X", 3, 2) # !!! support for old version, transcripts_deseq2.csv
+    ix <- names(df)[g:(i - 1)]
+  } else {
+    warning(glue::glue("unknown x, column '{rc}' not found"))
+    return(NULL)
+  }
+  col_gene <- names(df)[1:(g-1)] #
+  col_smp  <- names(df)[-c(1:(g-1))]
+  # column Gene, gene_id
+  #-- unique names
+  iu <- unique(fq_name(ix, fix_rep = TRUE))
+  if(length(iu) != 2) {
+    iu_str <- paste(iu, collapse = ", ")
+    warning(glue::glue("{length(iu)} samples found, expect 2; get: {iu_str}"))
+    return(NULL)
+  }
+  wt  <- iu[1]
+  mut <- iu[2]
+  wt_names  <- ix[startsWith(ix, wt)]
+  mut_names <- ix[startsWith(ix, mut)]
+  #-- Check: wt, mut exists or not
+  if(any(c(wt, mut) %in% names(df))) {
+    warning(glue::glue(
+      "'x' might contains merged columns: {wt}, {mut}, \n",
+      "check 'x' again"
+    ))
+    return(NULL)
+  }
+  #-- run:
+  df %>%
+    dplyr::mutate(
+      !!wt := dplyr::select(., all_of(wt_names)) %>% rowMeans(),
+      !!mut := dplyr::select(., all_of(mut_names)) %>% rowMeans()) %>%
+    dplyr::select(all_of(c(col_gene, wt, mut, col_smp)))
+}
 
 
 #' @describeIn set_readable
@@ -452,8 +598,6 @@ set_readable <- function(x, genome, keytype = "auto") {
 }
 
 
-
-
 #' @describeIn sanitize_str
 #' for coef, only allow
 #' letters, numbers, '_' and '.'
@@ -462,15 +606,27 @@ set_readable <- function(x, genome, keytype = "auto") {
 #' fix the sample names by length
 #' trim to <= 20 characters
 #'
+#' 1. remove not supported characters
+#' - support: [\\w.] letters, numbers, _, .
+#'
+#' 2. remove common:
+#' - lcPrefix(), longest common prefix
+#' - lcSuffix(), longest common suffix
+#'
+#' 3. fix prefix
+#' - prefix start with "letters"
+#'
 #' @param x character
 #'
 #' @return character
 #'
 #' @export
-deseq_sanitize_str <- function(x, n_max = 0) {
+deseq_sanitize_str <- function(x, n_max = 0, fix_prefix = FALSE) {
   x <- as.character(x)
   if(inherits(x, "character")) {
+    # 1. supported characters
     out <- gsub("[^\\w\\.]", ".", x, perl = TRUE)
+    # 2. prefix, suffix
     if(nchar(x[1]) > n_max & n_max > 0) {
       # longest prefix, suffix
       lcp <- lcPrefix(out, ignore.case = FALSE)
@@ -480,6 +636,12 @@ deseq_sanitize_str <- function(x, n_max = 0) {
       }
       if(nchar(lcs) > 0) {
         out <- gsub(lcs, "", out)
+      }
+    }
+    # 3. fix prefix
+    if(isTRUE(fix_prefix)) {
+      if(any(grepl("^[^A-Za-z]", out, perl = TRUE))) {
+        out <- paste0("X", out)
       }
     }
     out

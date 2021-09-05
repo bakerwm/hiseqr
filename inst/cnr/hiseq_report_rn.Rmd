@@ -53,7 +53,7 @@ library(GenomicRanges)
 ```{r config, eval = T}
 input_dir <- params$input_dir
 input_dir <- normalizePath(input_dir)
-if(! is_hiseq_dir(input_dir, "rn")) {
+if(!is_hiseq_dir(input_dir, "rn")) {
   stop(paste0("Input file is not a HiSeq rn directory, _rn: ", input_dir))
 }
 ```

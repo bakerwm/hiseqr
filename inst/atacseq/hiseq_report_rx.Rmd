@@ -166,9 +166,10 @@ plot_hiseq_lendist(input_dir, hiseq_type = TRUE) +
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
 tss_list <- lapply(pd$enrich, function(i) {
   if(is(i, "list")) {
-    s <- i$tss
+    s    <- i$tss
     sdir <- dirname(dirname(s))
-    if(! is_hiseq_dir(sdir, "r1")) {
+    si   <- is_hiseq_dir(sdir)
+    if(isTRUE(si)) {
       s
     }
   }
@@ -187,9 +188,10 @@ if(length(tss_list) > 0) {
 ```{r figure4_genebody_enrich, eval = T, fig.height = 4}
 gb_list <-  lapply(pd$enrich, function(i) {
   if(is(i, "list")) {
-    s <- i$genebody
+    s    <- i$genebody
     sdir <- dirname(dirname(s))
-    if(! is_hiseq_dir(sdir, "r1")) {
+    si   <- is_hiseq_dir(sdir)
+    if(isTRUE(si)) {
       s
     }
   }

@@ -13,9 +13,17 @@
 #' @param dds DESeqDataSet
 #' @param outdir character saving the results
 #' @param strandness character could be "sens", "anti", default "sens"
-#' @param shrink character use `lfcShrink` function to calculate shrunken LFC
-#'        could be ["apeglm", "ashr", "normal"], default: "apeglm"
+#' @param fix_batch bool fix batch effect, from replicates, suffix; default: TRUE
+#' @param shrink logical `shrink` LFC by ["apeglm", "ashr", "normal"],
+#'   default: TRUE
+#' @param transform logical transform dds by `vst()`, `rlog()`, default: TRUE
 #' @param overwrite bool overwrite exists file, default: FALSE
+#' @param readable add `ENTREZID`, `SYMBOL`, based on gene_id, require: `genome`
+#' @param genome character name of the organism, could be dm6, fruitfly
+#' @param fc numeric cutoff for foldchange, default: 2, ignore foldchange
+#' @param pvalue numeric cutoff for padj, default: 0.05, the main criteria
+#' @param p_adjust bool use p-adjust value instead
+#' @param cpu integer, number of CPU to run in parallel, default: 2
 #'
 #' @import DESeq2
 #' @import apeglm
@@ -24,151 +32,228 @@
 #' @return DESeqResults, res (shrinked)
 #'
 #' @export
-deseq <- function(dds, outdir = NULL, shrink = "apeglm", cpu = 4,
-                  fc = 1, pvalue = 0.1, p_adjust = TRUE,
-                  readable = TRUE, genome = NULL, overwrite = FALSE) {
-  if(is.null(outdir)) {
-    outdir <- tempdir()
+deseq <- function(dds, outdir = NULL, ...) {
+  #-- default values
+  cpu <- 2
+  fc  <- 2
+  n_max <- 20
+  genome    <- NULL
+  pvalue    <- 0.05
+  p_adjust  <- TRUE
+  readable  <- TRUE
+  shrink    <- TRUE
+  transform <- TRUE
+  fix_batch <- TRUE
+  overwrite <- FALSE
+  #-- Check: arguments
+  dots <- rlang::list2(...)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
   }
-  dd <- run_deseq(dds, outdir, shrink, cpu, overwrite)
-  if(is.null(dd)) {
-    warning("`deseq()` failed, see above messages")
+  outdir <- normalizePath(outdir)
+  #-- config: for hiseqr package
+  args <- rlang::list2(
+    hiseq_type = 'deseq_deseq2',
+    outdir    = outdir,
+    fix_batch = fix_batch,
+    shrink    = shrink,
+    genome    = genome,
+    cpu       = cpu,
+    fc        = fc,
+    pvalue    = pvalue,
+    p_adjust  = p_adjust,
+    config_yaml   = file.path(outdir, "config.yaml"),
+    deseq_dds_rds = file.path(outdir, "deseq_dds.rds"),
+    deseq_res_rds = file.path(outdir, "deseq_res.rds"),
+    deseq_qc_dds_rds = file.path(outdir, "deseq_qc_dds.rds"), # dds?
+    deseq_qc_res_rds = file.path(outdir, "deseq_qc_res.rds"), # res
+    fpkm_csv     = file.path(outdir, "fpkm_table.csv"),
+    norm_csv     = file.path(outdir, "norm_table.csv"),
+    norm_fix_csv = file.path(outdir, "norm_table.fix.csv"),
+    smp_name_csv = file.path(outdir, "smp_name.csv")
+  )
+  #-- run: main
+  saveRDS(dds, args$deseq_dds_rds) # deseq_dds.rds
+  dd <- run_deseq_res(dds, outdir, ...) # deseq_res.rds, dds, res, res_lfc
+  if(!inherits(dd, "list")) {
+    warning("`run_deseq_des()` failed, see above messages")
     return(NULL)
   }
-  if(shrink %in% c("apeglm", "ashr", "normal")) {
-    res <- dd$reslfc
-  } else {
-    res <- dd$res
+  #-- Check: outdir
+  if(!inherits(outdir, "character")) {
+    outdir <- tempdir()
   }
+  outdir <- normalizePath(outdir)
+  #-- run: save config, data sets
   if(check_path(outdir)) {
-    #-- Check: run set_readable()?
-    .to_readable <- function(x) {
-      b1 <- isTRUE(readable) & inherits(genome, "character")
-      b2 <- isTRUE(overwrite)
-      b3 <- !file.exists(x)
-      b1 & (b2 | b3)
-    }
+    #-- run: save config
+    yaml::write_yaml(args, args$config_yaml)
     #-- run: saving norm table
-    norm_table <- file.path(outdir, "norm_table.csv")
-    df1a <- DESeq2::counts(dd$dds, normalized = TRUE) # normalized counts
-    df1  <- merge(as.data.frame(df1a), as.data.frame(res), by = "row.names")
+    df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized count
+    df1  <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
     colnames(df1)[1] <- "gene_id"
-    # if(.to_readable(norm_table)) {
-    #   df1 <- set_readable(df1, genome)
-    # }
-    write.csv(df1, norm_table, quote = TRUE, row.names = FALSE)
+    write.csv(df1, args$norm_csv, quote = TRUE, row.names = FALSE)
     #-- run: saving norm table, fix
-    norm_fix_table <- file.path(outdir, "norm_table.fix.csv")
     df2 <- deseq_mean(dds, outdir)
-    if(.to_readable(norm_fix_table)) {
+    if(inherits(genome, "character")
+       & isTRUE(readable)
+       & !file.exists(args$norm_fix_csv)
+    ) {
       df2 <- set_readable(df2, genome)
     }
-    write.csv(df2, norm_fix_table, quote = TRUE, row.names = FALSE)
+    write.csv(df2, args$norm_fix_csv, quote = TRUE, row.names = FALSE)
     #-- run: fpkm
-    fpkm_table <- file.path(outdir, "fpkm_table.csv")
-    if("basepairs" %in% names(mcols(dd$dds))) {
-      df3a <- DESeq2::fpkm(dd$dds)
-      df3  <- merge(as.data.frame(df3a), as.data.frame(res), by = "row.names")
-      if(.to_readable(fpkm_table)) {
+    if("basepairs" %in% names(mcols(dds))) {
+      df3a <- DESeq2::fpkm(dds)
+      df3 <- merge(as.data.frame(df3a), as.data.frame(dd$res), by = "row.names")
+      if(inherits(genome, "character")
+         & is_valid_organism(genome)
+         & isTRUE(readable)
+         & !file.exists(args$fpkm_csv)
+      ) {
         df3 <- set_readable(df3, genome)
       }
-      write.csv(df3, fpkm_table, quote = TRUE, row.names = FALSE)
+      write.csv(df3, args$fpkm_csv, quote = TRUE, row.names = FALSE)
     }
     #-- run: quality-control, require outdir
-    tmp <- deseq_qc(norm_fix_table, outdir, n_max = 20,
-                    fc = fc, pvalue = pvalue, p_adjust = p_adjust,
-                    overwrite = overwrite)
+    tmp <- deseq_qc(args$norm_fix_csv, outdir, ...)
   }
-  res
+  dd$res # original res
 }
 
 
-#' @describeIn run_deseq
+#' @describeIn run_deseq_res
 #' run DESeq2::results() for dds
+#' vst(), rlog() for dds
+#' results() for res
+#' lfcShrink() for res
 #'
 #' @param dds DESeqDataSet
-#' @param outdir character saving the results
-#' @param shrink character use `lfcShrink` function to calculate shrunken LFC
-#'        could be ["apeglm", "ashr", "normal"], default: "apeglm"
-#' @param cpu integer, number of CPU to run in parallel, default: 4
+#' @param outdir character saving deseq_res to file: deseq_res.rds
+#' @param shrink logical `shrink` LFC by ["apeglm", "ashr", "normal"],
+#'   default: TRUE
+#' @param transform logical transform dds by `vst()`, `rlog()`, default: TRUE
+#' @param cpu integer, number of CPU to run in parallel, default: 2
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
+#' @return list(dds=, dds_trans = list(), res=, res_lfc=list())
+#'
 #' @export
-run_deseq <- function(dds, outdir = NULL, shrink = "apeglm", cpu = 4,
-                      overwrite = FALSE) {
-  #-- Check: pre-data
-  if(inherits(outdir, "character")) {
-    deseq_data_rds <- file.path(outdir, "deseq_data.rds")
-    if(file.exists(deseq_data_rds) & !isTRUE(overwrite)) {
-      message(glue::glue("loading deseq data from: {deseq_data_rds}"))
-      return(readRDS(deseq_data_rds))
-    }
-  }
+run_deseq_res <- function(dds, outdir = NULL, ...) {
+  #-- default values
+  cpu <- 2
+  shrink    <- TRUE # apeglm, ashr, normal
+  transform <- TRUE # convert to DESeqTransfrom, vst(), rlog()
+  overwrite <- FALSE
   #-- Check: arguments
+  dots <- rlang::list2(...)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #-- dds
   if(!inherits(dds, "DESeqDataSet")) {
-    warning(glue::glue("expect `DESeqDataSet`, got {class(dds)}"))
+    warning(glue::glue("`dds` is {class(dds)}, expect `DESeqDataSet`"))
     return(NULL)
   }
+  #-- cpu
+  if(inherits(cpu, "numeric")) {
+    if(cpu < 0 | cpu > 8) {
+      message(glue::glue("illegal 'cpu' = {cpu}, use 2 instead"))
+      cpu <- 2
+    }
+  } else {
+    message(glue::glue("illegal 'cpu' = {cpu}, use 2 instead"))
+    cpu <- 2
+  }
+  cpu <- round(cpu)
+  #-- shrink
+  if(!inherits(shrink, "logical")) {
+    shrink <- TRUE
+  }
+  #-- transform
+  if(!inherits(transform, "logical")) {
+    transform <- TRUE
+  }
+  #-- overwrite
+  if(!inherits(overwrite, "logical")) {
+    overwrite <- FALSE
+  }
+  #-- Check: config
+  deseq_res_rds <- list_hiseq_file(outdir, "deseq_res_rds", "deseq_deseq2")
+  if(inherits(deseq_res_rds, "character")) {
+    if(file.exists(deseq_res_rds) & !overwrite) {
+      message(glue::glue("loading deseq_res data from: {deseq_res_rds}"))
+      return(readRDS(deseq_res_rds))
+    }
+  }
+  #-- run: main
   coldata <- colData(dds)
-  if(! rlang::has_name(coldata, "condition")) {
-    warning("`condition` not found, check `colData(dds)`")
+  if(!rlang::has_name(coldata, "condition")) {
+    warning("required column `condition` not found, check `colData(dds)`")
     return(NULL)
   }
   #-- run: DESeq analysis
-  # levels wt mut #
-  # dds <- DESeq2::DESeq(dds)
-  wt  <- levels(coldata$condition)[1] #
-  mut <- levels(coldata$condition)[2] #
-  coef <- deseq_sanitize_str(paste0("condition_", mut, "_vs_", wt))
   BiocParallel::register(BiocParallel::MulticoreParam(cpu))
-  res <- DESeq2::results(dds, contrast = c("condition", mut, wt),
-                         parallel = TRUE)
-  res <- res[order(res$padj), ] # Order by adjusted p-value
-  # updated values
-  if(shrink %in% c("normal", "apeglm", "ashr")) {
-    message(glue::glue("shrink log2 fold changes by: {shrink}"))
-    reslfc <- DESeq2::lfcShrink(dds, coef = coef, type = shrink,
-                                parallel = TRUE)
+  #-- run: `vst()`, `vlog()`, norm, `DESeqTransform`
+  if(isTRUE(transform)) {
+    if(nrow(dds) > 1000) {
+      # why > 1000 genes? see https://support.bioconductor.org/p/98634/#98637
+      dds_trans <- list(
+        standard = DESeq2::normTransform(dds),
+        vst      = DESeq2::vst(dds, blind = FALSE),
+        rlog     = DESeq2::rlog(dds, blind = FALSE)
+      )
+    } else {
+      dds_trans <- list(standard = DESeq2::normTransform(dds))#
+    }
   } else {
-    reslfc <- NULL # skipped
+    dds_trans <- list(standard = DESeq2::normTransform(dds))#
   }
-  out <- list(
-    dds    = dds,
-    res    = res,
-    reslfc = reslfc,
-    wt     = wt,
-    mut    = mut
+  # dds <- DESeq2::DESeq(dds)
+  wt   <- levels(coldata$condition)[1] #
+  mut  <- levels(coldata$condition)[2] #
+  coef <- deseq_sanitize_str(paste0("condition_", mut, "_vs_", wt))
+  res  <- DESeq2::results(
+    dds,
+    contrast = c("condition", mut, wt), # b vs a
+    parallel = TRUE
   )
+  res <- res[order(res$padj), ] # Order by adjusted p-value
+  #-- run: shrink, option
+  if(shrink) {
+    res_lfc <- sapply(c("normal", "apeglm", "ashr"), function(s) {
+      message(glue::glue("using '{s}` for LFC shrinkage"))
+      DESeq2::lfcShrink(
+        dds,
+        coef     = coef,
+        type     = s,
+        parallel = TRUE
+      )
+    })
+  } else {
+    res_lfc <- list()
+  }
+  # update res_lfc
+  res_lfc[["standard"]] <- res
+  out <- list(
+    dds       = dds,
+    dds_trans = dds_trans,
+    res       = res,
+    res_lfc   = res_lfc
+  )
+  #-- output file
+  if(!inherits(deseq_res_rds, "character")) {
+    deseq_res_rds <- file.path(outdir, "deseq_res.rds")
+  }
+  #-- save
   if(inherits(outdir, "character")) {
-    deseq_data_rds <- file.path(outdir, "deseq_data.rds")
-    if(!file.exists(deseq_data_rds) | isTRUE(overwrite)) {
-      check_path(outdir)
-      message(glue::glue("setting tempdir outdir = {outdir}"))
-      saveRDS(out, deseq_data_rds)
+    if(check_path(outdir)) {
+      if(!file.exists(deseq_res_rds) | overwrite) {
+        message(glue::glue("saving `deseq_res` to file: {deseq_res_rds}"))
+        saveRDS(out, deseq_res_rds)
+      }
     }
   }
   out
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
