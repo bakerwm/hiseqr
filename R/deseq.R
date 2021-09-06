@@ -32,76 +32,112 @@
 #' @return DESeqResults, res (shrinked)
 #'
 #' @export
-deseq <- function(dds, outdir = NULL, ...) {
-  #-- default values
-  cpu <- 2
-  fc  <- 2
-  n_max <- 20
-  genome    <- NULL
-  pvalue    <- 0.05
-  p_adjust  <- TRUE
-  readable  <- TRUE
-  shrink    <- TRUE
-  transform <- TRUE
-  fix_batch <- TRUE
-  overwrite <- FALSE
-  #-- Check: arguments
+deseq <- function(dds, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
   dots <- rlang::list2(...)
+  args <- rlang::list2(
+    outdir     = NULL,
+    cpu        = 2,
+    n_max      = 20,
+    fc         = 2,
+    pvalue     = 0.05,
+    p_adjust   = TRUE,
+    label_list = NULL,
+    label_max  = 8,
+    overwrite  = FALSE,
+    readable   = TRUE,
+    transform  = TRUE,
+    fix_batch  = TRUE,
+    density_points = FALSE
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
-  outdir <- normalizePath(outdir)
-  #-- config: for hiseqr package
-  args <- rlang::list2(
-    hiseq_type = 'deseq_deseq2',
-    outdir    = outdir,
-    fix_batch = fix_batch,
-    shrink    = shrink,
-    genome    = genome,
-    cpu       = cpu,
-    fc        = fc,
-    pvalue    = pvalue,
-    p_adjust  = p_adjust,
-    config_yaml   = file.path(outdir, "config.yaml"),
-    deseq_dds_rds = file.path(outdir, "deseq_dds.rds"),
-    deseq_res_rds = file.path(outdir, "deseq_res.rds"),
-    deseq_qc_dds_rds = file.path(outdir, "deseq_qc_dds.rds"), # dds?
-    deseq_qc_res_rds = file.path(outdir, "deseq_qc_res.rds"), # res
-    fpkm_csv     = file.path(outdir, "fpkm_table.csv"),
-    norm_csv     = file.path(outdir, "norm_table.csv"),
-    norm_fix_csv = file.path(outdir, "norm_table.fix.csv"),
-    smp_name_csv = file.path(outdir, "smp_name.csv")
-  )
-  #-- run: main
-  saveRDS(dds, args$deseq_dds_rds) # deseq_dds.rds
-  dd <- run_deseq_res(dds, outdir, ...) # deseq_res.rds, dds, res, res_lfc
-  if(!inherits(dd, "list")) {
-    warning("`run_deseq_des()` failed, see above messages")
-    return(NULL)
-  }
-  #-- Check: outdir
+  #----------------------------------------------------------------------------#
+  #-- Check: arguments
   if(!inherits(outdir, "character")) {
     outdir <- tempdir()
   }
   outdir <- normalizePath(outdir)
-  #-- run: save config, data sets
+  #-- config: for hiseqr package
+  args <- rlang::list2(
+    hiseq_type        = 'deseq_deseq2',
+    outdir            = outdir,
+    fix_batch         = fix_batch,
+    shrink            = shrink,
+    genome            = genome,
+    cpu               = cpu,
+    fc                = fc,
+    pvalue            = pvalue,
+    p_adjust          = p_adjust,
+    config_yaml       = file.path(outdir, "config.yaml"),
+    deseq_dds_rds     = file.path(outdir, "deseq_dds.rds"),
+    deseq_res_rds     = file.path(outdir, "deseq_res.rds"),
+    deseq_qc_dds_rds  = file.path(outdir, "deseq_qc_dds.rds"), # dds?
+    deseq_qc_res_rds  = file.path(outdir, "deseq_qc_res.rds"), # res
+    fpkm_csv          = file.path(outdir, "fpkm_table.csv"),
+    norm_csv          = file.path(outdir, "norm_table.csv"),
+    norm_fix_csv      = file.path(outdir, "norm_table.fix.csv"),
+    smp_name_csv      = file.path(outdir, "smp_name.csv"),
+    gene_readable_csv = file.path(outdir, "gene_readable.csv")
+  )
+  #----------------------------------------------------------------------------#
+  #-- run: main
+  saveRDS(dds, args$deseq_dds_rds) # deseq_dds.rds
+  dd <- run_deseq_res(dds, !!!dots) # deseq_res.rds, dds, res, res_lfc
+  if(!inherits(dd, "list")) {
+    warning("`run_deseq_des()` failed, see above messages")
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  #-- run: save config, and qc
   if(check_path(outdir)) {
+    #--------------------------------------------------------------------------#
     #-- run: save config
     yaml::write_yaml(args, args$config_yaml)
+    #--------------------------------------------------------------------------#
+    #-- run: gene_readable , SYMBOL, ENTREZ
+    if(inherits(genome, "character")
+       & isTRUE(readable)
+       & !file.exists(args$norm_fix_csv)
+    ) {
+      df4 <- data.frame(
+        gene_id = rownames(dd$res),
+        stringsAsFactors = FALSE
+      )
+      df4 <- set_readable(df4,
+                          genome = genome,
+                          gene_table = args$gene_readable_csv)
+      write.csv(df4, args$gene_readable_csv, row.names = FALSE, quote = TRUE)
+    }
+    #--------------------------------------------------------------------------#
     #-- run: saving norm table
     df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized count
     df1  <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
     colnames(df1)[1] <- "gene_id"
     write.csv(df1, args$norm_csv, quote = TRUE, row.names = FALSE)
+    #--------------------------------------------------------------------------#
     #-- run: saving norm table, fix
     df2 <- deseq_mean(dds, outdir)
     if(inherits(genome, "character")
        & isTRUE(readable)
        & !file.exists(args$norm_fix_csv)
     ) {
-      df2 <- set_readable(df2, genome)
+      df2 <- set_readable(df2,
+                          genome = genome,
+                          gene_table = args$gene_readable_csv)
     }
     write.csv(df2, args$norm_fix_csv, quote = TRUE, row.names = FALSE)
+    #--------------------------------------------------------------------------#
     #-- run: fpkm
     if("basepairs" %in% names(mcols(dds))) {
       df3a <- DESeq2::fpkm(dds)
@@ -111,13 +147,17 @@ deseq <- function(dds, outdir = NULL, ...) {
          & isTRUE(readable)
          & !file.exists(args$fpkm_csv)
       ) {
-        df3 <- set_readable(df3, genome)
+        df3 <- set_readable(df3,
+                            genome = genome,
+                            gene_table = args$gene_readable_csv)
       }
       write.csv(df3, args$fpkm_csv, quote = TRUE, row.names = FALSE)
     }
+    #--------------------------------------------------------------------------#
     #-- run: quality-control, require outdir
-    tmp <- deseq_qc(args$norm_fix_csv, outdir, ...)
+    tmp <- deseq_qc(outdir, !!!dots)
   }
+  #----------------------------------------------------------------------------#
   dd$res # original res
 }
 
@@ -139,17 +179,31 @@ deseq <- function(dds, outdir = NULL, ...) {
 #' @return list(dds=, dds_trans = list(), res=, res_lfc=list())
 #'
 #' @export
-run_deseq_res <- function(dds, outdir = NULL, ...) {
-  #-- default values
-  cpu <- 2
-  shrink    <- TRUE # apeglm, ashr, normal
-  transform <- TRUE # convert to DESeqTransfrom, vst(), rlog()
-  overwrite <- FALSE
-  #-- Check: arguments
+run_deseq_res <- function(dds, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
   dots <- rlang::list2(...)
+  args <- rlang::list2(
+    outdir     = NULL,
+    cpu        = 2,
+    overwrite  = FALSE,
+    readable   = TRUE,
+    shrink     = TRUE,
+    transform  = TRUE,
+    fix_batch  = TRUE
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
+  #----------------------------------------------------------------------------#
   #-- dds
   if(!inherits(dds, "DESeqDataSet")) {
     warning(glue::glue("`dds` is {class(dds)}, expect `DESeqDataSet`"))
@@ -186,6 +240,7 @@ run_deseq_res <- function(dds, outdir = NULL, ...) {
       return(readRDS(deseq_res_rds))
     }
   }
+  #----------------------------------------------------------------------------#
   #-- run: main
   coldata <- colData(dds)
   if(!rlang::has_name(coldata, "condition")) {
@@ -194,6 +249,7 @@ run_deseq_res <- function(dds, outdir = NULL, ...) {
   }
   #-- run: DESeq analysis
   BiocParallel::register(BiocParallel::MulticoreParam(cpu))
+  #----------------------------------------------------------------------------#
   #-- run: `vst()`, `vlog()`, norm, `DESeqTransform`
   if(isTRUE(transform)) {
     if(nrow(dds) > 1000) {
@@ -219,6 +275,7 @@ run_deseq_res <- function(dds, outdir = NULL, ...) {
     parallel = TRUE
   )
   res <- res[order(res$padj), ] # Order by adjusted p-value
+  #----------------------------------------------------------------------------#
   #-- run: shrink, option
   if(shrink) {
     res_lfc <- sapply(c("normal", "apeglm", "ashr"), function(s) {
@@ -245,6 +302,7 @@ run_deseq_res <- function(dds, outdir = NULL, ...) {
   if(!inherits(deseq_res_rds, "character")) {
     deseq_res_rds <- file.path(outdir, "deseq_res.rds")
   }
+  #----------------------------------------------------------------------------#
   #-- save
   if(inherits(outdir, "character")) {
     if(check_path(outdir)) {
@@ -254,6 +312,7 @@ run_deseq_res <- function(dds, outdir = NULL, ...) {
       }
     }
   }
+  #----------------------------------------------------------------------------#
   out
 }
 

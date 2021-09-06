@@ -64,7 +64,7 @@ hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
   if(isTRUE(fix_batch)) {
     fcdata$batch <- as.factor(
       c(LETTERS[seq_len(nrow(wt_data))], LETTERS[seq_len(nrow(mut_data))])
-      )
+    )
   }
   #-- run: load to dds
   dds <- import_featurecounts(fcdata)
@@ -72,7 +72,7 @@ hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
 }
 
 
-# --Utils: Prepare data --------------------------------------------------------
+# --Utils: Prepare data -------------------------------------------------------#
 
 #' @describeIn import_featurecounts Construct dds for DESeq2 analysis using matrix
 #'
@@ -225,16 +225,29 @@ valid_featurecounts_input <- function(x) {
 #'
 #' @export
 filt_sig_gene <- function(x, type = "sig", ...) {
-  #-- Check: arguments
-  fc <- 2
-  pvalue   <- 0.05
-  p_adjust <- TRUE
-  force    <- FALSE  # ignore exists sig column
-  return_dataframe <- TRUE
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
   dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fc         = 2,
+    pvalue     = 0.05,
+    p_adjust   = TRUE,
+    force      = FALSE,
+    overwrite  = FALSE,
+    return_dataframe = TRUE
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
+  #----------------------------------------------------------------------------#
   dots[["return_dataframe"]] <- TRUE # force
   df <- get_sig_name(x, !!!dots)
   # df <- get_sig_name(x, fc, pvalue, p_adjust, return_dataframe = TRUE)
@@ -285,23 +298,36 @@ filt_sig_gene <- function(x, type = "sig", ...) {
 #'
 #' @export
 get_sig_name <- function(x, ...) {
-  #-- Check: optional, specify columns for log2fc, pvalue
-  fc <- 2
-  pvalue   <- 0.05
-  p_adjust <- TRUE
-  force    <- FALSE  # ignore sig column
-  return_dataframe <- FALSE
-  .col_sig    <- "sig"
-  .col_log2fc <- "log2FoldChange"
-  .col_pvalue <- "pvalue"
-  .col_padj   <- "padj"
-  .sig_up     <- "up"   # mark for up regulated genes
-  .sig_down   <- "down" # mark for down regulated genes
-  .sig_not    <- "not"  # mark for not changed genes
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
   dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fc         = 2,
+    pvalue     = 0.05,
+    p_adjust   = TRUE,
+    force      = FALSE,
+    overwrite  = FALSE,
+    return_dataframe = TRUE,
+    .col_sig   = "sig",
+    .col_log2fc = "log2FoldChange",
+    .col_pvalue = "pvalue",
+    .col_padj   = "padj",
+    .sig_up     = "up",
+    .sig_down   = "down",
+    .sig_not    = "not"
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
+  #----------------------------------------------------------------------------#
   #-- Check: arguments
   if(inherits(fc, "numeric") & inherits(pvalue, "numeric")) {
     if(fc <= 0 | pvalue <= 0 | pvalue > 1) {
@@ -412,44 +438,91 @@ get_sig_name <- function(x, ...) {
 #' condition
 #' rownames
 #'
-#' @param dds DESeqDataSet, parsing design from `colData(dds)`
+#' @param x DESeqDataSet, or '.csv' parsing design from `colData(dds)`
+#' @param outdir for run_deseq_res()
+#' @param transform_method character for dds count transformed,
+#' 'standard', 'vst', 'rlog'; default: 'standard'
+#'
 #'
 #' @return data.frame
 #'
 #' @export
-deseq_mean <- function(dds, outdir = NULL) {
-  #-- support; csv
-  if(inherits(dds, "data.frame") & inherits(dds, "character")) {
-    df <- deseq_csv_mean(dds)
-    if(inherits(df, "data.frame")) {
-      return(df)
+deseq_mean <- function(x, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    outdir     = NULL,
+    transform_method = "standard" # vst, rlog
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
     }
-  } else if(inherits(dds, "DESeqDataSet")) {
-    dd   <- run_deseq_res(dds, outdir, shrink = FALSE, transform = FALSE) #!!!
-    df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized counts
-    df   <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
-    colnames(df)[1] <- "gene_id"
-  } else {
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #----------------------------------------------------------------------------#
+  # #-- arguments
+  # outdir <- NULL
+  # transform_method = "standard" # for dds
+  # dots <- rlang::list2(...)
+  # for(name in names(dots)) {
+  #   assign(name, dots[[name]])
+  # }
+  #-- transform
+  if(inherits(transform_method, "character")) {
+    if(!transform_method %in% c("standard", "vst", "rlog")) {
       warning(glue::glue(
-        "illegal input, ",
-        "dds is {class(dds)} (expect `DESeqDataSet`)"))
-      return(NULL)
+        "transform_method is {transform_method}, expect ",
+        "'standard', 'vst', 'rlog'; set to 'standard' "
+      ))
+      transform_method <- "standard"
+    }
+  } else {
+    warning(glue::glue(
+      "transform_method is {class(transform_method)}, expect 'character'",
+      "'standard', 'vst', 'rlog'; set to 'standard' "
+    ))
+    transform_method <- "standard"
+  }
+  #-- run: support; csv
+  df <- NULL
+  if(inherits(x, "data.frame") | inherits(x, "character")) {
+    df <- deseq_csv_mean(x) # another option
+  } else if(inherits(x, "DESeqDataSet")) {
+    dd <- run_deseq_res(x, outdir = outdir, shrink = FALSE, transform = TRUE) #!!!
+    if(inherits(dd, "list")) {
+      df1a <- dd[["dds_trans"]][[transform_method]] # log10 table
+      df1  <- as.data.frame(2^assay(df1a)) # log10 -> counts
+      df2  <- as.data.frame(dd$res)
+      df   <- merge(df1, df2, by = "row.names")
+      colnames(df)[1] <- "gene_id"
+      #-- run: choose columns
+      coldata <- SummarizedExperiment::colData(x)
+      wt  <- levels(coldata$condition)[1]
+      mut <- levels(coldata$condition)[2]
+      wt_names  <- rownames(coldata[coldata$condition == wt,])
+      mut_names <- rownames(coldata[coldata$condition == mut,])
+      df <- df %>%
+        dplyr::mutate(
+          !!wt := dplyr::select(., all_of(wt_names)) %>% rowMeans(),
+          !!mut := dplyr::select(., all_of(mut_names)) %>% rowMeans()) %>%
+        dplyr::select(gene_id, all_of(c(wt, mut)), all_of(names(df)[-1]))
+    }
+  } else {
+    warning(glue::glue(
+      "illegal input, ",
+      "x is {class(x)}, expect `DESeqDataSet`, `.csv`"))
   }
   #-- run: `run_deseq()`
-  if(!inherits(df, "data.frame")) {
-    return(NULL)
+  if(inherits(df, "data.frame")) {
+    df
   }
-  #-- run: choose columns
-  coldata <- SummarizedExperiment::colData(dds)
-  wt  <- levels(coldata$condition)[1]
-  mut <- levels(coldata$condition)[2]
-  wt_names  <- rownames(coldata[coldata$condition == wt,])
-  mut_names <- rownames(coldata[coldata$condition == mut,])
-  df %>%
-    dplyr::mutate(
-      !!wt := dplyr::select(., all_of(wt_names)) %>% rowMeans(),
-      !!mut := dplyr::select(., all_of(mut_names)) %>% rowMeans()) %>%
-    dplyr::select(gene_id, all_of(c(wt, mut)), all_of(names(df)[-1]))
 }
 
 
@@ -529,71 +602,142 @@ deseq_csv_mean <- function(x) {
 #' @return data.frame
 #'
 #' @export
-set_readable <- function(x, genome, keytype = "auto") {
+set_readable <- function(x, genome = NULL, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    keytype      = "auto",
+    gene_table   = NULL,
+    overwrite    = FALSE,
+    .col_gene_id = 1,
+    .cutoff      = 0.8
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #----------------------------------------------------------------------------#
+  # keytype    <- "auto"
+  # gene_table <- NULL
+  # overwrite  <- FALSE
+  # .col_gene_id <- 1 # column of gene_id in gene_table
+  # .cutoff <- 0.8
+  # dots <- rlang::list2(...)
+  # for(name in names(dots)) {
+  #   assign(name, dots[[name]])
+  # }
   #-- Check: arguments
+  if(!inherits(overwrite, "logical")) {
+    overwrite = FALSE
+  }
   if(inherits(x, "data.frame")) {
-    if(all(c("entrez", "symbol") %in% names(x))) {
-      message(glue::glue("column `symbol` and `entrez` already exists"))
+    if(all(c("ENTREZID", "SYMBOL") %in% names(x)) & !overwrite) {
+      message(glue::glue("column `SYMBOL` and `ENTREZ` already exists"))
       return(x)
     }
   } else {
     message(glue::glue("x is {class(x)}, expect `data.frame`"))
     return(x)
   }
-  if(!is_valid_organism(genome)) {
-    message(glue::glue("unknown gnome: {genome}"))
-    return(x)
-  }
-  if(inherits(keytype, "character")) {
-    if(!is_valid_keytype(keytype, organism = genome)) {
-      keytype = NULL
-    }
-  } else {
-    keytype = NULL
-  }
-  #-- Check: gene_id column
+  #-- Check: x, gene_id column
   rc <- c("gene_id", "Gene", "id", "gene_name")
-  rc_str <- paste(rc, collapse = ", ")
   rc <- rc[rc %in% names(x)]
   if(length(rc) == 0) {
+    rc_str <- paste(rc, collapse = ", ")
     if(.row_names_info(x) > 0) {
       x <- cbind(gene_id = rownames(x), x) # row.names to "gene_id"
       gid <- "gene_id"
     } else {
-      message(glue::glue("missing gene id column: {rc_str}"))
+      message(glue::glue("missing 'gene_id' column: {rc_str}"))
       return(x)
     }
   } else {
     gid <- rc[1]
   }
-  g <- as.character(x[, gid]) # gene names
-  g_str <- paste(head(g, 5), collapse = ", ") # example
+  g <- as.character(x[[gid]]) # gene names
+  g_str <- paste(g[1:3], collapse = ", ") # example
   message(glue::glue(
-    "convert `{gid}` to `ENTREZID` and `SYMBOL`: {g_str} ..."))
-  #-- run: guess keytype
-  if(!inherits(keytype, "character")) {
-    keytype <- tryCatch(
-      {
-        guess_keytype(g, organism = genome)
-      },
-      error = function(cond) {
-        warning(glue::glue("unknown genes for [{genome}]: {g_str} ..."))
-        return(NULL)
+    "convert `{gid}` to `ENTREZID` and `SYMBOL`: {g_str} ..."
+  ))
+  #----------------------------------------------------------------------------#
+  #-- run: load gene table
+  gdf <- NULL
+  if(inherits(gene_table, "character")) {
+    if(file.exists(gene_table) & endsWith(gene_table, ".csv")) {
+      gdf <- read.csv(gene_table)
+      keytype <- names(gdf)[.col_gene_id] # 1-st column
+      # check genes available
+      pct <- sum(g %in% gdf[[keytype]]) / length(g)
+      if(pct < .cutoff) {
+        g_str <- paste(g[1:3], collapse = ", ")
+        gt_str <- paste(gdf[[keytype]][1:3], collapse = ", ")
+        warning(glue::glue(
+          "'gene_table' not valid, no more than {.cutoff*100}% genes found; \n",
+          "genes in 'x' are: {g_str} ... \n",
+          "genes in 'gene_table' are: {gt_str} ... "
+        ))
+        return(x)
       }
-    )
-  }
-  #-- run: convert table
-  if(inherits(keytype, "character")) {
-    gdf <- convert_id(g, from_keytype = keytype,
-                      to_keytype = c("ENTREZID", "SYMBOL"),
-                      organism   = genome, na_rm = FALSE)
-    #-- run: update genes
-    out <- dplyr::left_join(
-      x, gdf, by = setNames(keytype, nm = gid)
-    )
+    }
+  } else if(inherits(genome, "character")) {
+    if(is_valid_organism(genome)) {
+      if(!is_valid_keytype(keytype, organism = genome)) {
+        keytype <- tryCatch(
+          {
+            guess_keytype(g, organism = genome)
+          },
+          error = function(cond) {
+            warning(glue::glue("unknown genes for [{genome}]: {g_str} ..."))
+            return(NULL)
+          }
+        )
+      }
+      # load gene_table from org.*.eg.db
+      if(inherits(keytype, "character")) {
+        if(is_valid_keytype(keytype, organism = genome)) {
+          gdf <- convert_id(g, from_keytype = keytype,
+                            to_keytype = c("ENTREZID", "SYMBOL"),
+                            organism   = genome, na_rm = FALSE)
+        }
+      }
+    }
   } else {
-    message(glue::glue("unknown genes for [{genome}]: {g_str} ..."))
+    warning(glue::glue(
+      "require 'genome' or 'gene_table', ",
+      "'genome=' {genome}, 'gene_table' = {gene_table}"
+    ))
+    return(x)
   }
+  #----------------------------------------------------------------------------#
+  #-- run: convert
+  out <- x
+  if(inherits(gdf, "data.frame")) {
+    if(keytype %in% names(gdf)) {
+      out <- dplyr::left_join(x, gdf, by = setNames(keytype, nm = gid))
+    } else {
+      message(glue::glue(
+        "'set_readable()' skipped, 'genome' or 'gene_table' not valid; \n",
+        "'genome' is {genome}, expect 'character', \n",
+        "'gene_table' is {gene_table}, expect '.csv', \n",
+        "either 'genome' or 'genome_table' should be valid"
+      ))
+    }
+  } else {
+    warning(glue::glue(
+      "'set_readable()' skipped, ",
+      "either 'genome' or 'genome_table' should be valid"
+    ))
+  }
+  #----------------------------------------------------------------------------#
+  # return
   out
 }
 

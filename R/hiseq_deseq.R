@@ -19,8 +19,9 @@
 #' @param outdir character saving the results
 #' @param strandness character could be "sens", "anti", default "sens"
 #' @param fix_batch bool fix batch effect, default: TRUE
-#' @param shrink character use `lfcShrink` function to calculate shrunken LFC
-#'        could be ["apeglm", "ashr", "normal"], default: "apeglm"
+#' @param shrink logical `shrink` LFC by ["apeglm", "ashr", "normal"],
+#'   default: TRUE
+#' @param transform logical transform dds by `vst()`, `rlog()`, default: TRUE
 #' @param cpu integer, number of CPU to run in parallel, default: 4
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
@@ -34,7 +35,6 @@
 hiseq_deseq <- function(x, outdir = NULL, ...) {
   #-- Check: default values
   fix_batch  <- TRUE   # for DESeq(), design: ~ condition + batch
-  shrink     <- "apeglm"   # shrink log2fc, "apeglm", "ashr", "normal"
   n_max      <- 20
   cpu        <- 4
   fc         <- 2
@@ -45,6 +45,7 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
   readable   <- TRUE   # add SYMBOL, ENTREZID, by gene_id
   overwrite  <- FALSE
   transform  <- TRUE   # dds transformation, vst(), vlog()
+  shrink     <- TRUE   # lfcShrink(), normal, apeglm, ashr
   label_list <- NULL   # for ma,volcano,scatter
   label_max  <- 8      # for ma,volcano,scatter
   density_points <- FALSE  # for scatter plot
@@ -73,6 +74,7 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
       saveRDS(dds, dds_rds)
     }
   }
+  #----------------------------------------------------------------------------#
   #-- run: deseq
   if(inherits(dds, "DESeqDataSet")) {
     genome <- list_hiseq_file(x, "genome", "rx") # add genome
@@ -82,6 +84,7 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
     warning("`deseq()` failed")
     return(NULL)
   }
+  #----------------------------------------------------------------------------#
   #-- run: save config
   name_csv <- file.path(outdir, "smp_name.csv")
   name_rds <- file.path(outdir, "smp_name.rds")
@@ -103,6 +106,7 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
   res_fix_df <- read.csv(norm_fix_table)
   fix_csv <- file.path(outdir, "transcripts_deseq2.fix.csv")
   write.csv(res_fix_df, fix_csv, quote = TRUE, row.names = FALSE)
+  #----------------------------------------------------------------------------#
   # return
   res
 }
