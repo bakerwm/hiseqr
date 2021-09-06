@@ -8,7 +8,8 @@
 #' @name deseq_utils
 
 
-#' @describeIn hiseq_prep_deseq Prepare data for DESeq analysis
+#' @describeIn hiseq_prep_deseq4fc
+#' Prepare data for DESeq analysis, for featureCounts output
 #'
 #' @param x path to the directory of rnaseq_rx
 #' @param strandness character could be "sens", "anti", default "sens"
@@ -19,7 +20,7 @@
 #' @import dplyr
 #'
 #' @export
-hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
+hiseq_prep_deseq4fc <- function(x, strandness = "sens", fix_batch = TRUE) {
   if(!is_hiseq_dir(x, "rnaseq_rx")) {
     fs <- ifelse(is_hiseq_dir(x), read_hiseq(x)$hiseq_type, "NULL")
     warning(glue::glue("x, expect `rnaseq_rx`, got {fs}"))
@@ -68,6 +69,86 @@ hiseq_prep_deseq <- function(x, strandness = "sens", fix_batch = TRUE) {
   }
   #-- run: load to dds
   dds <- import_featurecounts(fcdata)
+  DESeq2::DESeq(dds)
+}
+
+
+#' @describeIn hiseq_prep_deseq4salmon
+#' Prepare data for DESeq analysis, from salmon results; rnaseq_rx
+#'
+#' @param x path to the directory of rnaseq_rx
+#' @param strandness character could be "sens", "anti", default "sens"
+#' @param fix_batch bool fix batch effect, default: TRUE
+#'
+#' @import readr
+#' @import configr
+#' @import dplyr
+#'
+#' @export
+hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
+  if(!is_hiseq_dir(x, "rnaseq_rx")) {
+    fs <- ifelse(is_hiseq_dir(x), read_hiseq(x)$hiseq_type, "NULL")
+    warning(glue::glue("x, expect `rnaseq_rx`, got {fs}"))
+    return(NULL)
+  }
+  #-- Check: required data : wt
+  wt_name  <- list_hiseq_file(x, "wt_name", "_rx")
+  wt_dir   <- list_hiseq_file(x, "wt_dirs", "_rx")
+  wt_data  <- data.frame(
+    files = list_hiseq_file(x, "wt_quant", "_rx"),
+    names = sapply(wt_dir, function(i) {
+      list_hiseq_file(i, "smp_name",  TRUE)
+    }, USE.NAMES = FALSE)
+  )
+  #-- run: sanitize, suffix
+  wt_suffix <- deseq_sanitize_str(wt_data$names, 10, fix_prefix = FALSE)
+  wt_suffix <- paste0("rep", wt_suffix) # rep1, rep2
+  #-- Check: required data : mut
+  mut_name  <- list_hiseq_file(x, "mut_name", "_rx")
+  mut_dir   <- list_hiseq_file(x, "mut_dirs", "_rx")
+  mut_data  <- data.frame(
+    files = list_hiseq_file(x, "mut_quant", "_rx"),
+    names = sapply(mut_dir, function(i) {
+      list_hiseq_file(i, "smp_name", TRUE)
+    }, USE.NAMES = FALSE)
+  )
+  mut_suffix <- deseq_sanitize_str(mut_data$names, 10, fix_prefix = FALSE)
+  mut_suffix <- paste0("rep", mut_suffix) # rep1, rep2
+  #-- prepare
+  condition  <- deseq_sanitize_str(c(wt_name, mut_name), 10, fix_prefix = TRUE)
+  #-- Check: condition, batch
+  fcdata <- rbind(wt_data, mut_data)
+  fcdata$smp_name  <- c(wt_data$names, mut_data$names)
+  fcdata$condition <- c(rep(condition[1], length(wt_suffix)),
+                        rep(condition[2], length(mut_suffix)))
+  fcdata$names <- paste0(fcdata$condition, ".", c(wt_suffix, mut_suffix))
+  fcdata$condition <- factor(fcdata$condition, levels = condition)
+  if(isTRUE(fix_batch)) {
+    fcdata$batch <- as.factor(
+      c(LETTERS[seq_len(nrow(wt_data))], LETTERS[seq_len(nrow(mut_data))])
+    )
+  }
+  #----------------------------------------------------------------------------#
+  # tx2gene table, in index
+  salmon_index <- list_hiseq_file(x, "salmon_index", "rx")
+  if(is(salmon_index, "character")) {
+    tx2gene_csv <- file.path(salmon_index, "tx2gene.csv")
+    if(file.exists(tx2gene_csv)) {
+      tx2gene <- read.csv(tx2gene_csv)
+    } else {
+      warning(glue::glue(
+        "tx2gene.csv is {tx2gene_csv}, file not exists"
+      ))
+      return(NULL)
+    }
+  } else {
+    warning(glue::glue(
+      "salmon_index is {class(salmon_index)}, expect 'character'"
+    ))
+    return(NULL)
+  }
+  #-- run: load to dds
+  dds <- import_salmon(fcdata, tx2gene)
   DESeq2::DESeq(dds)
 }
 
@@ -130,6 +211,7 @@ import_featurecounts <- function(x) {
     message("run DESeq2 design: `~ condition`")
     fo <- formula(~ condition)
   }
+  #-- run: import data
   tryCatch(
     {
       DESeq2::DESeqDataSetFromMatrix(
@@ -140,6 +222,65 @@ import_featurecounts <- function(x) {
     },
     error = function(cond) {
       warning("failed to import featureCounts")
+      return(NULL)
+    }
+  )
+}
+
+#' @describeIn import_samlmon
+#' Construct dds for DESeq2 analysis using salmon output
+#'
+#' using DESeqDataSetFromMatrix()
+#'
+#' @param x data.frame require "files", "names", "condition" columns
+#'
+#' @return `DESeqDataSet`
+#'
+#' @export
+import_salmon <- function(x, tx2gene) {
+  #----------------------------------------------------------------------------#
+  #-- Check: arguments
+  x <- valid_featurecounts_input(x)
+  if(inherits(tx2gene, "data.frame")) {
+    t2g <- all(c("TXNAME", "GENEID") %in% names(tx2gene))
+  } else {
+    t2g <- FALSE
+  }
+  if(!inherits(x, "data.frame") | !t2g) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'data.frame', ",
+      "with 'files', 'names', 'smp_name', 'condition', ",
+      "tx2gene is {class(tx2gene)}, expect 'data.frame', ",
+      "with 'TXNAME', 'GENEID'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  #-- run: coldata
+  coldata <- data.frame(
+    condition = x$condition,
+    smp_name  = x$smp_name,
+    row.names = x$names
+  )
+  if('batch' %in% names(x)) {
+    coldata$batch <- x$batch
+    message("run DESeq2 design: `~ condition + batch`")
+    fo <- formula(~ batch + condition)
+  } else {
+    message("run DESeq2 design: `~ condition`")
+    fo <- formula(~ condition)
+  }
+  #----------------------------------------------------------------------------#
+  #-- run: import salmon data
+  salmon_files <- setNames(x[["files"]], nm = row.names(coldata))
+  txi <- tximport::tximport(salmon_files, type = "salmon", tx2gene = tx2gene)
+  #-- run: to DESeq2
+  tryCatch(
+    {
+      DESeqDataSetFromTximport(txi, colData = coldata, design  = fo)
+    },
+    error = function(cond) {
+      warning("failed to import salmon")
       return(NULL)
     }
   )
@@ -602,11 +743,12 @@ deseq_csv_mean <- function(x) {
 #' @return data.frame
 #'
 #' @export
-set_readable <- function(x, genome = NULL, ...) {
+set_readable <- function(x, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    genome       = NULL,
     keytype      = "auto",
     gene_table   = NULL,
     overwrite    = FALSE,
@@ -625,15 +767,6 @@ set_readable <- function(x, genome = NULL, ...) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  # keytype    <- "auto"
-  # gene_table <- NULL
-  # overwrite  <- FALSE
-  # .col_gene_id <- 1 # column of gene_id in gene_table
-  # .cutoff <- 0.8
-  # dots <- rlang::list2(...)
-  # for(name in names(dots)) {
-  #   assign(name, dots[[name]])
-  # }
   #-- Check: arguments
   if(!inherits(overwrite, "logical")) {
     overwrite = FALSE
@@ -669,6 +802,7 @@ set_readable <- function(x, genome = NULL, ...) {
   ))
   #----------------------------------------------------------------------------#
   #-- run: load gene table
+  #-- level-1: from table
   gdf <- NULL
   if(inherits(gene_table, "character")) {
     if(file.exists(gene_table) & endsWith(gene_table, ".csv")) {
@@ -687,34 +821,33 @@ set_readable <- function(x, genome = NULL, ...) {
         return(x)
       }
     }
-  } else if(inherits(genome, "character")) {
-    if(is_valid_organism(genome)) {
-      if(!is_valid_keytype(keytype, organism = genome)) {
-        keytype <- tryCatch(
-          {
-            guess_keytype(g, organism = genome)
-          },
-          error = function(cond) {
-            warning(glue::glue("unknown genes for [{genome}]: {g_str} ..."))
-            return(NULL)
+  }
+  #-- level-2: from genome
+  if(!inherits(gdf, "data.frame")) {
+    if(inherits(genome, "character")) {
+      if(is_valid_organism(genome)) {
+        if(!is_valid_keytype(keytype, organism = genome)) {
+          # guess keytype
+          keytype <- tryCatch(
+            {
+              guess_keytype(g, organism = genome)
+            },
+            error = function(cond) {
+              warning(glue::glue("unknown genes for [{genome}]: {g_str} ..."))
+              return(NULL)
+            }
+          )
+        }
+        # load gene_table from org.*.eg.db
+        if(inherits(keytype, "character")) {
+          if(is_valid_keytype(keytype, organism = genome)) {
+            gdf <- convert_id(g, from_keytype = keytype,
+                              to_keytype = c("ENTREZID", "SYMBOL"),
+                              organism   = genome, na_rm = FALSE)
           }
-        )
-      }
-      # load gene_table from org.*.eg.db
-      if(inherits(keytype, "character")) {
-        if(is_valid_keytype(keytype, organism = genome)) {
-          gdf <- convert_id(g, from_keytype = keytype,
-                            to_keytype = c("ENTREZID", "SYMBOL"),
-                            organism   = genome, na_rm = FALSE)
         }
       }
     }
-  } else {
-    warning(glue::glue(
-      "require 'genome' or 'gene_table', ",
-      "'genome=' {genome}, 'gene_table' = {gene_table}"
-    ))
-    return(x)
   }
   #----------------------------------------------------------------------------#
   #-- run: convert
@@ -733,7 +866,8 @@ set_readable <- function(x, genome = NULL, ...) {
   } else {
     warning(glue::glue(
       "'set_readable()' skipped, ",
-      "either 'genome' or 'genome_table' should be valid"
+      "either 'genome' or 'genome_table' should be valid; \n",
+      "genome = '{genome}', genome_table = '{gene_table}'"
     ))
   }
   #----------------------------------------------------------------------------#

@@ -7,15 +7,12 @@
 #'
 #' @import prep_hiseq_desqe deseq
 #'
-#'
 #' @name hiseq_deseq
-
-
 
 
 #' @describeIn hiseq_deseq
 #'
-#' @param dds DESeqDataSet
+#' @param x character path to the 'rnaseq_rx' directory
 #' @param outdir character saving the results
 #' @param strandness character could be "sens", "anti", default "sens"
 #' @param fix_batch bool fix batch effect, default: TRUE
@@ -32,29 +29,42 @@
 #' @return DESeqResults, res (shrinked)
 #'
 #' @export
-hiseq_deseq <- function(x, outdir = NULL, ...) {
+hiseq_deseq <- function(x, ...) {
+  # x <- "~/work/devel_pipeline/hiseq/rnaseq/output/dm6_te_piRC/pe_control.vs.pe_treatment"
+  #----------------------------------------------------------------------------#
   #-- Check: default values
-  fix_batch  <- TRUE   # for DESeq(), design: ~ condition + batch
-  n_max      <- 20
-  cpu        <- 4
-  fc         <- 2
-  pvalue     <- 0.1
-  p_adjust   <- TRUE   # for DESeq2 `padj`
-  genome     <- NULL   # character
-  strandness <- "sens" # "sens", "anti"
-  readable   <- TRUE   # add SYMBOL, ENTREZID, by gene_id
-  overwrite  <- FALSE
-  transform  <- TRUE   # dds transformation, vst(), vlog()
-  shrink     <- TRUE   # lfcShrink(), normal, apeglm, ashr
-  label_list <- NULL   # for ma,volcano,scatter
-  label_max  <- 8      # for ma,volcano,scatter
-  density_points <- FALSE  # for scatter plot
-  log2fc_limits  <- c(-2, 2)   # for ma,volcano,scatter
-  #-- Check: arguments
   dots <- rlang::list2(...)
+  args <- rlang::list2(
+    outdir     = NULL, # default, tempdir()
+    strandness = "sens", # "sens", "anti"
+    fix_batch  = TRUE, # for DESeq(), design: ~ condition + batch
+    shrink     = TRUE, # lfcShrink(), normal, apeglm, ashr
+    transform  = TRUE, # dds transformation, vst(), vlog()
+    n_max      = 20,   # for top_gene, counts,
+    cpu        = 2,    # for DESeq2::DESeq(), in parallel
+    fc         = 2,    # for sig genes; fc + pvalue
+    pvalue     = 0.05, # for sig genes; fc + pvalue
+    p_adjust   = TRUE, # for sig genes; fc + pvalue
+    genome     = NULL, # character
+    readable   = TRUE, # add SYMBOL, ENTREZID, by gene_id
+    label_list = NULL,  # for ma,volcano,scatter
+    label_max  = 8,     # for ma,volcano,scatter
+    density_points = FALSE,   # for scatter plot
+    log2fc_limits  = c(-2, 2), # for ma,volcano,scatter
+    overwrite  = FALSE
+  )
+  #-- update dots, for child functions
+  dots_args <- lapply(names(args), function(i) {
+    if(!i %in% names(dots)) {
+      args[i]
+    }
+  })
+  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  #-- update global
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
+  #----------------------------------------------------------------------------#
   #-- Check: args
   if(!is_hiseq_dir(x, "_rx")) {
     warning(glue::glue("not a `rnaseq_rx` dir: {x}"))
@@ -69,7 +79,14 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
   if(file.exists(dds_rds)) {
       dds <- readRDS(dds_rds)
   } else {
-    dds <- hiseq_prep_deseq(x, strandness, fix_batch)
+    #--------------------------------------------------------------------------#
+    #-- check: aligner: salmon, STAR
+    aligner <- list_hiseq_file(x, "aligner", "_rx")
+    if(aligner == "salmon") {
+      dds <- hiseq_prep_deseq4salmon(x, fix_batch)
+    } else {
+      dds <- hiseq_prep_deseq4fc(x, strandness, fix_batch)
+    }
     if((check_path(outdir) & !file.exists(dds_rds)) | overwrite) {
       saveRDS(dds, dds_rds)
     }
@@ -79,13 +96,14 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
   if(inherits(dds, "DESeqDataSet")) {
     genome <- list_hiseq_file(x, "genome", "rx") # add genome
     dots$genome <- genome
-    res <- deseq(dds, outdir, !!!dots)
+    res <- deseq(dds, !!!dots)
   } else {
     warning("`deseq()` failed")
     return(NULL)
   }
   #----------------------------------------------------------------------------#
   #-- run: save config
+  # sample names, sanitized_str
   name_csv <- file.path(outdir, "smp_name.csv")
   name_rds <- file.path(outdir, "smp_name.rds")
   coldata  <- colData(dds)
@@ -94,17 +112,17 @@ hiseq_deseq <- function(x, outdir = NULL, ...) {
     label     = rownames(coldata),
     condition = coldata$condition
   )
-  saveRDS(name_df, name_rds)
+  # saveRDS(name_df, name_rds)
   write.csv(name_df, name_csv, row.names = FALSE)
   #-- run: transcripts_deseq2.csv
   norm_table <- file.path(outdir, "norm_table.csv")
-  res_df <- read.csv(norm_table)
+  res_df  <- read.csv(norm_table)
   res_csv <- file.path(outdir, "transcripts_deseq2.csv")
   write.csv(res_df, res_csv, quote = TRUE, row.names = FALSE)
   #-- run: fix mean
   norm_fix_table <- file.path(outdir, "norm_table.fix.csv")
   res_fix_df <- read.csv(norm_fix_table)
-  fix_csv <- file.path(outdir, "transcripts_deseq2.fix.csv")
+  fix_csv    <- file.path(outdir, "transcripts_deseq2.fix.csv")
   write.csv(res_fix_df, fix_csv, quote = TRUE, row.names = FALSE)
   #----------------------------------------------------------------------------#
   # return

@@ -33,6 +33,7 @@
 #'
 #' @export
 deseq <- function(dds, ...) {
+  message("run 'deseq()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -47,6 +48,7 @@ deseq <- function(dds, ...) {
     label_max  = 8,
     overwrite  = FALSE,
     readable   = TRUE,
+    shrink     = TRUE,
     transform  = TRUE,
     fix_batch  = TRUE,
     density_points = FALSE
@@ -67,9 +69,10 @@ deseq <- function(dds, ...) {
   if(!inherits(outdir, "character")) {
     outdir <- tempdir()
   }
+  check_path(outdir) # create
   outdir <- normalizePath(outdir)
   #-- config: for hiseqr package
-  args <- rlang::list2(
+  config_list <- rlang::list2(
     hiseq_type        = 'deseq_deseq2',
     outdir            = outdir,
     fix_batch         = fix_batch,
@@ -92,7 +95,7 @@ deseq <- function(dds, ...) {
   )
   #----------------------------------------------------------------------------#
   #-- run: main
-  saveRDS(dds, args$deseq_dds_rds) # deseq_dds.rds
+  saveRDS(dds, config_list$deseq_dds_rds) # deseq_dds.rds
   dd <- run_deseq_res(dds, !!!dots) # deseq_res.rds, dds, res, res_lfc
   if(!inherits(dd, "list")) {
     warning("`run_deseq_des()` failed, see above messages")
@@ -103,12 +106,12 @@ deseq <- function(dds, ...) {
   if(check_path(outdir)) {
     #--------------------------------------------------------------------------#
     #-- run: save config
-    yaml::write_yaml(args, args$config_yaml)
+    yaml::write_yaml(config_list, config_list$config_yaml)
     #--------------------------------------------------------------------------#
     #-- run: gene_readable , SYMBOL, ENTREZ
     if(inherits(genome, "character")
        & isTRUE(readable)
-       & !file.exists(args$norm_fix_csv)
+       & !file.exists(config_list$norm_fix_csv)
     ) {
       df4 <- data.frame(
         gene_id = rownames(dd$res),
@@ -116,27 +119,28 @@ deseq <- function(dds, ...) {
       )
       df4 <- set_readable(df4,
                           genome = genome,
-                          gene_table = args$gene_readable_csv)
-      write.csv(df4, args$gene_readable_csv, row.names = FALSE, quote = TRUE)
+                          gene_table = config_list$gene_readable_csv)
+      write.csv(df4, config_list$gene_readable_csv, row.names = FALSE,
+                quote = TRUE)
     }
     #--------------------------------------------------------------------------#
     #-- run: saving norm table
     df1a <- DESeq2::counts(dds, normalized = TRUE) # normalized count
     df1  <- merge(as.data.frame(df1a), as.data.frame(dd$res), by = "row.names")
     colnames(df1)[1] <- "gene_id"
-    write.csv(df1, args$norm_csv, quote = TRUE, row.names = FALSE)
+    write.csv(df1, config_list$norm_csv, quote = TRUE, row.names = FALSE)
     #--------------------------------------------------------------------------#
     #-- run: saving norm table, fix
-    df2 <- deseq_mean(dds, outdir)
+    df2 <- deseq_mean(dds, outdir = outdir)
     if(inherits(genome, "character")
        & isTRUE(readable)
-       & !file.exists(args$norm_fix_csv)
     ) {
+      message("aaa")
       df2 <- set_readable(df2,
                           genome = genome,
-                          gene_table = args$gene_readable_csv)
+                          gene_table = config_list$gene_readable_csv)
     }
-    write.csv(df2, args$norm_fix_csv, quote = TRUE, row.names = FALSE)
+    write.csv(df2, config_list$norm_fix_csv, quote = TRUE, row.names = FALSE)
     #--------------------------------------------------------------------------#
     #-- run: fpkm
     if("basepairs" %in% names(mcols(dds))) {
@@ -145,13 +149,13 @@ deseq <- function(dds, ...) {
       if(inherits(genome, "character")
          & is_valid_organism(genome)
          & isTRUE(readable)
-         & !file.exists(args$fpkm_csv)
+         & !file.exists(config_list$fpkm_csv)
       ) {
         df3 <- set_readable(df3,
                             genome = genome,
-                            gene_table = args$gene_readable_csv)
+                            gene_table = config_list$gene_readable_csv)
       }
-      write.csv(df3, args$fpkm_csv, quote = TRUE, row.names = FALSE)
+      write.csv(df3, config_list$fpkm_csv, quote = TRUE, row.names = FALSE)
     }
     #--------------------------------------------------------------------------#
     #-- run: quality-control, require outdir

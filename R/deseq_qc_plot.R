@@ -35,6 +35,7 @@
 #'
 #' @export
 deseq_qc_counts <- function(x, outdir = NULL, ...) {
+  message("run 'deseq_qc_counts()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -155,6 +156,7 @@ deseq_qc_counts <- function(x, outdir = NULL, ...) {
 #'
 #' @export
 deseq_qc_mean_sd <- function(x, outdir = NULL, ...) {
+  message("run 'deseq_qc_mean_sd()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -228,6 +230,7 @@ deseq_qc_mean_sd <- function(x, outdir = NULL, ...) {
 #'
 #' @export
 deseq_qc_top_gene <- function(x, outdir = NULL, ...) {
+  message("run 'deseq_qc_top_gene()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -317,6 +320,7 @@ deseq_qc_top_gene <- function(x, outdir = NULL, ...) {
 #'
 #' @export
 deseq_qc_dist <- function(x, outdir = NULL, ...) {
+  message("run 'deseq_qc_dist()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -393,6 +397,7 @@ deseq_qc_dist <- function(x, outdir = NULL, ...) {
 #'
 #' @export
 deseq_qc_pca <- function(x, outdir = NULL, ...) {
+  message("run 'deseq_qc_pca()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -481,6 +486,7 @@ deseq_qc_pca <- function(x, outdir = NULL, ...) {
 #'
 #' @export
 deseq_qc_ma <- function(x, ...) {
+  message("run 'deseq_qc_ma()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -591,6 +597,7 @@ deseq_qc_ma <- function(x, ...) {
 #'
 #' @export
 deseq_qc_volcano <- function(x, ...) {
+  message("run 'deseq_qc_volcano()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
@@ -700,6 +707,7 @@ deseq_qc_volcano <- function(x, ...) {
 #'
 #' @export
 deseq_qc_scatter <- function(x, ...) {
+  message("run 'deseq_qc_scatter()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
