@@ -456,6 +456,21 @@ to_DT <- function(df, mode = 1, pageLength = 10) {
                                text    = "Download"))
       )
     )
+  } else if(mode == 4) { # filter by column
+    DT::datatable(
+      df,
+      filter       = "top",
+      extensions   = 'Buttons',
+      options      = list(
+        pageLength = pageLength,
+        scrollX    = TRUE,
+        dom        = 'Bfrtip',
+        buttons    =
+          list('copy', #'print',
+               list(extend  = 'collection',
+                    buttons = c('excel', 'csv'),
+                    text    = 'Download')))
+    )
   } else {
     DT::datatable(df)
   }

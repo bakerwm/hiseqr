@@ -133,9 +133,6 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
 }
 
 
-
-
-
 #' for clusterProfiler:
 #' kegg,
 #'
@@ -164,10 +161,6 @@ get_kegg_keytype <- function(organism) {
   # ifelse(organism == "Drosophila melanogaster", "ncbi-geneid", "kegg")
   "ENTREZID"
 }
-
-
-
-
 
 
 #' @describeIn kegg_code
@@ -239,140 +232,64 @@ get_kegg_code <- function(x) {
 
 
 
-
-
-
-
-
-
-
-
-#' @describeIn prep_kegg_input Prepare data for kegg analysis
 #'
-#' 1. Guess the keytype of the gene
-#' 2. Convert gene to entrezid
-#' 3. add fold_change to gene
-#' 4. extract orgdb
-#'
-#' !important: skip orgdb in arg_vars
-#' use saveDb() and loadDb() to save/read OrgDb from file
-#' Because the object is a reference to a sqlite data base.
-#'
-#' genes, orgsnism, orgdb, keytype, gsea_gene
-#'
-#' genes with fold_change, or other ranking
-#' @param gene_list gene names
-#' @param organism string, eg: Homo sapiens
-#' @param ... extra argument
-#'
-#' @param fold_change numeric, fold change
-#' @param keytype character
-#'
-#' @export
-prep_kegg_input <- function(gene_list, organism, ...) {
-  #--Default values: BEGIN
-  arg_vars <- rlang::list2(
-    fold_change = NULL,
-    keytype     = NULL
-  )
-  arg_vars <- purrr::list_modify(arg_vars, !!!list(...))
-  #--Default values: END
-  if(is(gene_list, "character")) {
-    organism  <- get_organism_name(organism)
-    if(is(organism, "character")) {
-      arg_vars$orgdb  <- get_orgdb(organism)
-      if(! is(arg_vars$keytype, "character")) {
-        arg_vars$keytype <- guess_keytype(gene_list, organism)
-      }
-      kegg_code <- get_kegg_code(organism)
-      kegg_gene <- to_kegg_gene_id(gene_list, organism, arg_vars$keytype)
-      kegg_gsea_gene <- prep_kegg_gsea_input(gene_list, arg_vars$fold_change,
-                                             organism,
-                                             keytype = arg_vars$keytype)
-      # update: kegg_gene
-      kegg_keytype <- get_kegg_keytype(organism) # for OrgDb
-      kegg_keyType <- get_kegg_keyType(organism) # for clusterProfiler
-      #--Output: list
-      list(
-        gene_list = kegg_gene,
-        organism  = organism,
-        keytype   = kegg_keytype, #arg_vars$keytype,
-        kegg_keyType = kegg_keyType,
-        kegg_code = kegg_code,
-        kegg_gene = kegg_gene,
-        kegg_gsea_gene = kegg_gsea_gene
-      )
-    } else {
-      warning(paste0("`organism` not valid name: ", organism))
-      NULL
-    }
-  } else {
-    warning("`x` : expect character, failed")
-    NULL
-  }
-}
-
-
-
-
-
-#' @describeIn gsea_input Prepare data for GSEA analysis
-#' require sorted values (fold_change, ...), with names (gene)
-#' require: ENTREZID (FLYBASECG for fruitfly)
-#'
-#' @param gene_list gene name
-#' @param fold_change numeric
-#'
-#' @export
-prep_kegg_gsea_input <- function(gene_list, fold_change,
-                                 organism, keytype = NULL,
-                                 orgdb = NULL) {
-  if(! is(gene_list, "character")) {
-    warning("`gene_list` expect characters, failed")
-    return(NULL)
-  }
-  if(! is_named_num(fold_change)) {
-    warning("`fold_change` require numeric, with gene_name named")
-    return(NULL)
-  }
-  #--Check: organism, orgdb
-  if(is(orgdb, "OrgDb")) {
-    organism <- get_orgdb_metadata(orgdb, "ORGANISM")
-  }
-  organism <- get_organism_name(organism)
-  if(! is(organism, "character")) {
-    warning("`organism`, `orgdb` failed, either one required",
-            "for guessing the keytypes")
-    return(NULL)
-  }
-  kegg_keytype <- get_kegg_keytype(organism)
-  if(keytype == kegg_keytype) {
-    fc <- fold_change[gene_list]
-    fc <- purrr::discard(fc, is.na)
-  } else {
-    # id to fold_change
-    fix1 <- function(x) {
-      fold_change[x]
-    }
-    df <- to_kegg_gene_id(names(fold_change), organism, keytype, return_table = TRUE) %>%
-      dplyr::mutate(across(all_of(keytype), fix1, .names = "value")) %>%
-      dplyr::select(-1) %>%
-      unique
-    fold_change2 <- structure(df[, 2], names = df[, 1])
-    gene_list2 <- to_kegg_gene_id(gene_list, organism, keytype)
-    fc <- fold_change2[gene_list2]
-  }
-  pct <- round(length(fc) / length(gene_list) * 100, 2)
-  if(pct) {
-    msg <- glue::glue("{length(fc)} of {length(gene_list)} ",
-                      "({pct}%) genes return with fold_change.")
-    message(msg)
-    sort(fc, decreasing = TRUE)
-  } else {
-    warning("`gene_list` not mapped in `fold_change`")
-    NULL
-  }
-}
+#' #' @describeIn gsea_input Prepare data for GSEA analysis
+#' #' require sorted values (fold_change, ...), with names (gene)
+#' #' require: ENTREZID (FLYBASECG for fruitfly)
+#' #'
+#' #' @param gene_list gene name
+#' #' @param fold_change numeric
+#' #'
+#' #' @export
+#' prep_kegg_gsea_input <- function(gene_list, fold_change,
+#'                                  organism, keytype = NULL,
+#'                                  orgdb = NULL) {
+#'   if(! is(gene_list, "character")) {
+#'     warning("`gene_list` expect characters, failed")
+#'     return(NULL)
+#'   }
+#'   if(! is_named_num(fold_change)) {
+#'     warning("`fold_change` require numeric, with gene_name named")
+#'     return(NULL)
+#'   }
+#'   #--Check: organism, orgdb
+#'   if(is(orgdb, "OrgDb")) {
+#'     organism <- get_orgdb_metadata(orgdb, "ORGANISM")
+#'   }
+#'   organism <- get_organism_name(organism)
+#'   if(! is(organism, "character")) {
+#'     warning("`organism`, `orgdb` failed, either one required",
+#'             "for guessing the keytypes")
+#'     return(NULL)
+#'   }
+#'   kegg_keytype <- get_kegg_keytype(organism)
+#'   if(keytype == kegg_keytype) {
+#'     fc <- fold_change[gene_list]
+#'     fc <- purrr::discard(fc, is.na)
+#'   } else {
+#'     # id to fold_change
+#'     fix1 <- function(x) {
+#'       fold_change[x]
+#'     }
+#'     df <- to_kegg_gene_id(names(fold_change), organism, keytype, return_table = TRUE) %>%
+#'       dplyr::mutate(across(all_of(keytype), fix1, .names = "value")) %>%
+#'       dplyr::select(-1) %>%
+#'       unique
+#'     fold_change2 <- structure(df[, 2], names = df[, 1])
+#'     gene_list2 <- to_kegg_gene_id(gene_list, organism, keytype)
+#'     fc <- fold_change2[gene_list2]
+#'   }
+#'   pct <- round(length(fc) / length(gene_list) * 100, 2)
+#'   if(pct) {
+#'     msg <- glue::glue("{length(fc)} of {length(gene_list)} ",
+#'                       "({pct}%) genes return with fold_change.")
+#'     message(msg)
+#'     sort(fc, decreasing = TRUE)
+#'   } else {
+#'     warning("`gene_list` not mapped in `fold_change`")
+#'     NULL
+#'   }
+#' }
 
 
 

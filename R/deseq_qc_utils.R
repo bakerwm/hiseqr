@@ -318,12 +318,16 @@ deseq_qc_res <- function(x, ...) {
   if(readable) {
     if(is_hiseq_dir(x, "deseq_deseq2")) {
       gene_table <- list_hiseq_file(x, "gene_readable_csv", "deseq_deseq2")
-      Lgenome <- list_hiseq_file(x, "genome", "deseq_deseq2")
+      genome <- list_hiseq_file(x, "genome", "deseq_deseq2")
     } else {
       gene_table <- NULL
     }
     df <- set_readable(df, genome = genome, gene_table = gene_table)
   }
+  #----------------------------------------------------------------------------#
+  #-- add 'sig', force, re-run
+  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!dots)
+  #----------------------------------------------------------------------------#
   #-- run: update log2fc, ext; for point-shapes
   # for shapes, up, dot, down
   # update log2fc, check outlier by log2fc_limits
@@ -339,8 +343,6 @@ deseq_qc_res <- function(x, ...) {
       ext == "up", max(breaks), ifelse(
         ext == "down", min(breaks), log2FoldChange)))
 }
-
-
 
 #------------------------------------------------------------------------------#
 # deprecated functions

@@ -120,6 +120,16 @@ deseq <- function(dds, ...) {
       df4 <- set_readable(df4,
                           genome = genome,
                           gene_table = config_list$gene_readable_csv)
+      #------------------------------------------------------------------------#
+      # update: TE, piRC list; unique;
+      # most freq prefix for gene_id
+      prefix_table <- table(substr(df4[["gene_id"]], 1, 4))
+      if(max(prefix_table) / sum(prefix_table) > 0.9) {
+        prefix_top <- names(prefix_table[prefix_table == max(prefix_table)])
+        # update SYMBOL for TE,piRC
+        df4 <- df4 %>%
+          dplyr::mutate(SYMBOL = ifelse(startsWith(gene_id, prefix_top), SYMBOL, gene_id))
+      }
       write.csv(df4, config_list$gene_readable_csv, row.names = FALSE,
                 quote = TRUE)
     }

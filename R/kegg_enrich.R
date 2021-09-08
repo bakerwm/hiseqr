@@ -1,0 +1,152 @@
+#' Functions for KEGG analysis
+#'
+#' overrepresent analysis
+#' GSEA analysis
+#'
+#'
+#' enrich kegg
+#' 1. csv files, results
+#' 2. barplot
+#' 3. wego plot,
+#' 4. dotplot
+#' 5. netplot
+#' 6. ...
+#'
+#' @name kegg_enrich
+
+
+#' @describeIn kegg_enrich
+#' enrichKEGG analysis from clusterprofiler
+#'
+#' for clusterProfiler::enrichKEGG
+#'
+#' gene_list, the could be: kegg, ncbi-geneid, ncbi-proteinid or uniprot
+#'
+#'
+#' @param gene_list character Genes for KEGG analysis
+#' @param organism character Name of the organism, eg: dm3, fruitfly
+#' @param ... pass arguments: , orgdb, keytype, pval_cutoff, qval_cutoff,
+#' readable, with default values:
+#' keytype = NULL
+#' pval_cutoff = 0.9
+#' qval_cutoff = 0.9
+#' readable = TRUE
+#'
+#' @param keytype character Name of the keytype for input, default: NULL
+#' @param pval_cutoff float Cutoff for p-value, default: 0.9
+#' @param qval_cutoff float Cutoff for q-value, default: 0.9
+#' @param readable bool Args for enrichKEGG function, convert to gene symbol
+#'
+#' @description pval_cutoff, qval_cutoff, set to 0.9, in order to return
+#' enrich results anyway, filter in downstream analysis
+#'
+#' @import clusterProfiler
+#' @import clusterProfiler.dplyr
+#' @import stringr
+#' @import cowplot
+#'
+#' @example enrich_kegg(gene = , organism = , keytype = ,
+#' readable = TRUE, pval_cutoff = 0.05, qval_cutoff = 0.05, ...)
+#'
+#' @export
+kegg_enrich <- function(gene_list, organism, ...) {
+  message(glue::glue("run kegg_enrich() ..."))
+  #----------------------------------------------------------------------------#
+  #-- Check: args
+  dots <- rlang::list2(...)
+  dots <- purrr::list_modify(
+    dots,
+    gene_list = gene_list,
+    organism  = organism
+  )
+  dots <- prep_kegg(gene_list, organism, !!!dots) # update arguments
+  #-- to env
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #----------------------------------------------------------------------------#
+  #-- Check: valid args
+  if(!is_valid_kegg_input(!!!dots)) {
+    message("kegg_enrich() skipped, invalid arguments, check above message")
+    return(NULL)
+  }
+  #-- outdir, updat
+  outdir <- file.path(outdir, "kegg_enrich") # update: outdir
+  check_path(outdir)
+  #----------------------------------------------------------------------------#
+  kegg_data_rds <- file.path(
+    outdir,
+    glue::glue("kegg_enrich.data.{ont}.rds")
+  )
+  kegg_plot_rds <- file.path(
+    outdir,
+    glue::glue("kegg_enrich.plot.{ont}.rds")
+  )
+  #-- run kegg
+  if(file.exists(kegg_data_rds) & !overwrite) {
+    kegg_data <- readRDS(kegg_data_rds)
+  } else {
+    kegg_data <- tryCatch(
+      {
+        kegg_data <- clusterProfiler::enrichKEGG(
+          gene          = kegg_gene,
+          organism      = kegg_code,
+          keyType       = kegg_keyType,
+          pAdjustMethod = "BH",
+          pvalueCutoff  = pval_cutoff,
+          qvalueCutoff  = qval_cutoff
+        )
+        # readable
+        if(inherits(kegg_data, "enrichResult") & inherits(orgdb, "OrgDb")) {
+          kegg_data <- clusterProfiler::setReadable(
+            x       =  kegg_data,
+            OrgDb   = orgdb,
+            keyType = keytype
+          )
+        }
+        saveRDS(kegg_data, file = kegg_data_rds)
+        return(kegg_data)
+      },
+      error=function(cond) {
+        warning("enrich_kegg() failed")
+        return(NULL)
+      }
+    )
+  }
+  #-- run, plot
+  if(file.exists(kegg_plot_rds) & !overwrite) {
+    kegg_plot <- readRDS(kegg_plot_rds)
+  } else {
+    if(inherits(kegg_data, "enrichResult")) {
+      # use 'go_enrich_plot()' to plot
+      kegg_plot <- go_enrich_plot(kegg_data, !!!dots) # !!!! enrich_kegg_plot
+      saveRDS(kegg_plot, file = kegg_plot_rds)
+    } else {
+      kegg_plot <- NULL
+    }
+  }
+  #-- run: save to png files
+  prefix <- gsub(".rds$", "", basename(kegg_plot_rds))
+  save_go_plot(kegg_plot, outdir, prefix)
+  #-- run: save to table
+  prefix <- gsub(".rds$", "", basename(kegg_data_rds))
+  save_go_table(kegg_data, outdir, prefix)
+  #-- Return: data
+  kegg_data
+}
+
+
+#' use 'go_enrich_plot()' to plot
+#' @export
+kegg_enrich_plot <- function(x, ...) {
+  # go_enrich_plot(x, ...)
+  dots <- rlang::list2(...)
+  go_enrich_plot(x, !!!dots)
+}
+
+
+
+
+
+
+

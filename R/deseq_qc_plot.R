@@ -913,6 +913,11 @@ deseq_qc_add_sig_label <- function(x, ...) {
       df_ex <- filt_sig_gene(df, type = "sig") %>% head(n_left)
       df_label <- rbind(df_label, df_ex)
     }
+    # fix .col_label for NA
+    df_label <- df_label %>%
+      dplyr::mutate(!!.col_label := ifelse(
+        is.na(!!sym(.col_label)) | !!sym(.col_label) == "NA",
+        gene_id, !!sym(.col_label)))
     #--------------------------------------------------------------------------#
     #-- add labels
     if(nrow(df_label) > 0) {

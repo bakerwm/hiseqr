@@ -7,81 +7,6 @@
 #' @name go_utils
 
 
-
-
-#' @describeIn check_go_input Check the input for GO analysis
-#'
-#' Required:
-#' - gene_list, chr, characters (group, enrich)
-#' - outdir, chr, character
-#' - organism, chr, character
-#' - orgdb, OrgDb, AnnotationDbi, one of organism, orgdb required
-#'
-#' optional:
-#' - for_gsea, logical, gene_list, num, sorted, named (GSEA)
-#'
-#'
-#'
-#' @export
-is_valid_go_input <- function(gene_list, organism, ...) {
-  arg_vars <- list(
-    outdir   = getwd(),
-    for_gsea = FALSE,
-    orgdb    = NULL,
-    keytype  = NULL
-  )
-  arg_vars <- purrr::list_modify(arg_vars, !!!list(...))
-  arg_vars <- purrr::list_modify(arg_vars, gene_list = gene_list,
-                                 organism = organism)
-  #----------------------------------------------------------------------------#
-  #--Check organism, orgdb, force: orgdb, organism
-  if(! is(arg_vars$orgdb, "OrgDb") & is(arg_vars$organism, "character")) {
-    arg_vars$orgdb <- get_orgdb(arg_vars$organism)
-  }
-  if(! is(arg_vars$orgdb, "OrgDb")) {
-    msg <- paste(c("`orgdb` and `organism`, not valid;",
-                   "orgdb (OrgDb):", class(arg_vars$orgdb), ";",
-                   "organism (chr):", class(arg_vars$organism)), collapse = " ")
-    stop(msg)
-  }
-  chk_organism <- is(arg_vars$organism, "character") & length(organism) == 1
-  chk_orgdb    <- is(arg_vars$orgdb, "OrgDb")
-  #----------------------------------------------------------------------------#
-  #--Check: keytype
-  if(is.null(arg_vars$keytype)) {
-    arg_vars$keytype  <- guess_keytype(arg_vars$gene_list, arg_vars$organism)
-  }
-  if(! is_valid_keytype(arg_vars$keytype, arg_vars$orgdb)) {
-    kt_list <- paste(AnnotationDbi::keytypes(arg_vars$orgdb), collapse = ", ")
-    msg     <- paste("`keytype` not valid: [", arg_vars$keytype, "]",
-                     "choose from: ", kt_list, sep = " ")
-    stop(msg)
-  }
-  #----------------------------------------------------------------------------#
-  #--Check: status
-  chk <- c(ifelse(isTRUE(arg_vars$for_gsea),
-                  is_named_num(gene_list),
-                  is(gene_list, "character")),
-           chk_organism | chk_orgdb,
-           is(arg_vars$outdir, "character") & length(arg_vars$outdir) == 1
-  )
-  msg <- paste(
-    paste(c("gene_list (chr|num):",
-            "organism (chr) or orgdb (OrgDb):",
-            "outdir (chr):"),
-          chk, sep = " "),
-    collapse = "; ")
-  if(all(chk)) {
-    TRUE
-  } else {
-    warning(msg)
-    FALSE
-  }
-}
-
-
-
-
 #' @describeIn is_named_num Check if input is named numbers
 #' eg: the input for GSEA analysis
 #'
@@ -90,7 +15,6 @@ is_valid_go_input <- function(gene_list, organism, ...) {
 is_named_num <- function(x) {
   is.vector(x) & is.numeric(x) & !is.null(names(x)) & !any(is.na(names(x)))
 }
-
 
 
 #' @describeIn is_go_result check x, go analysis output
@@ -111,32 +35,9 @@ is_go_result <- function(x) {
 }
 
 
-
-# is_go <- function(x, recursive = FALSE) {
-#   # required
-#   go_class <- c("groupGOResult", "enrichResult", "gseaResult")
-#
-#   # check
-#   if(recursive) {
-#     if(is.list(x)) {
-#       b_list <- sapply(x, function(i){
-#         is_go(i, TRUE)
-#       })
-#       return(all(b_list))
-#     } else {
-#       return(class(x) %in% go_class)
-#     }
-#
-#   } else {
-#     return(class(x) %in% go_class)
-#   }
-# }
-
-
-
 #' @describeIn get_orgdb Pick the organism db
 #'
-#' @param organism character The name of organism, or build name, eg: dm3, fruitfly
+#' @param x character The name of organism, or build name, eg: dm3, fruitfly
 #' Support human, mouse and fruitfly
 #'
 #' to-do: fetch from bioconductor
@@ -144,43 +45,48 @@ is_go_result <- function(x) {
 #'   GOSemSim::load_OrgDb()
 #'
 #' @export
-get_orgdb <- function(organism) {
-  if(is.character(organism)) {
-    # convert to scientific organism name
-    org_name <- get_organism_name(organism[1])
-    # supported organism list
-    sup_org  <- Organism.dplyr::supportedOrganisms()
-    orgdb    <- sup_org %>%
-      dplyr::filter(organism == org_name) %>%
-      dplyr::pull(OrgDb) %>%
-      unique
-    if (is.character(orgdb)) {
-      # function, inspired by: GOSemSim:load_OrgDb
+get_orgdb <- function(x) {
+  #----------------------------------------------------------------------------#
+  if(!inherits(x, "character")) {
+    warning(glue::glue(
+      "x is '{class(x)}', expect character"
+    ))
+    return(NULL)
+  }
+  #-- empty, na
+  if(length(x) == 0 | is.na(x)) {
+    message(glue::glue(
+      "x is {x}, zero in length, or is NA"
+    ))
+    return(NULL)
+  }
+  #-- multiple items
+  if(length(x) > 1) {
+    x_str <- paste(x[1:3], collapse = ", ")
+    message(glue::glue(
+      "x, multiple items found, choose the first one: {x_str}"
+    ))
+    x <- x[1]
+  }
+  #----------------------------------------------------------------------------#
+  #-- NA, 0 length
+  sci_name <- get_organism_name(x) # to scientific name
+  sup_org  <- Organism.dplyr::supportedOrganisms() # OrgDb, TxDb
+  r_idx    <- sup_org$organism == sci_name
+  if(sum(r_idx) > 0) {
+    orgdb <- unique(sup_org[r_idx, ][["OrgDb"]])
+    if(length(orgdb) == 1) {
       require(orgdb, character.only = TRUE)
       eval(parse(text = orgdb))
-    } else {
-      sup_org_list <- paste(
-        dplyr::pull(sup_org, organism) %>% unique,
-        collapse = ", "
-      )
-      msg <- paste(
-        "Using function `Organism.dplyr::supportedOrganisms()`",
-        "to list supported organisms:",
-        sup_org_list,
-        sep = " "
-      )
-      warning(msg)
-      NULL
     }
   } else {
-    warning("`organism` require character, failed")
-    NULL
+    warning(glue::glue(
+      "invalid x={x}, ",
+      "Using function `Organism.dplyr::supportedOrganisms()` ",
+      "to list supported organisms,",
+    ))
   }
 }
-
-
-
-
 
 
 #' @describeIn get_organism_name Extract the organism name
@@ -246,9 +152,6 @@ get_organism_name <- function(x, group = "organism") {
 }
 
 
-
-
-
 #' to-do: grepl() options, ignore.case
 #' @describeIn get_orgdb_info
 #'
@@ -275,16 +178,6 @@ get_orgdb_metadata <- function(x, options = "ORGANISM") {
 }
 
 
-
-
-
-
-
-
-
-
-
-
 #' @describeIn is_valid_organism
 #'
 #' @param x string, organism name
@@ -293,9 +186,6 @@ get_orgdb_metadata <- function(x, options = "ORGANISM") {
 is_valid_organism <- function(x) {
   ! is.null(get_organism_name(x))
 }
-
-
-
 
 
 #' @describeIn guess_keytype Guess the keytype of the genes
@@ -363,14 +253,6 @@ guess_keytype <- function(x, organism = NULL, orgdb = NULL) {
 }
 
 
-
-
-
-
-
-
-
-
 #' @describeIn is_valid_keys check keys is correct keytype in OrgDb
 #'
 #' Function from AnnotationDbi, .testForValidKeys
@@ -386,7 +268,7 @@ guess_keytype <- function(x, organism = NULL, orgdb = NULL) {
 #' @param fks vector
 #'
 #' @export
-is_valid_keys <- function(orgdb, keys, keytype, fks=NULL,
+is_valid_keys <- function(orgdb, keys, keytype, fks = NULL,
                           return_pct = FALSE){
   if (!is.character(keys)){
     stop("'keys' must be a character vector")
@@ -420,34 +302,22 @@ is_valid_keys <- function(orgdb, keys, keytype, fks=NULL,
 }
 
 
-
-
-
-
-
 #' @describeIn is_valid_keytype Check keytype, from OrgDb, select()
-#'
 #'
 #' @export
 is_valid_keytype <- function(x, orgdb = NULL, organism = NULL) {
-  if(is(x, "character")) {
+  out <- FALSE
+  if(inherits(x, "character")) {
     # confirm: OrgDb
-    if(is(organism, "character")) {
+    if(inherits(organism, "character")) {
       orgdb <- get_orgdb(organism)
     }
     if(is(orgdb, "OrgDb")) {
-      x %in% AnnotationDbi::keytypes(orgdb)
+      out <- x %in% AnnotationDbi::keytypes(orgdb)
     }
   }
+  out
 }
-
-
-
-
-
-
-
-
 
 
 #' @describeIn convert_id Convert gene ids between keytypes, using AnnotationDbi
@@ -509,7 +379,6 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
 }
 
 
-
 #' @describeIn convert URL to link
 #'
 #' markdown: [name](url)
@@ -535,8 +404,6 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
     }
   })
 }
-
-
 
 
 #' @describeIn gene_to_link Link to the gene on database (ENSEMBL)
@@ -622,33 +489,5 @@ gene_to_link <- function(x, organism, style = "url",
   }
   .url_to_link2(url, name, style = style)
 }
-
-
-
-
-#' @describeIn is_named_num numeric data, with NAMES, for gsea input
-#'
-#' @param x string Numeric, with names
-#'
-#' @export
-is_named_num <- function(x) {
-  is(x, "numeric") & is(names(x), "character")
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

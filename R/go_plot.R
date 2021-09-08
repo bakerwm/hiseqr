@@ -1,10 +1,6 @@
 #' Functions for generating plots for GO, KEGG analysis
 #'
-#'
-#'
 #' Further plots are compatiable, with (gene_list, ...)
-#'
-#'
 #'
 #' force "entrezid" in analysis pipeline
 #' force "readable=T" for output
@@ -23,29 +19,28 @@
 #'
 #' @export
 go_barplot <- function(x, ...) {
-  #--Default values: BEGIN
-  dots <- rlang::list2(
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
     show_category = 12,
     text_width    = 40,
   )
-  dots <- purrr::list_modify(dots, !!!list(...))
+  dots <- purrr::list_modify(args, !!!dots)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
   #--Default values: END
   if(is_go_result(x)) {
-  barplot(x, dorp = TRUE, showCategory = dots$show_category, order = TRUE, ...) +
-    scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = dots$text_width)) +
-    xlab("Number of genes") +
-    ggtitle(x@ontology) +
-    theme(plot.title = element_text(hjust = 0.5))
+    barplot(x, showCategory = show_category, drop = TRUE, order = TRUE) +
+      scale_y_discrete(
+        labels = function(x) stringr::str_wrap(x, width = text_width)
+      ) +
+      xlab("Number of genes") +
+      ggtitle(x@ontology) +
+      theme(plot.title = element_text(hjust = 0.5))
   } else {
     warning("`x` not groupGOResult, go_barplot() skipped...")
-    NULL
   }
 }
-
-
-
-
-
 
 
 #' create plots
@@ -76,14 +71,6 @@ go_dotplot <- function(x, ...) {
     NULL
   }
 }
-
-
-
-
-
-
-
-
 
 
 #' create plots
@@ -117,12 +104,6 @@ go_cnetplot <- function(x, ...) {
     NULL
   }
 }
-
-
-
-
-
-
 
 
 #' create plots
@@ -185,9 +166,6 @@ go_emapplot <- function(x, ...) {
 }
 
 
-
-
-
 #' create plots
 #' @param x object of enrichGO
 #'
@@ -214,13 +192,6 @@ go_emapplot_cluster <- function(x, ...) {
     NULL
   }
 }
-
-
-
-
-
-
-
 
 
 #' create plots
@@ -251,17 +222,6 @@ go_gsea_plot <- function(x, ...) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
 #' create plots
 #' @param x object of enrichGO
 #' @param ..., support, fold_change, text_width,
@@ -290,14 +250,6 @@ go_heatplot <- function(x, ...) {
     NULL
   }
 }
-
-
-
-
-
-
-
-
 
 
 #' wego plot

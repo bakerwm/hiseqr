@@ -355,7 +355,8 @@ valid_featurecounts_input <- function(x) {
 #' filt sig genes by `sig` column
 #'
 #' @param x data.frame, DESeqResults, matrix
-#' @param type character could be combination of ["up", "down", "not", "sig"],
+#' @param type character could be combination of
+#' ["all", "sig", "up", "down", "not"],
 #' default: "sig"
 #' @param fc numeric, cutoff for foldchange, default: 2
 #' @param pvalue numeric, cutoff for pvalue, default: 0.05
