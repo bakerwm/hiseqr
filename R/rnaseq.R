@@ -231,7 +231,7 @@ deseq2_main <- function(dds,
                           from_keytype = keytype,
                           to_keytype   = c("ENTREZID", "SYMBOL"),
                           organism     = organism,
-                          na_rm        = FALSE)
+                          rm_na        = FALSE)
     ## convert ids
     ## to entrezid
     to_entrez  <- setNames(df_gene$ENTREZID, nm = df_gene[, keytype])

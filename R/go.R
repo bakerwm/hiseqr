@@ -84,7 +84,7 @@ go <- function(gene_list, organism, ...) {
   if(is_valid_go_input(!!!dots)) {
     go_group(gene_list, organism, !!!dots)
     go_enrich(gene_list, organism, !!!dots)
-    go_gsea(go_gsea, !!!dots)
+    go_gsea(gene_list, organism, !!!dots)
   }
 }
 

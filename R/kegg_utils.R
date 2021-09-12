@@ -18,17 +18,7 @@
 #' @name kegg_utils
 
 
-
-
-
-
-
-
-
-#' @description
-#'
-#'
-#' Convert between KEGG id and OrgDb id
+#' @description Convert between KEGG id and OrgDb id
 #'
 #' for most organism:
 #' {kegg_code}:{OrgDb_entrezid}
@@ -54,7 +44,7 @@
 #'
 #' @export
 to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
-                            simplify = TRUE, na_rm = TRUE,
+                            simplify = TRUE, rm_na = TRUE,
                             return_table = FALSE) {
   #--Check: arg
   if(! is(gene_list, "character")) {
@@ -72,8 +62,15 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
   }
   #--Check: arg
   # convert keytype to "entrezid" (or "flybasecg" for fruit fly)
-  if(! is(keytype, "character")) {
+  if(!is(keytype, "character")) {
     keytype <- guess_keytype(x, organism)
+  }
+  if(!is_valid_keytype(keytype)) {
+    g_str <- paste(gene_list[1:3], collapse = ",")
+    message(glue::glue(
+      "failed to guess keytype for gene_list: {g_str}"
+    ))
+    return(NULL)
   }
   # kegg_keytype <- "ENTREZID"
   kegg_keytype <- get_kegg_keytype(organism)
@@ -82,8 +79,7 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
     message("`gene_list` is KEGG keyType, no need to convert")
     return(gene_list)
   }
-
-  df <- convert_id(gene_list, keytype, kegg_keytype, organism, na_rm = na_rm)
+  df <- convert_id(gene_list, keytype, kegg_keytype, organism, rm_na = rm_na)
   #-- return data.frame
   # fix Dmel_
   fix1 <- function(x) {
@@ -107,24 +103,24 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
   if(return_table) {
     if(simplify) {
       out <- dplyr::select(df2, keytype, gene_list)
-      if(na_rm) {
+      if(rm_na) {
         out <- dplyr::filter(out, ! is.na(gene_list))
       }
     } else {
       out <- dplyr::select(df2, keytype, kegg_gene)
-      if(na_rm) {
+      if(rm_na) {
         out <- dplyr::filter(out, ! is.na(kegg_gene))
       }
     }
   } else {
     if(simplify) {
       out <- df2$gene_list
-      if(na_rm) {
+      if(rm_na) {
         out <- purrr::discard(out, is.na)
       }
     } else {
       out <- df2$kegg_gene
-      if(na_rm) {
+      if(rm_na) {
         out <- purrr::discard(out, is.na)
       }
     }
@@ -176,27 +172,11 @@ get_kegg_keytype <- function(organism) {
 #'
 #' @export
 get_kegg_code <- function(x) {
-  # Support for common names, genome build, ... for dm, hs, mm
-  dm_name <- c("dm", "dm3", "dm6", "fruitfly", "drosophila_melagaster",
-               "drosophila melagaster")
-  hs_name <- c("hs", "hg19", "hg38", "GRCh37", "GRCh38", "human",
-               "homo_sapiens", "homo sapiens")
-  mm_name <- c("mm", "mm9", "mm10", "GRCm38", "mouse", "mus_musculus",
-               "mus musculus")
-  # data.frame: organism, name
-  org <- data.frame(
-    organism = c(rep("Drosophila melanogaster", times = length(dm_name)),
-                 rep("Homo sapiens", times = length(hs_name)),
-                 rep("Mus musculus", times = length(mm_name))),
-    name     = c(dm_name, hs_name, mm_name))
-  # Convert to scientific name
-  if(is.character(x)) {
-    x <- tolower(x[1])
-    if(x %in% org$name) {
-      x <- org[org$name == x, "organism"]
-    }
-  } else {
-    warning("`x` require character, failed")
+  organism <- get_organism_name(x) # sci name
+  if(!inherits(organism, "character")) {
+    warning(glue::glue(
+      "x is {x}, is not valid organism name"
+    ))
     return(NULL)
   }
   # # Search by KEGGREST::keggList("organism")
@@ -211,7 +191,7 @@ get_kegg_code <- function(x) {
   k  <- clusterProfiler::search_kegg_organism("*", by = "scientific_name")
   kc <- setNames(c(k$kegg_code, k$kegg_code),
                  nm = c(k$scientific_name, k$common_name))
-  ki <- grep(x, names(kc), ignore.case = TRUE)
+  ki <- grep(organism, names(kc), ignore.case = TRUE)
   kk <- kc[ki]
   # output
   if(length(kk) == 1) {
@@ -227,69 +207,6 @@ get_kegg_code <- function(x) {
     stop(msg)
   }
 }
-
-
-
-
-
-#'
-#' #' @describeIn gsea_input Prepare data for GSEA analysis
-#' #' require sorted values (fold_change, ...), with names (gene)
-#' #' require: ENTREZID (FLYBASECG for fruitfly)
-#' #'
-#' #' @param gene_list gene name
-#' #' @param fold_change numeric
-#' #'
-#' #' @export
-#' prep_kegg_gsea_input <- function(gene_list, fold_change,
-#'                                  organism, keytype = NULL,
-#'                                  orgdb = NULL) {
-#'   if(! is(gene_list, "character")) {
-#'     warning("`gene_list` expect characters, failed")
-#'     return(NULL)
-#'   }
-#'   if(! is_named_num(fold_change)) {
-#'     warning("`fold_change` require numeric, with gene_name named")
-#'     return(NULL)
-#'   }
-#'   #--Check: organism, orgdb
-#'   if(is(orgdb, "OrgDb")) {
-#'     organism <- get_orgdb_metadata(orgdb, "ORGANISM")
-#'   }
-#'   organism <- get_organism_name(organism)
-#'   if(! is(organism, "character")) {
-#'     warning("`organism`, `orgdb` failed, either one required",
-#'             "for guessing the keytypes")
-#'     return(NULL)
-#'   }
-#'   kegg_keytype <- get_kegg_keytype(organism)
-#'   if(keytype == kegg_keytype) {
-#'     fc <- fold_change[gene_list]
-#'     fc <- purrr::discard(fc, is.na)
-#'   } else {
-#'     # id to fold_change
-#'     fix1 <- function(x) {
-#'       fold_change[x]
-#'     }
-#'     df <- to_kegg_gene_id(names(fold_change), organism, keytype, return_table = TRUE) %>%
-#'       dplyr::mutate(across(all_of(keytype), fix1, .names = "value")) %>%
-#'       dplyr::select(-1) %>%
-#'       unique
-#'     fold_change2 <- structure(df[, 2], names = df[, 1])
-#'     gene_list2 <- to_kegg_gene_id(gene_list, organism, keytype)
-#'     fc <- fold_change2[gene_list2]
-#'   }
-#'   pct <- round(length(fc) / length(gene_list) * 100, 2)
-#'   if(pct) {
-#'     msg <- glue::glue("{length(fc)} of {length(gene_list)} ",
-#'                       "({pct}%) genes return with fold_change.")
-#'     message(msg)
-#'     sort(fc, decreasing = TRUE)
-#'   } else {
-#'     warning("`gene_list` not mapped in `fold_change`")
-#'     NULL
-#'   }
-#' }
 
 
 

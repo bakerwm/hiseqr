@@ -844,7 +844,8 @@ set_readable <- function(x, ...) {
           if(is_valid_keytype(keytype, organism = genome)) {
             gdf <- convert_id(g, from_keytype = keytype,
                               to_keytype = c("ENTREZID", "SYMBOL"),
-                              organism   = genome, na_rm = FALSE)
+                              organism   = genome,
+                              rm_na      = FALSE)
           }
         }
       }

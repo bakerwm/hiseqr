@@ -54,6 +54,7 @@ deseq_qc_counts <- function(x, outdir = NULL, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -174,6 +175,7 @@ deseq_qc_mean_sd <- function(x, outdir = NULL, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -249,6 +251,7 @@ deseq_qc_top_gene <- function(x, outdir = NULL, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -338,6 +341,7 @@ deseq_qc_dist <- function(x, outdir = NULL, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -415,6 +419,7 @@ deseq_qc_pca <- function(x, outdir = NULL, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -512,6 +517,7 @@ deseq_qc_ma <- function(x, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -623,6 +629,7 @@ deseq_qc_volcano <- function(x, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -733,6 +740,7 @@ deseq_qc_scatter <- function(x, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
@@ -850,6 +858,7 @@ deseq_qc_add_sig_label <- function(x, ...) {
   dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update args,
   for(name in names(dots)) {
+    if(rlang::is_empty(name)) next
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#

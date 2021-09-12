@@ -19,27 +19,46 @@
 #'
 #' @export
 go_barplot <- function(x, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
   dots <- rlang::list2(...)
   args <- rlang::list2(
     show_category = 12,
-    text_width    = 40,
+    text_width    = 30, # label_format,
+    font_size     = 12, # font.size
+    x_axis        = "Count", # GeneRatio
+    color_by      = "p.adjust", # color: pvalue, qvalue
+    order         = TRUE,
+    drop          = TRUE
   )
   dots <- purrr::list_modify(args, !!!dots)
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
-  #--Default values: END
-  if(is_go_result(x)) {
-    barplot(x, showCategory = show_category, drop = TRUE, order = TRUE) +
-      scale_y_discrete(
-        labels = function(x) stringr::str_wrap(x, width = text_width)
-      ) +
-      xlab("Number of genes") +
-      ggtitle(x@ontology) +
-      theme(plot.title = element_text(hjust = 0.5))
-  } else {
-    warning("`x` not groupGOResult, go_barplot() skipped...")
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    height       = x,
+    showCategory = show_category,
+    x            = x_axis,
+    label_format = text_width,
+    font.size    = font_size,
+    color        = color_by, # pvalue, qvalue
+    colorBy      = color_by
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  if(!inherits(x, "enrichResult")) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
   }
+  #----------------------------------------------------------------------------#
+  #-- enrichplot barplot.enrichResult, not support !!!
+  rlang::exec(barplot, !!!dots) +
+    ggtitle(x@ontology) +
+    theme(plot.title = element_text(hjust = 0.5))
 }
 
 
@@ -52,24 +71,54 @@ go_barplot <- function(x, ...) {
 #'
 #' @export
 go_dotplot <- function(x, ...) {
-  #--Default values: BEGIN
-  dots <- rlang::list2(
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
     show_category = 12,
-    text_width    = 40,
+    x_axis        = "geneRatio", # by: "geneRatio", "Percentage" and "count"
+    color_by      = "p.adjust", # color, colorBy, colorBy, pvalue, qvalue
+    show_catetory = 10,
+    by            = "geneRatio", #
+    size_by       = "geneRatio", # size; by: "geneRatio", "Percentage" and "count"
+    font_size     = 12, # font.size
+    order_by      = "x", # orderBy The order of the x-axis
+    text_width    = 30, # label_format
+    # split         = NULL, # ONTOLOGY,
+    # decreasing    = TRUE
   )
-  dots <- purrr::list_modify(dots, !!!list(...))
-  #--Default values: END
-  if(is_go_result(x)) {
-    clusterProfiler::dotplot(x, showCategory = dots$show_category, ...) +
-      scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = dots$text_width)) +
-      xlab("Gene Ratio") +
-      ggtitle(x@ontology) +
-      theme(axis.text.y = element_text(size  = 10),
-            plot.title  = element_text(hjust = 0.5))
-  } else {
-    warning("`x` not enrichGOResult, go_dotplot() skipped...")
-    NULL
+  dots <- purrr::list_modify(args, !!!dots)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
   }
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    object       = x,
+    x            = x_axis,
+    label_format = text_width,
+    color        = color_by, # pvalue, qvalue
+    colorBy      = color_by,
+    by           = size_by, # GeneRatio
+    orderBy      = order_by,
+    font.size    = font_size
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  # do.call(dotplot, dots) +
+  rlang::exec(dotplot, !!!dots) +
+    xlab("Gene Ratio") +
+    ggtitle(x@ontology) +
+    theme(axis.text.y = element_text(size  = 10),
+          plot.title  = element_text(hjust = 0.5))
 }
 
 
@@ -82,27 +131,37 @@ go_dotplot <- function(x, ...) {
 #'
 #' @export
 go_cnetplot <- function(x, ...) {
-  #--Default values: BEGIN
-  dots <- rlang::list2(
-    fold_change   = NULL,
-    show_category = 12,
-    layout        = "nicely"
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fold_change   = NULL, # foldChange
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
+    show_category = 12
   )
-  dots <- purrr::list_modify(dots, !!!list(...))
-  #--Default values: END
-  if(is_go_result(x)) {
-    clusterProfiler::cnetplot(x,
-                              showCategory = dots$show_category,
-                              foldChange   = dots$fold_change,
-                              layout       = dots$layout,
-                              categorySize = "pvalue") +
-      ggtitle(x@ontology) +
-      theme(text = element_text(size = 8),
-            plot.title = element_text(hjust = .5))
-  } else {
-    warning("`x` not enrichGOResult, go_cnetplot() skipped...")
-    NULL
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    foldChange   = dots$fold_change,
+    showCategory = dots$show_category,
+    font.size    = dots$font_size
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
   }
+  #----------------------------------------------------------------------------#
+  rlang::exec(clusterProfiler::cnetplot, !!!dots) +
+    xlab("Gene Ratio") +
+    ggtitle(x@ontology) +
+    theme(plot.title  = element_text(hjust = 0.5))
 }
 
 
@@ -116,53 +175,74 @@ go_cnetplot <- function(x, ...) {
 #'
 #' updated: 2020-12-15, pairwise_termsim(ego)
 #'
-#'
 #' @export
 go_emapplot <- function(x, ...) {
-  #--Default values: BEGIN
-  dots <- rlang::list2(
-    orgdb         = NULL,
-    fold_change   = NULL,
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fold_change   = NULL, # foldChange
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
     show_category = 12,
-    layout        = "nicely" # kk
+    orgdb         = NULL,
+    sim_method    = "Wang" # "Resnik", "Lin", "Rel", "Jiang" , "Wang" and "JC"
   )
-  dots <- purrr::list_modify(dots, !!!list(...))
-  #--Default values: END
-  if(is_go_result(x)) {
-    if(nrow(x) > 1) {
-      ont <- tryCatch(
-        x@ontology,
-        error = function(cnd) "NULL"
-      )
-      if(is(dots$orgdb, "OrgDb") && ont %in% c("BP", "CC", "MF")) {
-        d  <- GOSemSim::godata(dots$orgdb, ont = ont)
-        x2 <- enrichplot::pairwise_termsim(x, method = "Wang", semData = d)
-      } else {
-        x2 <- enrichplot::pairwise_termsim(x)
-      }
-      p1 <- enrichplot::emapplot(x2,
-                                 showCategory = dots$show_category,
-                                 layout       = dots$layout,
-                                 cex_category = .8,
-                                 cex_line     = .4) +
-        ggtitle(ont) +
-        theme(text = element_text(size = 10))
-      p2 <- enrichplot::emapplot_cluster(x2,
-                                         showCategory = dots$show_category,
-                                         layout       = dots$layout,
-                                         cex_category = .8,
-                                         cex_line     = .4) +
-        ggtitle(ont) +
-        theme(text = element_text(size = 10))
-      list(
-        plot         = p1,
-        plot_cluster = p2
-      )
-    }
-  } else {
-    warning("`x` not enrichGOResult, go_emapplot() skipped...")
-    NULL
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    foldChange   = dots$fold_change,
+    showCategory = dots$show_category,
+    font.size    = dots$font_size
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
   }
+  #----------------------------------------------------------------------------#
+  #-- run
+  ont <- tryCatch(
+    x@ontology,
+    error = function(cnd) return(NULL)
+  )
+  #-- similarity matrix
+  if(inherits(dots$orgdb, "OrgDb") && ont %in% c("BP", "CC", "MF")) {
+    d <- GOSemSim::godata(dots$orgdb, ont = ont)
+    x2 <- enrichplot::pairwise_termsim(x, method = dots$sim_method, semData = d)
+  } else {
+    x2 <- enrichplot::pairwise_termsim(x)
+  }
+  #-- plot1
+  p1 <- enrichplot::emapplot(
+    x2,
+    showCategory = dots$show_category,
+    layout       = dots$layout,
+    cex_category = .8,
+    cex_line     = .4
+  ) +
+    ggtitle(ont) +
+    theme(text = element_text(size = 10))
+  ## deprecated: version 4.0.5
+  # #-- plot2: cluster
+  # p2 <- enrichplot::emapplot_cluster(
+  #   x2,
+  #   showCategory = dots$show_category,
+  #   layout       = dots$layout,
+  #   cex_category = .8,
+  #   cex_line     = .4
+  # ) +
+  #   ggtitle(ont) +
+  #   theme(text = element_text(size = 10))
+  list(
+    plot         = p1#,
+    # plot_cluster = p2
+  )
 }
 
 
@@ -170,26 +250,44 @@ go_emapplot <- function(x, ...) {
 #' @param x object of enrichGO
 #'
 #' updated: 2020-12-15, pairwise_termsim(ego)
-#'
+#' updated: 2021-09-01, deprecated, see treeplot()
 #'
 #' @export
 go_emapplot_cluster <- function(x, ...) {
-  dots <- rlang::list2(
-    layout = "nicely"
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fold_change   = NULL, # foldChange
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
+    show_category = 12,
+    cex_category  = .8,
+    cex_line      = .4,
   )
-  if(is_go_result(x)) {
-    if(nrow(x) > 1) {
-      x2 <- enrichplot::pairwise_termsim(x) # updated 2020-12-15
-      enrichplot::emapplot_cluster(x2,
-                                   cex_category = .8,
-                                   cex_line     = .4,
-                                   layout       = dots$layout) +
-        ggtitle(x@ontology) +
-        theme(text = element_text(size = 10))
-    }
-  } else {
-    warning("`x` not enrichGOResult, go_emapplot_cluster() skipped...")
-    NULL
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    foldChange   = dots$fold_change,
+    showCategory = dots$show_category,
+    font.size    = dots$font_size
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  if(nrow(x) > 1) {
+    x2 <- enrichplot::pairwise_termsim(x) # updated 2020-12-15
+    rlang::exec(enrichplot::emapplot_cluster, !!!dots) +
+      ggtitle(x@ontology) +
+      theme(text = element_text(size = 10))
   }
 }
 
@@ -204,21 +302,41 @@ go_emapplot_cluster <- function(x, ...) {
 #'
 #' @export
 go_gsea_plot <- function(x, ...) {
-  if(class(x) == "gseaResult") {
-    if(nrow(x) > 0) {
-      p_list <- lapply(seq_len(nrow(x)), function(i){
-        enrichplot::gseaplot2(x,
-                              geneSetID    = i,
-                              title        = x$Description[i],
-                              pvalue_table = TRUE)
-      })
-      names(p_list) <- seq_len(nrow(x)) # paste0("gsea.", seq_len(nrow(x)))
-      p_list
-    }
-  } else {
-    warning("`x` not gseaGOResult, go_gsea_plot() skipped...")
-    NULL
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fold_change   = NULL, # foldChange
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
+    show_category = 12,
+    cex_category  = .8,
+    cex_line      = .4,
+  )
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    foldChange   = dots$fold_change
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
   }
+  #----------------------------------------------------------------------------#
+  p_list <- lapply(seq_len(nrow(x)), function(i){
+    dots <- purrr::list_modify(
+      dots, geneSetID = i, title = x$Description[i], pvalue_table = TRUE
+    )
+    rlang::exec(enrichplot::gseaplot2, !!!dots)
+  })
+  names(p_list) <- seq_len(nrow(x)) # paste0("gsea.", seq_len(nrow(x)))
+  p_list
 }
 
 
@@ -232,24 +350,96 @@ go_gsea_plot <- function(x, ...) {
 #'
 #' @export
 go_heatplot <- function(x, ...) {
-  #--Default values: BEGIN
-  dots <- rlang::list2(
-    fold_change   = NULL,
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    fold_change   = NULL, # foldChange
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
     show_category = 12
   )
-  dots <- purrr::list_modify(dots, !!!list(...))
-  #--Default values: END
-  if(is_go_result(x)) {
-    enrichplot::heatplot(x,
-                         foldChange   = dots$fold_change,
-                         showCategory = dots$show_category) +
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- convert arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    foldChange   = dots$fold_change,
+    showCategory = dots$show_category,
+    font.size    = dots$font_size
+  )
+  #----------------------------------------------------------------------------#
+  #-- update arguments
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  rlang::exec(enrichplot::heatplot, !!!dots) +
+    ggtitle(x@ontology) +
+    theme(text = element_text(size = 10))
+}
+
+
+
+
+#' create plots
+#' @param x object of enrichGO
+#'
+#' updated: 2020-12-15, pairwise_termsim(ego)
+#'
+#' @export
+go_treeplot <- function(x, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    show_category = 12, # showCategory
+    fold_change   = NULL, # foldChange
+    color_by      = "p.adjust", # pvalue, p.adjust or qvalue, or custome
+    n_words       = 4, # nWords
+    n_clusters   = 5, # nCluster
+    hclust_method = "ward.D", # "ward.D2", "single", "average", "median", "complete"
+    layout        = "nicely", #  'star', 'circle', 'gem', 'dh', 'graphopt', 'grid', 'mds', 'randomly', 'fr', 'kk', 'drl' or 'lgl'
+    font_size     = 4, # fontsize
+    text_width    = 30 # label_format
+  )
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- to env
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #-- update arguments
+  dots <- purrr::list_modify(
+    dots,
+    x            = x,
+    showCategory = dots$show_category,
+    color        = color_by, #
+    nWords       = n_words,
+    nCluster     = n_clusters,
+    fontsize     = font_size,
+    label_format = text_width,
+    foldChange   = fold_change,
+  )
+  #----------------------------------------------------------------------------#
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
+  if(nrow(x) > 1) {
+    dots$x <- enrichplot::pairwise_termsim(x) # update x
+    rlang::exec(enrichplot::treeplot, !!!dots) +
       ggtitle(x@ontology) +
       theme(text = element_text(size = 10))
-  } else {
-    warning("`x` not enrichGOResult, go_heatplot() skipped...")
-    NULL
   }
 }
+
 
 
 #' wego plot
@@ -258,6 +448,28 @@ go_heatplot <- function(x, ...) {
 #'
 #' @return
 go_wego_plot <- function(x, ...) {
+  #----------------------------------------------------------------------------#
+  #-- Check arguments
+  dots <- rlang::list2(...)
+  args <- rlang::list2(
+    show_category = 12, # showCategory
+    fold_change   = NULL, # foldChange
+    color_by      = "p.adjust" # pvalue, p.adjust or qvalue, or custome
+  )
+  dots <- purrr::list_modify(args, !!!dots)
+  #-- to env
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
+  }
+  #----------------------------------------------------------------------------#
+  #-- enrichResult, gseaResult, compareClusterResult
+  if(!is_go_result(x)) {
+    warning(glue::glue(
+      "x is {class(x)}, expect 'enrichResult'"
+    ))
+    return(NULL)
+  }
+  #----------------------------------------------------------------------------#
   if(is(x, "list") & all(purrr::map_lgl(x, is_go_result))) {
     message("Generating wego plot")
     if(is(x, "gseaResult")) {

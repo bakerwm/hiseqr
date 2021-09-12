@@ -44,14 +44,15 @@
 #'
 #' @export
 go_gsea <- function(gene_list, organism, ...) {
+  message(">>> run go_gsea()")
   #----------------------------------------------------------------------------#
   #-- Check: args
   dots <- rlang::list2(...)
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
+  # dots <- purrr::list_modify(
+  #   dots,
+  #   gene_list = gene_list,
+  #   organism  = organism
+  # )
   dots <- prep_go_gsea(gene_list, organism, !!!dots) # update arguments
   #-- to env
   for(name in names(dots)) {
@@ -60,7 +61,7 @@ go_gsea <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- init args
   #-- Check: valid args
-  if(!is_valid_go_input(!!!dots)) {
+  if(is.null(dots) || !is_valid_go_input(!!!dots)) {
     message("go_gsea() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -77,7 +78,7 @@ go_gsea <- function(gene_list, organism, ...) {
   onts <- c("BP", "CC", "MF")
   #-- run
   go_data <- sapply(onts, function(ont) {
-    message(glue::glue("Running gseaGO() for {ont}"))
+    message(glue::glue(">>> run gseaGO() for {ont}"))
     go_ont_data_rds <- file.path(
       outdir,
       glue::glue("go_gsea.data.{ont}.rds")
@@ -116,7 +117,7 @@ go_gsea <- function(gene_list, organism, ...) {
     if(file.exists(go_ont_plot_rds) & !overwrite) {
       go_ont_plot <- readRDS(go_ont_plot_rds)
     } else if(inherits(go_ont_data, "enrichResult")) {
-      go_ont_plot <- go_gsea_plots(go_ont_data)# !!!! group_go_plot
+      go_ont_plot <- go_gsea_plots(go_ont_data, !!!dots)# !!!! group_go_plot
       saveRDS(go_ont_plot, file = go_ont_plot_rds)
     } else {
       warning("go_gsea() failed")
@@ -241,7 +242,7 @@ prep_go_gsea <- function(gene_list, organism, ...) {
         from_keytype = keytype,
         to_keytype   = fc_keytype,
         organism     = organism,
-        na_rm        = FALSE
+        rm_na        = FALSE
       )
       #-- check, genes exists or not
       tt2  <- setNames(trans_table[[1]], nm = trans_table[[2]]) # convert
@@ -271,7 +272,8 @@ prep_go_gsea <- function(gene_list, organism, ...) {
     organism  = organism,
     orgdb     = orgdb,
     keytype   = keytype,
-    gsea_gene = gsea_gene
+    gsea_gene = gsea_gene,
+    kegg_gene = kegg_gene
   )
 }
 

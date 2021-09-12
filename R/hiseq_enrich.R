@@ -24,23 +24,51 @@
 #'
 #' @param x character path to the rnaseq_rx directory
 #'
+#' @example
+#' hiseq_enrich(x)
+#' hiseq_enrich(x, sig_type = "up", outdir = "up")
+#'
 #' @return results
 #'
 #' @export
 hiseq_enrich<- function(x, ...) {
+  message(">>> run hiseq_enrich()")
   #----------------------------------------------------------------------------#
   #-- Check: arguments
-  dots <- rlang::list2(...)
-  dots <- hiseq_prep_enrich(x, !!!dots) # valid args
-  #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
-  }
-  #----------------------------------------------------------------------------#
-  #-- run
-  if(inherits(gene_list, "character")) {
-    go(gene_list, organism, !!!dots)
-    kegg(gene_list, organism, !!!dots)
+  #-- scan shrink method, sig type (sig, up, down)
+  for(shrink in c("ashr", "standard", "apeglm", "normal")) {
+    for(sig in c("sig", "up", "down")) {
+      message(glue::glue(
+        ">>> run hiseq_enrich() for '{shrink}'-'{sig}'"
+      ))
+      dots <- rlang::list2(...) # init
+      dots <- hiseq_prep_enrich(
+        x,
+        !!!dots,
+        shrink_method = shrink,
+        sig_type = sig
+      ) # valid args
+      if(is.null(dots)) {
+        message("hiseq_enrich() skipped for '{shrink}'-'{sig}'")
+        next
+      }
+      #-- to env
+      for(name in names(dots)) {
+        assign(name, dots[[name]])
+      }
+      #------------------------------------------------------------------------#
+      #-- update subdir
+      dots$outdir <- file.path(dots$outdir, shrink, sig) # update directory
+      check_path(dots$outdir)
+      #-- save arguments to file
+      args_rds <- file.path(dots$outdir, "args.rds")
+      saveRDS(dots, args_rds)
+      #-- run
+      if(inherits(gene_list, "character")) {
+        go(gene_list, organism, !!!dots)
+        kegg(gene_list, organism, !!!dots)
+      }
+    }
   }
 }
 
@@ -86,9 +114,7 @@ hiseq_prep_enrich <- function(x, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: args
   if(!is_hiseq_dir(x, "rnaseq_rx")) {
-    warning(glue::glue(
-      "x is {x}, expect 'rnaseq_rx'"
-    ))
+    warning(glue::glue("x is {x}, expect 'rnaseq_rx'"))
     return(NULL)
   }
   #-- Check: deseq data
@@ -107,6 +133,7 @@ hiseq_prep_enrich <- function(x, ...) {
     enrich_dir <- list_hiseq_file(x, "enrich_dir", "rx")
     outdir <- ifelse(inherits(enrich_dir, "character"), enrich_dir, getwd())
   }
+  check_path(outdir)
   #-- orgdb
   orgdb <- get_orgdb(genome)
   #----------------------------------------------------------------------------#
@@ -151,11 +178,23 @@ hiseq_prep_enrich <- function(x, ...) {
   )
   df <- deseq_qc_res(deseq_dir, !!!dots)
   if(inherits(df, "data.frame")) {
+    #-- save data.frame to file
+    gene_table <- file.path(outdir, "gene_table.csv")
+    write.csv(df, gene_table, row.names = FALSE, quote = TRUE)
+    #--------------------------------------------------------------------------#
+    #-- filter by criterias
     df2 <- filt_sig_gene(df, type = dots$sig_type)
+    if(nrow(df2) == 0) {
+      message(glue::glue(
+        "no '{sig_type}' for shrink:'{shrink_method}'"
+      ))
+      return(NULL)
+    }
     gene_list <- as.character(df2[["gene_id"]])
     fold_change <- setNames(
       df2[["log2FoldChange"]], nm = df2[["gene_id"]]
     )
+    fold_change <- sort(fold_change, decreasing = TRUE)
   }
   #-- guess: keytype
   if(!inherits(keytype, "character")) {

@@ -50,15 +50,9 @@
 #'
 #' @export
 kegg_enrich <- function(gene_list, organism, ...) {
-  message(glue::glue("run kegg_enrich() ..."))
+  message(glue::glue(">>> run kegg_enrich()"))
   #----------------------------------------------------------------------------#
-  #-- Check: args
   dots <- rlang::list2(...)
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
   dots <- prep_kegg(gene_list, organism, !!!dots) # update arguments
   #-- to env
   for(name in names(dots)) {
@@ -66,7 +60,16 @@ kegg_enrich <- function(gene_list, organism, ...) {
   }
   #----------------------------------------------------------------------------#
   #-- Check: valid args
-  if(!is_valid_kegg_input(!!!dots)) {
+  if(!exists("kegg_gene", inherits = FALSE)) {
+    warning("kegg_gene not exists")
+    return(NULL)
+  }
+  # warning(glue::glue("<<< 2. kegg_gene: {dots$kegg_gene}"))
+  if(is_valid_kegg_input(!!!dots)
+     && inherits(kegg_gene, "character")
+     && length(kegg_gene) > 1) {
+    message("kegg_gene is valid")
+  } else {
     message("kegg_enrich() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -74,15 +77,9 @@ kegg_enrich <- function(gene_list, organism, ...) {
   outdir <- file.path(outdir, "kegg_enrich") # update: outdir
   check_path(outdir)
   #----------------------------------------------------------------------------#
-  kegg_data_rds <- file.path(
-    outdir,
-    glue::glue("kegg_enrich.data.{ont}.rds")
-  )
-  kegg_plot_rds <- file.path(
-    outdir,
-    glue::glue("kegg_enrich.plot.{ont}.rds")
-  )
   #-- run kegg
+  kegg_data_rds <- file.path(outdir, glue::glue("kegg_enrich.data.rds"))
+  kegg_plot_rds <- file.path(outdir,glue::glue("kegg_enrich.plot.rds"))
   if(file.exists(kegg_data_rds) & !overwrite) {
     kegg_data <- readRDS(kegg_data_rds)
   } else {
@@ -99,9 +96,9 @@ kegg_enrich <- function(gene_list, organism, ...) {
         # readable
         if(inherits(kegg_data, "enrichResult") & inherits(orgdb, "OrgDb")) {
           kegg_data <- clusterProfiler::setReadable(
-            x       =  kegg_data,
+            x       = kegg_data,
             OrgDb   = orgdb,
-            keyType = keytype
+            keyType = kegg_keytype
           )
         }
         saveRDS(kegg_data, file = kegg_data_rds)
@@ -113,13 +110,11 @@ kegg_enrich <- function(gene_list, organism, ...) {
       }
     )
   }
-  #-- run, plot
   if(file.exists(kegg_plot_rds) & !overwrite) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
     if(inherits(kegg_data, "enrichResult")) {
-      # use 'go_enrich_plot()' to plot
-      kegg_plot <- go_enrich_plot(kegg_data, !!!dots) # !!!! enrich_kegg_plot
+      kegg_plot <- go_enrich_plot(kegg_data, !!!dots) # go plots
       saveRDS(kegg_plot, file = kegg_plot_rds)
     } else {
       kegg_plot <- NULL
@@ -138,11 +133,11 @@ kegg_enrich <- function(gene_list, organism, ...) {
 
 #' use 'go_enrich_plot()' to plot
 #' @export
-kegg_enrich_plot <- function(x, ...) {
-  # go_enrich_plot(x, ...)
-  dots <- rlang::list2(...)
-  go_enrich_plot(x, !!!dots)
-}
+# kegg_enrich_plot <- function(x, ...) {
+#   # go_enrich_plot(x, ...)
+#   dots <- rlang::list2(...)
+#   go_enrich_plot(x, !!!dots)
+# }
 
 
 

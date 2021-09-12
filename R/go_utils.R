@@ -6,7 +6,7 @@
 #'
 #' @name go_utils
 
-
+## @deprecated
 #' @describeIn is_named_num Check if input is named numbers
 #' eg: the input for GSEA analysis
 #'
@@ -29,9 +29,28 @@ is_named_num <- function(x) {
 #' @param recursive boolean, whether loop over list
 #'
 #' @export
-is_go_result <- function(x) {
-  go_class <- c("groupGOResult", "enrichResult", "gseaResult")
-  class(x) %in% go_class
+is_go_result <- function(x, type = TRUE) {
+  supp <- c("groupGOResult", "enrichResult", "gseaResult",
+            "compareClusterResult")
+  if(isTRUE(type)) {
+    type <- supp
+  } else if(inherits(type, "character")) {
+    if(!type[1] %in% supp) {
+      supp_str <- paste(supp, collapse = ", ")
+      warning(glue::glue(
+        "illegal type '{type}', expect {supp_str}"
+      ))
+      return(FALSE)
+    }
+  } else {
+    warning(glue::glue(
+      "illegal type '{class(type})', expect {supp_str}"
+    ))
+    return(FALSE)
+  }
+  # class(x) %in% type
+  # sapply(x, function(i) inherits(i, type))
+  inherits(x, type)
 }
 
 
@@ -48,24 +67,18 @@ is_go_result <- function(x) {
 get_orgdb <- function(x) {
   #----------------------------------------------------------------------------#
   if(!inherits(x, "character")) {
-    warning(glue::glue(
-      "x is '{class(x)}', expect character"
-    ))
+    warning(glue::glue("x is '{class(x)}', expect character"))
     return(NULL)
   }
   #-- empty, na
   if(length(x) == 0 | is.na(x)) {
-    message(glue::glue(
-      "x is {x}, zero in length, or is NA"
-    ))
+    message(glue::glue("x is {x}, zero in length, or is NA"))
     return(NULL)
   }
   #-- multiple items
   if(length(x) > 1) {
     x_str <- paste(x[1:3], collapse = ", ")
-    message(glue::glue(
-      "x, multiple items found, choose the first one: {x_str}"
-    ))
+    message(glue::glue("x, multiple items found, choose the first: {x_str}"))
     x <- x[1]
   }
   #----------------------------------------------------------------------------#
@@ -96,7 +109,8 @@ get_orgdb <- function(x) {
 #'
 #' @export
 get_organism_name <- function(x, group = "organism") {
-  # common organism
+  #-- common name to scientific name
+  # common organisms
   dm_name <- c("dm", "dm3", "dm6", "fruitfly", "drosophila_melanogaster",
                "drosophila melanogaster")
   hs_name <- c("hs", "hg19", "hg38", "GRCh37", "GRCh38", "human",
@@ -132,7 +146,7 @@ get_organism_name <- function(x, group = "organism") {
         unique()
     } else {
       sup_org_list <- paste(
-        dplyr::pull(sup_org, organism) %>% unique,
+        dplyr::pull(sup_org1, organism) %>% unique,
         collapse = ", "
       )
       msg <- paste(
@@ -184,7 +198,7 @@ get_orgdb_metadata <- function(x, options = "ORGANISM") {
 #'
 #' @export
 is_valid_organism <- function(x) {
-  ! is.null(get_organism_name(x))
+  !is.null(get_organism_name(x))
 }
 
 
@@ -323,59 +337,105 @@ is_valid_keytype <- function(x, orgdb = NULL, organism = NULL) {
 #' @describeIn convert_id Convert gene ids between keytypes, using AnnotationDbi
 #'
 #' @param x gene names
-#' @param organism name of the genome, scientific names, eg: Drosophila melanogaster
+#' @param organism name of the genome, eg: "dm6"
 #'
 #' @export
 convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
-                       organism = NULL, na_rm = FALSE) {
-  orgdb <- get_orgdb(organism)
-  if(! inherits(orgdb, "OrgDb")) {
-    msg1 <- "Not a valid orgnism name, (eg: Homo sapiens)"
-    stop("'organism' ", msg1)
+                       organism = NULL, orgdb = NULL, rm_na = FALSE, ...) {
+  #----------------------------------------------------------------------------#
+  #-- arguments
+  dots <- rlang::list2(...)
+  args <- list(multi_vars = "first", simplify = FALSE) # multiVars
+  dots <- purrr::list_modify(args, !!!dots)
+  for(name in names(dots)) {
+    assign(name, dots[[name]])
   }
-  # guess keytype
-  if(is.null(from_keytype)) {
-    from_keytype <- guess_keytype(x, organism)
+  #----------------------------------------------------------------------------#
+  #-- check orgdb, required; (or from organism)
+  if(!(inherits(x, "character") & length(x) > 0)) {
+    x_str <- paste(x[1:3], collapse = ", ")
+    warning(glue::glue(
+      "x is '{class(x)}', {x_str} ..., expect 'character'"
+    ))
+    return(NULL)
   }
-  kt <- AnnotationDbi::keytypes(orgdb)
-  msg2 <- paste(kt, collapse = ", ")
-  if(is.null(from_keytype) | ! from_keytype %in% kt) {
-    stop("'from_keytype' should be one of: ", msg2)
+  if(!inherits(orgdb, "OrgDb") & is_valid_organism(organism)) {
+    orgdb <- get_orgdb(organism)
   }
-  if(! all(to_keytype %in% kt)) {
-    stop("'to_keytype' should be one of: ", msg2)
+  if(!inherits(orgdb, "OrgDb")) {
+    warning(glue::glue(
+      "organism is {organism}, orgdb is {class(orgdb)}, not valid"
+    ))
+    return(NULL)
   }
-  # out <- AnnotationDbi::mapIds(orgdb,
-  #                       keys = x,
-  #                       column = to_keytype,
-  #                       keytype = from_keytype,
-  #                       multiVals = "first")
+  #-- check keytypes
+  tk <- sapply(to_keytype, function(i) is_valid_keytype(i, orgdb = orgdb))
+  if(!all(tk)) {
+    tk_str <- paste(to_keytype, collapse = ", ")
+    message(glue::glue(
+      "to_keytype is '{tk_str}', not valid"
+    ))
+    return(NULL)
+  }
+  #-- guesss, force? in case, from_keytype is not correct
+  if(!is_valid_keytype(from_keytype, orgdb)) {
+    from_keytype <- guess_keytype(x, orgdb = orgdb)
+  }
+  if(!is_valid_keytype(from_keytype, orgdb)) {
+    x_str <- paste(x[1:3], collapse = ", ")
+    warning(glue::glue(
+      "x is {x_str} ..., could not determine the keytype"
+    ))
+    return(NULL)
+  }
+  #-- run
   if(from_keytype %in% to_keytype & length(to_keytype) == 1) {
-    msg <- glue::glue("'from_keytype' and 'to_keytype' identical: {from_keytype}")
-    message(msg)
-    out <- setNames(data.frame(a = x, b = x), nm = c(from_keytype, to_keytype))
+    message(glue::glue(
+      "'from_keytype' and 'to_keytype' are identical: {from_keytype}"
+    ))
+    #-- return
+    if(simplified) {
+      out <- setNames(x, nm = x)
+    } else {
+      out <- setNames(data.frame(a = x, b = x), nm = c(from_keytype, to_keytype))
+    }
   } else {
-    out <- AnnotationDbi::select(
-      orgdb,
-      keys      = x,
-      keytype   = from_keytype,
-      columns   = c(from_keytype, to_keytype),
-      multiVals = "first")
+    #-- run
+    args <- purrr::list_modify(
+      dots,
+      x = orgdb,
+      keys = x,
+      keytype = from_keytype,
+      columns = c(from_keytype, to_keytype),
+      multiVals = multi_vars
+    )
+    out <- rlang::exec(AnnotationDbi::select, !!!args)
+    # out <- AnnotationDbi::select(
+    #   orgdb,
+    #   keys      = x,
+    #   keytype   = from_keytype,
+    #   columns   = c(from_keytype, to_keytype),
+    #   multiVals = "first"
+    # )
     # failed rows, keys
-    i_na <- which(is.na(out[, 2]))
-    if(length(i_na)) {
-      n_na  <- out[i_na, 1] %>% unique %>% length
-      n_pct <- round(n_na / length(x) * 100, 2)
-      if(n_na) {
-        msg <- glue::glue("{n_na} of {length(x)} ({n_pct}%) of gene IDs failed to convert ids")
-        warning(msg)
+    tk_na <- rowSums(as.matrix(apply(out[-1], 2, is.na))) == ncol(out[-1])
+    pct   <- round(sum(tk_na) / length(tk_na) * 100, 2)
+    # tk_na <- which(is.na(out[[2]])) # na
+    if(sum(!tk_na) > 0) {
+      message(glue::glue(
+        "{sum(tk_na)} of {length(tk_na)} ({pct}%) genes not convert to new keytype"
+      ))
+      if(rm_na) {
+        out <- out[!tk_na, ] # remove na rows
       }
-      if(na_rm) {
-        out <- out[-i_na, ]
+      #-- return
+      if(simplify & length(to_keytype) == 1) {
+        setNames(out[[to_keytype]], nm = out[[keytype]])
+      } else {
+        out
       }
     }
   }
-  out
 }
 
 
@@ -458,7 +518,7 @@ gene_to_link <- function(x, organism, style = "url",
                        from_keytype = kt,
                        to_keytype   = "SYMBOL",
                        organism     = organism,
-                       na_rm        = TRUE) %>%
+                       rm_na        = TRUE) %>%
         unique()
       symbol <- plyr::mapvalues(gene_list, from = x2[[1]], to = x2[[2]],
                                 warn_missing = FALSE)
@@ -473,7 +533,7 @@ gene_to_link <- function(x, organism, style = "url",
                      from_keytype = kt,
                      to_keytype   = to_keytype,
                      organism     = organism,
-                     na_rm        = TRUE) %>%
+                     rm_na        = TRUE) %>%
       unique()
     id     <- plyr::mapvalues(gene_list, from = x2[[1]], to = x2[[2]],
                               warn_missing = FALSE)

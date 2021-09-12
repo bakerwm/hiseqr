@@ -56,21 +56,13 @@
 #' @export
 kegg <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
-  #-- Check: args
   dots <- rlang::list2(...)
   dots <- prep_kegg(gene_list, organism, !!!dots) # update arguments
-  #-- force, update positional args
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
   #-- to env
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  #-- Check: valid args
   if(!is_valid_kegg_input(!!!dots)) {
     message("kegg() skipped, invalid arguments, check above message")
     return(NULL)
@@ -125,11 +117,12 @@ prep_kegg <- function(gene_list, organism, ...) {
     overwrite    = FALSE,
     level        = 2,
     readable     = TRUE,
-    gsea_gene    = NULL,
+    # gsea_gene    = NULL,
     kegg_code    = NULL,
     kegg_gene    = NULL,
     kegg_gsea_gene = NULL,
     kegg_keytype = NULL,
+    kegg_keyType = NULL,
     pval_cutoff  = 0.9,
     qval_cutoff  = 0.9
   )
@@ -162,37 +155,29 @@ prep_kegg <- function(gene_list, organism, ...) {
     gene_list = gene_list,
     organism  = organism,
     keytype   = keytype,
-    simplify = TRUE
+    simplify  = TRUE
   )
-  # gsea_gene <- prep_gsea_input(
-  #   gene_list   = gene_list,
-  #   fold_change = fold_change,
-  #   organism = organism
-  # )
+  #-- keytypes for kegg
   kegg_keytype <- ifelse(
     organism == "Drosophila melanogaster",
     "ncbi-geneid", "kegg"
   )
-  # kegg_gsea_gene <- prep_kegg_gsea_input(
-  #   gene_list,
-  #   fold_change,
-  #   organism,
-  #   keytype = keytype)
-  #-- keytype
   kegg_keytype <- get_kegg_keytype(organism) # for OrgDb
   kegg_keyType <- get_kegg_keyType(organism) # for clusterProfiler
   #----------------------------------------------------------------------------#
   #-- update: dots, return
   purrr::list_modify(
     dots,
+    # gsea_gene    = gsea_gene,
     outdir       = outdir,
     organism     = organism,
     orgdb        = orgdb,
     keytype      = keytype,
     kegg_code    = kegg_code,
-    # kegg_gene    = kegg_gene,
-    gsea_gene    = gsea_gene,
-    kegg_keytype = kegg_keytype
+    kegg_gene    = kegg_gene,
+    kegg_gsea_gene = kegg_gsea_gene,
+    kegg_keytype = kegg_keytype,
+    kegg_keyType = kegg_keyType
   )
 }
 
@@ -236,6 +221,8 @@ is_valid_kegg_input <- function(...) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
+  d_str <- paste(as.character(names(dots)), collapse = ",")
+  message(glue::glue("<<< dots for kegg_gsea: kegg_gene: {dots$kegg_gene};  {d_str}"))
   #-- Check: types
   f_gene_list <- inherits(gene_list, "character") & length(gene_list) > 0
   f_outdir    <- inherits(outdir, "character") & check_path(outdir)
@@ -245,7 +232,7 @@ is_valid_kegg_input <- function(...) {
   f_keytype   <- is_valid_keytype(keytype, organism = organism)
   f_level     <- inherits(level, "numeric")
   f_fold_change <- is.null(fold_change) | (inherits(fold_change, "numeric") & inherits(names(fold_change), "character"))
-  f_gsea_gene <- is.null(gsea_gene) | (inherits(gsea_gene, "numeric") & inherits(names(gsea_gene), "character"))
+  # f_gsea_gene <- is.null(gsea_gene) | (inherits(gsea_gene, "numeric") & inherits(names(gsea_gene), "character"))
   f_kegg_code <- is.null(kegg_code) | inherits(kegg_code, "character")
   f_kegg_gene <- is.null(kegg_gene) | inherits(kegg_gene, "character")
   f_kegg_gsea_gene <- is.null(kegg_gsea_gene) | (inherits(kegg_gsea_gene, "numeric") & inherits(names(kegg_gsea_gene), "character"))
@@ -253,9 +240,10 @@ is_valid_kegg_input <- function(...) {
   f_kegg_keyType <- is.null(kegg_keyType) | inherits(kegg_keyType, "character")
   f_overwrite <- inherits(overwrite, "logical")
   f_readable  <- inherits(overwrite, "logical")
+  # "gsea_gene"
   args_list <- c(
     "gene_list", "outdir", "organism", "for_gsea", "orgdb", "keytype",
-    "fold_change", "level", "gsea_gene", "kegg_code", "kegg_gene",
+    "fold_change", "level",  "kegg_code", "kegg_gene",
     "kegg_gsea_gene", "kegg_keytype", "kegg_keyType", "overwrite", "readable"
   )
   f_class <- unlist(lapply(args_list, function(i) class(get(i))))
@@ -269,226 +257,4 @@ is_valid_kegg_input <- function(...) {
   }
   all(f_res)
 }
-
-
-
-#' #' create plots
-#' #' @param gene_list object of enrichGO
-#' #' @param ... passing extra arguments
-#' #' parent function: get_go_plots(),
-#' #'
-#' #' fold_change
-#' #' text_width
-#' #'
-#' #'
-#' #' @export
-#' enrich_kegg_plots <- function(x, ...) {
-#'   #--Default values: END
-#'   if(class(x) == "enrichResult") {
-#'     if(nrow(x)) {
-#'       list(barplot  = go_barplot(x, ...),
-#'            dotplot  = go_dotplot(x, ...),
-#'            cnetplot = go_cnetplot(x, ...),
-#'            emapplot = go_emapplot(x, ...),
-#'            # emapplot_cluster = go_emapplot_cluster(x, ...),
-#'            heatplot = go_heatplot(x, ...))
-#'     } else {
-#'       warning("`x` is enrichGOResult, but contains 0 rows data")
-#'       NULL
-#'     }
-#'   } else {
-#'     warning("`x` not enrichGOResult")
-#'     NULL
-#'   }
-#' }
-#'
-#'
-#'
-#'
-#' #' create plots
-#' #' @param x object of gseaGO
-#' #'
-#' #' @export
-#' gsea_kegg_plots <- function(x, fold_change = NULL, ...) {
-#'   if(class(x) == "gseaResult") {
-#'     if(nrow(x)) {
-#'       list(gseaplot = go_gsea_plot(x)) # go_gsea_plot
-#'     } else {
-#'       warning("`x` is gseaResult, but contains 0 rows data")
-#'       NULL
-#'     }
-#'   } else {
-#'     warning("`x` not gseaResult")
-#'     NULL
-#'   }
-#' }
-
-
-
-
-
-
-
-
-#--Deprecated functions --------------------------------------------------------
-
-#' #' run enrichKEGG()
-#' #' @param gene_list gene names
-#' #' @param organism kegg_code, eg: dme
-#' #'
-#' #' @export
-#' kegg_enrich <- function(gene_list, organism,
-#'                         pval_cutoff = 0.05,
-#'                         qval_cutoff = 0.05) {
-#'   # choose keytype
-#'   keytype <- ifelse(organism %in% c("dme"), "ncbi-geneid", "kegg")
-#'
-#'   # enrich
-#'   print("Running enrichKEGG")
-#'   kk <- clusterProfiler::enrichKEGG(gene          = gene_list,
-#'                                     organism      = organism,
-#'                                     keyType       = keytype,
-#'                                     pval_cutoff  = pval_cutoff,
-#'                                     pAdjustMethod = "BH",
-#'                                     qval_cutoff  = qval_cutoff)
-#'
-#'   # readable
-#'   # convert kegg_code to scientific_name
-#'   sci_name <- clusterProfiler::search_kegg_organism(organism, by = "kegg_code")$scientific_name
-#'   orgdb <- get_orgdb(sci_name)
-#'
-#'   if(is(kk, "enrichResult")) {
-#'     kk <- clusterProfiler::setReadable(kk, orgdb, "ENTREZID")
-#'   }
-#'   kk
-#' }
-#'
-
-
-
-
-
-
-
-#' #' save barplot of go
-#' #'
-#' #' @param x list of objects of groupGO, enrichGO, KEGG, ...
-#' #' @param outdir path, to save the results
-#' #'
-#' #' @export
-#' get_kegg_plots <- function(x, outdir, fold_change = NULL) {
-#'   # x should be go obj
-#'   if(is_go(x, recursive = TRUE)) {
-#'     message("Generating plots for KEGG analysis")
-#'   } else {
-#'     warning("input failed, enrichResult, gseaResult expected")
-#'     return(NULL)
-#'   }
-#'
-#'   # prepare plot_list
-#'   if(is_go(x)) {
-#'     # single object
-#'     plot_func <- switch(class(x),
-#'                          "enrichResult"  = go_enrich_plots, # yes, it is correct
-#'                          "gseaResult"    = go_gsea_plots) # yes, it is correct
-#'     plot_func(x, fold_change)
-#'   } else if(is.list(x)) {
-#'     # list of obj
-#'     p_list <- lapply(x, function(i){
-#'       get_kegg_plots(i, outdir, fold_change)
-#'     })
-#'     names(p_list) <- names(x)
-#'     p_list # return
-#'   }
-#' }
-
-
-
-
-# run_kegg <- function(gene_list, organism, outdir, ...) {
-#   # force input, ENTREZID #
-#   input_gene  <- go_input(gene_list, organism, fold_change)
-#   orgdb       <- input_gene$orgdb # global
-#   gene_list   <- input_gene$gene
-#   keytype     <- input_gene$keytype
-#   fold_change <- input_gene$fold_change
-#   gsea_gene   <- input_gene$gsea_gene
-#   kegg_code   <- input_gene$kegg_code
-#
-#   ## run KEGG analysis
-#   kegg_rds <- file.path(outdir, "kegg_data.rds")
-#   if(file.exists(kegg_rds)) {
-#     kegg_obj <- readRDS(kegg_rds)
-#   } else {
-#     kegg_obj <- list(enrich = list(
-#       kegg = kegg_enrich(
-#         gene_list, kegg_code,
-#         pval_cutoff, qval_cutoff)),
-#       gsea   = list(
-#         kegg = kegg_gsea(
-#           gene_list, kegg_code, fold_change)))
-#     # save to obj
-#     saveRDS(kegg_obj, file = kegg_rds)
-#   }
-#
-#   ## Generate KEGG plots
-#   ## 1. enrich
-#   enrich_dir <- file.path(outdir, "kegg_enrich")
-#   table1     <- save_table(kegg_obj$enrich, enrich_dir)
-#   plot1      <- get_go_plots(kegg_obj$enrich, enrich_dir, fold_change)
-#   save_plot(plot1, enrich_dir)
-#
-#   ## 2. GSEA
-#   gsea_dir <- file.path(outdir, "kegg_gsea")
-#   table2   <- save_table(kegg_obj$gsea, gsea_dir)
-#   plot2    <- get_go_plots(kegg_obj$gsea, gsea_dir, fold_change)
-#   save_plot(plot2, gsea_dir)
-#
-#   # save obj
-#   plot_obj <- list(enrich = plot1,
-#                    gsea   = plot2)
-#   plot_rds <- file.path(outdir, "kegg_plots.rds")
-#   saveRDS(plot_obj, file = plot_rds)
-# }
-#
-#
-
-#' #' run gseKEGG()
-#' #' @param gene_list decreasing sorted numeric vector
-#' #' @param organism kegg_code, eg: dme
-#' #'
-#' #' @export
-#' gsea_kegg <- function(gene_list, organism, fold_change,
-#'                       pval_cutoff = 0.05) {
-#'   # input
-#'   gene_list_fc <- gsea_input(gene_list, fold_change)
-#'   if(is.null(gene_list_fc)) {
-#'     return(NULL)
-#'   }
-#'
-#'   # choose keytype
-#'   keytype <- ifelse(organism %in% c("dme"), "ncbi-geneid", "kegg")
-#'
-#'   # GSEA
-#'   print("Running gseKEGG") #!!!!
-#'   gsea <- clusterProfiler::gseKEGG(geneList      = gene_list_fc,
-#'                                    organism      = organism,
-#'                                    keyType       = keytype,
-#'                                    minGSSize     = 120,
-#'                                    pval_cutoff  = pval_cutoff,
-#'                                    pAdjustMethod = "BH",
-#'                                    verbose       = FALSE)
-#'
-#'   # readable
-#'   # convert kegg_code to scientific_name
-#'   sci_name <- clusterProfiler::search_kegg_organism(organism, by = "kegg_code")$scientific_name
-#'   orgdb <- get_orgdb(sci_name)
-#'
-#'   if(is(gsea, "gseaResult")) {
-#'     gsea <- clusterProfiler::setReadable(gsea,
-#'                                          OrgDb   = orgdb,
-#'                                          keyType = "ENTREZID")
-#'   }
-#'   gsea
-#' }
 

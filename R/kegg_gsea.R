@@ -21,45 +21,52 @@
 #'
 #' @export
 kegg_gsea <- function(gene_list, organism, ...) {
-  message(glue::glue("run kegg_gsea() ..."))
+  message(">>> run kegg_gsea()")
   #----------------------------------------------------------------------------#
-  #-- Check: args
   dots <- rlang::list2(...)
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
   dots <- prep_kegg_gsea(gene_list, organism, !!!dots) # update arguments
   #-- to env
   for(name in names(dots)) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  #-- init args
-  #-- Check: valid args
-  if(!is_valid_kegg_input(!!!dots)) {
-    message("kegg_gsea() skipped, invalid arguments, check above message")
+  d_str <- paste(as.character(names(dots)), collapse = ",")
+  message(glue::glue("dots for kegg_gsea: kegg_gene: {dots$kegg_gene}; {d_str}"))
+  #----------------------------------------------------------------------------#
+  # must have kegg_gene (NULL ?)
+  # if(inherits(kegg_gene, "character")
+  #    && length(kegg_gene) > 1) {
+  #   message("kegg_gene is valid")
+  # } else {
+  #   message("kegg_enrich() skipped, invalid kegg_gene")
+  #   return(NULL)
+  # }
+  if(inherits(kegg_gene, "character")
+     && length(kegg_gene) > 1
+     && inherits(kegg_gsea_gene, "numeric")
+     && inherits(names(kegg_gsea_gene), "character")) {
+    message("kegg_gene and kegg_gsea_gene are valid ")
+  } else {
+    message(glue::glue(
+      "kegg_gsea() failed, invalied 'kegg_gene', 'kegg_gsea_gene', \n",
+      "kegg_gene is {class(kegg_gene)}, expect character, \n",
+      "kegg_gsea_gene is {class(kegg_gsea_gene)}, expect numeric, named"
+    ))
     return(NULL)
   }
-  if(!inherits(kegg_gsea_gene, "numeric")
-     | !inherits(names(kegg_gsea_gene), "character")) {
-    message("gesa_go() skipped, invalied 'kegg_gsea_gene'")
+  #----------------------------------------------------------------------------#
+  # other args must be qualified
+  if(!is_valid_kegg_input(!!!dots)) {
+    message("kegg_gsea() skipped, invalid arguments, check above message")
     return(NULL)
   }
   #-- outdir, updat
   outdir <- file.path(outdir, "kegg_gsea") # update: outdir
   check_path(outdir)
   #----------------------------------------------------------------------------#
-  kegg_data_rds <- file.path(
-    outdir,
-    glue::glue("kegg_gsea.data.{ont}.rds")
-  )
-  kegg_plot_rds <- file.path(
-    outdir,
-    glue::glue("kegg_gsea.plot.{ont}.rds")
-  )
   #-- run kegg
+  kegg_data_rds <- file.path(outdir, glue::glue("kegg_gsea.data.rds"))
+  kegg_plot_rds <- file.path(outdir, glue::glue("kegg_gsea.plot.rds"))
   if(file.exists(kegg_data_rds) & !overwrite) {
     kegg_data <- readRDS(kegg_data_rds)
   } else {
@@ -77,7 +84,7 @@ kegg_gsea <- function(gene_list, organism, ...) {
         # readable
         if(inherits(kegg_data, "gseaResult") & inherits(orgdb, "OrgDb")) {
           kegg_data <- clusterProfiler::setReadable(
-            x       =  kegg_data,
+            x       = kegg_data,
             OrgDb   = orgdb,
             keyType = keytype
           )
@@ -96,8 +103,7 @@ kegg_gsea <- function(gene_list, organism, ...) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
     if(inherits(kegg_data, "gseaResult")) {
-      # use 'go_gsea_plot()' to plot
-      kegg_plot <- go_gsea_plot(kegg_data, !!!dots) # !!!! enrich_kegg_plot
+      kegg_plot <- go_gsea_plot(kegg_data, !!!dots) # see go...plot
       saveRDS(kegg_plot, file = kegg_plot_rds)
     } else {
       kegg_plot <- NULL
@@ -114,7 +120,6 @@ kegg_gsea <- function(gene_list, organism, ...) {
 }
 
 
-
 #' @describeIn prep_kegg_gsea
 #' Prepare data for KEGG GSEA analysis
 #'
@@ -129,6 +134,7 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: args
   dots <- rlang::list2(...)
+  dots <- prep_kegg(gene_list, organism, !!!dots)#
   args <- rlang::list2(
     outdir       = NULL,
     orgdb        = NULL,
@@ -146,11 +152,11 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
   )
   dots <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
   #-- force, update positional args
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
+  # dots <- purrr::list_modify(
+  #   dots,
+  #   gene_list = gene_list,
+  #   organism  = organism
+  # )
   #-- to env
   for(name in names(dots)) {
     assign(name, dots[[name]])
@@ -219,7 +225,7 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
         from_keytype = keytype,
         to_keytype   = fc_keytype,
         organism     = organism,
-        na_rm        = TRUE
+        rm_na        = TRUE
       )
       #-- check, genes exists or not
       tt2  <- setNames(trans_table[[1]], nm = trans_table[[2]]) # convert
@@ -257,7 +263,7 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
         organism     = organism,
         keytype      = keytype,
         return_table = TRUE,
-        na_rm        = TRUE
+        rm_na        = TRUE
       )
       tt3  <- setNames(trans_table[[2]], nm = trans_table[[1]]) #
       fc3  <- setNames(
@@ -294,12 +300,9 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
 }
 
 
-
-
-
-#' @export
-kegg_gsea_plot <- function(x, ...) {
-  go_gsea_plot(x, ...)
-}
+#' #' @export
+#' kegg_gsea_plot <- function(x, ...) {
+#'   go_gsea_plot(x, ...)
+#' }
 
 

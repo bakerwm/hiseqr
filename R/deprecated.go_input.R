@@ -180,7 +180,7 @@
 #                      from_keytype = x_keytype,
 #                      to_keytype   = fc_keytype,
 #                      organism     = organism,
-#                      na_rm        = TRUE) %>%
+#                      rm_na        = TRUE) %>%
 #       pull(2) %>%
 #       unique
 #     x_fc <- fold_change[x2]

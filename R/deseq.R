@@ -33,7 +33,7 @@
 #'
 #' @export
 deseq <- function(dds, ...) {
-  message("run 'deseq()' ...")
+  message(">>> run 'deseq()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
