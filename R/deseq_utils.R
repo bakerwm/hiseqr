@@ -428,8 +428,8 @@ filt_sig_gene <- function(x, type = "sig", ...) {
 #' @param force logical force calculate sig, default: FALSE
 #' @param .col_sig character name of the column for `sig`, default: "sig"
 #' @param .col_log2fc character name of the log2fc column, default: "log2FoldChange"
-#' @param .col_pvalue character name of the pvalue column, default: "pvalue"
-#' @param .col_padj character name of adjust pvalue, default: "padj"
+#' @param .col_pvalue character name of the pvalue column, default: "pvalue";
+#' @param .col_padj character name of the pvalue column, default: "padj";
 #' @param .sig_up character assign name for up-regulated genes, default: "up"
 #' @param .sig_down character assign name for down-regulated genes, default: "down"
 #' @param .sig_not character assign name for not changed genes, default: "not"
@@ -538,11 +538,14 @@ get_sig_name <- function(x, ...) {
     return(out)
   }
   #-- run: re-run, sig values
-  if(isTRUE(p_adjust)) {
-    rc <- c(.col_log2fc, .col_padj)
-  } else {
-    rc <- c(.col_log2fc, .col_pvalue)
-  }
+  # .col_pvalue = ifelse(p_adjust, "padj", "pvalue")
+  .pvalue_name <- ifelse(p_adjust, .col_padj, .col_pvalue)
+  rc <- c(.col_log2fc, .pvalue_name)
+  # if(isTRUE(p_adjust)) {
+  #   rc <- c(.col_log2fc, .col_padj)
+  # } else {
+  #   rc <- c(.col_log2fc, .col_pvalue)
+  # }
   if(!all(rc %in% names(df))) {
     rc_str <- paste(rc, collapse = ", ")
     warning(glue::glue("missing required columns, [{rc_str}]"))
@@ -556,8 +559,8 @@ get_sig_name <- function(x, ...) {
     return(NULL)
   }
   #-- run: assign marks
-  up   <- df[[.col_pvalue]] < pvalue & df[[.col_log2fc]] >= log2(fc)
-  down <- df[[.col_pvalue]] < pvalue & df[[.col_log2fc]] <= -log2(fc)
+  up   <- df[[.pvalue_name]] < pvalue & df[[.col_log2fc]] > log2(fc)
+  down <- df[[.pvalue_name]] < pvalue & df[[.col_log2fc]] < -log2(fc)
   up[is.na(up)] <- FALSE
   down[is.na(down)] <- FALSE
   #-- add
@@ -853,8 +856,10 @@ set_readable <- function(x, ...) {
   }
   #----------------------------------------------------------------------------#
   #-- run: convert
+  #-- force: gdf to character (ENTREZID, as.number)
   out <- x
   if(inherits(gdf, "data.frame")) {
+    gdf <- dplyr::mutate_if(gdf, is.numeric, as.character)
     if(keytype %in% names(gdf)) {
       out <- dplyr::left_join(x, gdf, by = setNames(keytype, nm = gid))
     } else {
@@ -896,6 +901,8 @@ set_readable <- function(x, ...) {
 #' 3. fix prefix
 #' - prefix start with "letters"
 #'
+#' 4. ignore, if all x are the same
+#'
 #' @param x character
 #'
 #' @return character
@@ -906,11 +913,14 @@ deseq_sanitize_str <- function(x, n_max = 0, fix_prefix = FALSE) {
   if(inherits(x, "character")) {
     # 1. supported characters
     out <- gsub("[^\\w\\.]", ".", x, perl = TRUE)
+    if(length(unique(out)) == 1) {
+      return(out)
+    }
     # 2. prefix, suffix
     if(nchar(x[1]) > n_max & n_max > 0) {
       # longest prefix, suffix
-      lcp <- lcPrefix(out, ignore.case = FALSE)
-      lcs <- lcSuffix(out, ignore.case = FALSE)
+      lcp <- Biobase::lcPrefix(out, ignore.case = FALSE)
+      lcs <- Biobase::lcSuffix(out, ignore.case = FALSE)
       if(nchar(lcp) > 0) {
         out <- gsub(lcp, "", out)
       }

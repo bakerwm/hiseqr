@@ -57,13 +57,13 @@
 kegg <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   dots <- rlang::list2(...)
-  dots <- prep_kegg(gene_list, organism, !!!dots) # update arguments
+  args <- prep_kegg(gene_list, organism, !!!dots) # update arguments
   #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
-  if(!is_valid_kegg_input(!!!dots)) {
+  if(!is_valid_kegg_input(!!!args)) {
     message("kegg() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -71,12 +71,19 @@ kegg <- function(gene_list, organism, ...) {
   outdir <- file.path(outdir, "kegg_enrich") # update: outdir
   check_path(outdir)
   #----------------------------------------------------------------------------#
-  if(is_valid_kegg_input(!!!dots)) {
-    kegg_enrich(gene_list, organism, !!!dots)
-    kegg_gsea(gene_list, organism, !!!dots)
+  if(is_valid_kegg_input(!!!args)) {
+    tryCatch(
+      {
+        kegg_enrich(gene_list, organism, !!!args)
+        kegg_gsea(gene_list, organism, !!!args)
+      },
+      error = function(cond) {
+        warning(">>> kegg() failed")
+      }
+    )
   } else {
     warning(glue::glue(
-      "kegg() failed, check above message"
+      ">>> kegg() failed, args not valid"
     ))
   }
 }
@@ -123,8 +130,8 @@ prep_kegg <- function(gene_list, organism, ...) {
     kegg_gsea_gene = NULL,
     kegg_keytype = NULL,
     kegg_keyType = NULL,
-    pval_cutoff  = 0.9,
-    qval_cutoff  = 0.9
+    pval_cutoff  = 0.05,
+    qval_cutoff  = 0.05
   )
   dots <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
   #-- force, update positional args
@@ -155,7 +162,7 @@ prep_kegg <- function(gene_list, organism, ...) {
     gene_list = gene_list,
     organism  = organism,
     keytype   = keytype,
-    simplify  = TRUE
+    simplified  = TRUE
   )
   #-- keytypes for kegg
   kegg_keytype <- ifelse(
@@ -221,8 +228,8 @@ is_valid_kegg_input <- function(...) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  d_str <- paste(as.character(names(dots)), collapse = ",")
-  message(glue::glue("<<< dots for kegg_gsea: kegg_gene: {dots$kegg_gene};  {d_str}"))
+  #  d_str <- paste(as.character(names(dots)), collapse = ",")
+  # message(glue::glue("<<< dots for kegg_gsea: kegg_gene: {dots$kegg_gene};  {d_str}"))
   #-- Check: types
   f_gene_list <- inherits(gene_list, "character") & length(gene_list) > 0
   f_outdir    <- inherits(outdir, "character") & check_path(outdir)

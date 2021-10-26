@@ -46,7 +46,6 @@ library(glue)
 
 ```{r init start, eval = T}
 input_dir  <- params$input_dir
-# input_dir  <- "/data/yulab/wangming/work/devel_pipeline/hiseq/rnaseq/results/rnaseq_se/RNAseq_I_R_Hybrid_Dys_6h_rep2"
 input_dir  <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rnaseq_r1")) {
   stop(paste0("Not a RNAseq single directory, _r1: ", input_dir))
@@ -77,6 +76,29 @@ print(msg)
 ```
 
 
+```{r loading data}
+pd <- summary_hiseq(input_dir, "r1")
+
+# plot data
+df_trim    <- pd$trim
+df_align   <- pd$align
+df_peak    <- pd$peak
+df_frip    <- pd$frip
+df_lendist <- pd$lendist
+
+# summary
+n_smp      <- 1
+total      <- df_trim %>% pull(input)
+map        <- df_align %>% pull(map)
+map_pct    <- round(map / total * 100, 2)
+unique_m   <- df_align %>% pull(unique) %>% mean()
+unique_pct <- round(unique_m / total * 100, 1) %>% mean()
+total      <- round(total / 1e6, 4)
+map        <- round(map / 1e6, 4)
+unique_m   <- round(unique_m / 1e6, 1) # Million
+```
+
+
 ```{r plot_data}
 df_trim_stat <- read_hiseq_trim_stat(input_dir)
 df_align_stat <- read_hiseq_align_stat(input_dir)
@@ -85,47 +107,57 @@ df_align_stat <- read_hiseq_align_stat(input_dir)
 ## 1 Summary
 
 ```{r summary, results="asis"}
-n_smp      <- 1
-total      <- df_align_stat %>% pull(total) %>% mean()
-map        <- df_align_stat %>% pull(map) %>% mean()
-map_pct    <- round(map / total * 100, 1) %>% mean()
-unique_m   <- df_align_stat %>% pull(unique) %>% mean()
-unique_pct <- round(unique_m / total * 100, 1) %>% mean()
-total    <- round(total / 1e6, 1) # Million
-map      <- round(map / 1e6, 1) # Million
-unique_m <- round(unique_m / 1e6, 1) # Million
-sum_text <- glue::glue("A total of {n_smp} samples; {total}M sequencing depth; ",
-    "with {map}M ({map_pct}%) reads mapped to reference genome, including",
-    "{unique_m}M ({unique_pct}%) unique mapped.")
+sum_text   <- glue::glue(
+  "A total of {n_smp} samples; {total}M sequencing depth; ",
+  "with {map}M ({map_pct}%) reads mapped to reference genome, including",
+  "{unique_m}M ({unique_pct}%) unique mapped."
+)
 
 print(sum_text)
 ```
 
 ## 2 Results
 
-### 2.1 Table1. Total reads
+
+### 2.1 Table 1. Trimming reads
 
 ```{r}
-df_align_stat %>% to_DT
+pd$trim %>%
+  dplyr::select(name, input, output, out_pct, rm_pct) %>%
+  dplyr::rename(clean = output, 
+                clean_pct = out_pct,
+                short_pct = rm_pct) %>%
+  hiseqr::to_DT()
 ```
 
-### 2.2 Figure 1. Number of mapped reads
-
-+ Clean data percentage
-
-```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
+```{r figure1_trim_reads, fig.height=3, fig.width=6}
 plot_hiseq_trim(input_dir)
 ```
 
-+ Map percentage
 
-```{r figure1_align_reads, fig.height = 3}
+### 2.2 Table 2. Mapping reads
+
+```{r}
+pd$align %>%
+  dplyr::select(name, total, map, unmap) %>%
+  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
+  hiseqr::to_DT()
+```
+
+```{r figure1_align_reads, fig.height=3, fig.width=6}
 plot_hiseq_align(input_dir, columns = c("map", "rRNA", "unmap"))
 ```
 
-+ Unique percentage
++ unique and multiple mapping reads
 
-```{r figure1_unique_reads, fig.height = 3}
+```{r}
+pd$align %>%
+  dplyr::select(name, total, unique, multi, unmap) %>%
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
+  hiseqr::to_DT()
+```
+
+```{r unique_multi_reads, fig.height=3, fig.width=6}
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 
@@ -152,9 +184,9 @@ lib3 = "read1, read2, non-strand-specific"
 f <- list_hiseq_file(input_dir, "strandness_json", "_r1")
 s <- jsonlite::read_json(f)
 a = switch(as.character(s$sense),
-        "0" = {print(lib3)},
-        "1" = {print(lib1)},
-        "2" = {print(lib2)})
+           "0" = {print(lib3)},
+           "1" = {print(lib1)},
+           "2" = {print(lib2)})
 # print(a)
 ```
 
@@ -181,7 +213,7 @@ df4 <- p4$data %>%
 hiseqr::to_DT(df4)
 ```
 
-```{r count strand, fig.height=3}
+```{r count strand, fig.height=3, fig.width=6}
 print(p4)
 ```
 

@@ -82,9 +82,16 @@ go <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- init args
   if(is_valid_go_input(!!!dots)) {
-    go_group(gene_list, organism, !!!dots)
-    go_enrich(gene_list, organism, !!!dots)
-    go_gsea(gene_list, organism, !!!dots)
+    tryCatch(
+      {
+        go_group(gene_list, organism, !!!dots)
+        go_enrich(gene_list, organism, !!!dots)
+        go_gsea(gene_list, organism, !!!dots)
+      },
+      error = function(cond) {
+        warning("failed run go() analysis")
+      }
+    )
   }
 }
 
@@ -123,11 +130,15 @@ prep_go <- function(gene_list, organism, ...) {
     fold_change  = NULL,
     overwrite    = FALSE,
     level        = 2,
-    readable     = TRUE,
     gsea_gene    = NULL,
     kegg_code    = NULL,
     kegg_gene    = NULL,
-    kegg_keytype = NULL
+    kegg_keytype = NULL,
+    show_category = 12,
+    text_width    = 40,
+    pval_cutoff   = 0.05, # try to return enrich results for all
+    qval_cutoff   = 0.05, # see pval_cutoff
+    readable      = TRUE # for enrich, readable
   )
   dots <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
   #-- force, update positional args
@@ -158,7 +169,7 @@ prep_go <- function(gene_list, organism, ...) {
     gene_list = gene_list,
     organism  = organism,
     keytype   = keytype,
-    simplify = TRUE
+    simplified = TRUE
   )
   # gsea_gene <- prep_gsea_input(
   #   gene_list   = gene_list,
@@ -304,8 +315,9 @@ save_go_table <- function(x, outdir, name = NULL) {
 #'
 #' @return
 save_go_plot <- function(x, outdir, name = NULL) {
-  if(! dir.exists(outdir)) {
-    dir.create(outdir, recursive = TRUE, mode = "0755")
+  if(!check_path(outdir)) {
+    warning(glue::glue("not able to create dir: {outdir}"))
+    return(NULL)
   }
   if(is(x, "gg")) {
     if(is(name, "character")) {
@@ -336,8 +348,9 @@ save_go_plot <- function(x, outdir, name = NULL) {
       save_go_plot(x_i, outdir, prefix)
     })
   } else {
-    warning("`x` expect ggplot2, or list of ggplot2, failed")
-    NULL
+    warning(glue::glue(
+      "x is {class(x)}, expect ggplot or list of ggplot"
+    ))
   }
 }
 

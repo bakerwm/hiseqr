@@ -54,15 +54,16 @@ deseq <- function(dds, ...) {
     density_points = FALSE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
+  # dots_args <- lapply(names(args), function(i) {
+  #   if(!i %in% names(dots)) {
+  #     args[i]
+  #   }
+  # })
+  # dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: arguments
@@ -96,7 +97,7 @@ deseq <- function(dds, ...) {
   #----------------------------------------------------------------------------#
   #-- run: main
   saveRDS(dds, config_list$deseq_dds_rds) # deseq_dds.rds
-  dd <- run_deseq_res(dds, !!!dots) # deseq_res.rds, dds, res, res_lfc
+  dd <- run_deseq_res(dds, !!!args) # deseq_res.rds, dds, res, res_lfc
   if(!inherits(dd, "list")) {
     warning("`run_deseq_des()` failed, see above messages")
     return(NULL)
@@ -169,7 +170,7 @@ deseq <- function(dds, ...) {
     }
     #--------------------------------------------------------------------------#
     #-- run: quality-control, require outdir
-    tmp <- deseq_qc(outdir, !!!dots)
+    tmp <- deseq_qc(outdir, !!!args)
   }
   #----------------------------------------------------------------------------#
   dd$res # original res
@@ -207,15 +208,16 @@ run_deseq_res <- function(dds, ...) {
     fix_batch  = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
+  # dots_args <- lapply(names(args), function(i) {
+  #   if(!i %in% names(dots)) {
+  #     args[i]
+  #   }
+  # })
+  # dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- dds

@@ -6,6 +6,42 @@
 #' @name utils
 
 
+#' @describeIn hash_string
+#' check the SHA256 for a string
+#' alternative in python:
+#' >>> hashlib.sha256(s.encode()).hexdigest()
+#'
+#' @param x string
+#'
+#' @export
+hash_string <- function(x) {
+  sapply(x, function(s) {
+    digest::digest(s, algo = "sha256", serialize = FALSE, raw = FALSE)
+  })
+}
+
+
+
+#' @describeIn check_hash_string
+#' check the SHA256 for a string
+#'
+#' @param hash_x string, SHA-256 value
+#' @param x string
+#'
+#' @export
+check_hash_string <- function(hash_x, x) {
+  if(inherits(hash_x, "character") & inherits(x, "character")) {
+    if(length(hash_x) == length(x)) {
+      sapply(seq_len(length(hash_x)), function(i) {
+        hash_xi <- hash_x[i]
+        hx <- hash_string(x[i])
+        startsWith(hx, hash_xi) | hx == hash_xi
+      })
+    }
+  }
+}
+
+
 
 
 
@@ -413,8 +449,9 @@ str_similar <- function(x, y, ignore_case = FALSE) {
 #'
 #' @export
 to_DT <- function(df, mode = 1, pageLength = 10) {
-  if(! is.data.frame(df)) {
-    stop("`df`, not a data.frame")
+  if(!is.data.frame(df)) {
+    warning("`df`, not a data.frame")
+    return(NULL)
   }
   if(mode == 1) {
     DT::datatable(
@@ -443,6 +480,7 @@ to_DT <- function(df, mode = 1, pageLength = 10) {
   } else if(mode == 3){
     DT::datatable(
       df,
+      extensions = 'Buttons',
       rownames = TRUE,
       escape   = FALSE, # show html code
       options  = list(

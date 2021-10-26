@@ -30,8 +30,8 @@ kegg_gsea <- function(gene_list, organism, ...) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  d_str <- paste(as.character(names(dots)), collapse = ",")
-  message(glue::glue("dots for kegg_gsea: kegg_gene: {dots$kegg_gene}; {d_str}"))
+  # d_str <- paste(as.character(names(dots)), collapse = ",")
+  # message(glue::glue("dots for kegg_gsea: kegg_gene: {dots$kegg_gene}; {d_str}"))
   #----------------------------------------------------------------------------#
   # must have kegg_gene (NULL ?)
   # if(inherits(kegg_gene, "character")
@@ -41,10 +41,7 @@ kegg_gsea <- function(gene_list, organism, ...) {
   #   message("kegg_enrich() skipped, invalid kegg_gene")
   #   return(NULL)
   # }
-  if(inherits(kegg_gene, "character")
-     && length(kegg_gene) > 1
-     && inherits(kegg_gsea_gene, "numeric")
-     && inherits(names(kegg_gsea_gene), "character")) {
+  if(inherits(kegg_gene, "character") & length(kegg_gene) > 1 & inherits(kegg_gsea_gene, "numeric") & inherits(names(kegg_gsea_gene), "character")) {
     message("kegg_gene and kegg_gsea_gene are valid ")
   } else {
     message(glue::glue(
@@ -67,12 +64,42 @@ kegg_gsea <- function(gene_list, organism, ...) {
   #-- run kegg
   kegg_data_rds <- file.path(outdir, glue::glue("kegg_gsea.data.rds"))
   kegg_plot_rds <- file.path(outdir, glue::glue("kegg_gsea.plot.rds"))
-  if(file.exists(kegg_data_rds) & !overwrite) {
-    kegg_data <- readRDS(kegg_data_rds)
-  } else {
-    kegg_data <- tryCatch(
+  # if(file.exists(kegg_data_rds) & !overwrite) {
+  #   kegg_data <- readRDS(kegg_data_rds)
+  # } else {
+  #   kegg_data <- tryCatch(
+  #     {
+  #       kk2 <- clusterProfiler::gseKEGG(
+  #         geneList      = kegg_gsea_gene,
+  #         organism      = kegg_code,
+  #         keyType       = kegg_keyType,
+  #         minGSSize     = 120,
+  #         pvalueCutoff  = pval_cutoff,
+  #         pAdjustMethod = "BH",
+  #         verbose       = FALSE
+  #       )
+  #       # readable
+  #       if(inherits(kk2, "gseaResult") & inherits(orgdb, "OrgDb")) {
+  #         kk2 <- clusterProfiler::setReadable(
+  #           x       = kk2,
+  #           OrgDb   = orgdb,
+  #           keyType = kegg_keytype
+  #         )
+  #       }
+  #       # saveRDS(kk2, file = kegg_data_rds)
+  #       # return(kegg_data)
+  #       kk2
+  #     },
+  #     error=function(cond) {
+  #       warning("enrich_kegg() failed")
+  #       return(NULL)
+  #     }
+  #   )
+  # }
+  if(!file.exists(kegg_data_rds) | overwrite) {
+    tmp <- tryCatch(
       {
-        kegg_data <- clusterProfiler::gseKEGG(
+        kk2 <- clusterProfiler::gseKEGG(
           geneList      = kegg_gsea_gene,
           organism      = kegg_code,
           keyType       = kegg_keyType,
@@ -82,15 +109,16 @@ kegg_gsea <- function(gene_list, organism, ...) {
           verbose       = FALSE
         )
         # readable
-        if(inherits(kegg_data, "gseaResult") & inherits(orgdb, "OrgDb")) {
-          kegg_data <- clusterProfiler::setReadable(
-            x       = kegg_data,
+        if(inherits(kk2, "gseaResult") & inherits(orgdb, "OrgDb")) {
+          kk2 <- clusterProfiler::setReadable(
+            x       = kk2,
             OrgDb   = orgdb,
-            keyType = keytype
+            keyType = kegg_keytype
           )
         }
-        saveRDS(kegg_data, file = kegg_data_rds)
-        return(kegg_data)
+        saveRDS(kk2, file = kegg_data_rds)
+        # return(kegg_data)
+        # kk2
       },
       error=function(cond) {
         warning("enrich_kegg() failed")
@@ -98,16 +126,30 @@ kegg_gsea <- function(gene_list, organism, ...) {
       }
     )
   }
-  #-- run, plot
-  if(file.exists(kegg_plot_rds) & !overwrite) {
+  if(file.exists(kegg_data_rds)) {
+    kegg_data <- readRDS(kegg_data_rds)
+  } else {
+    kegg_data <- NULL
+  }
+  # #-- run, plot
+  # if(file.exists(kegg_plot_rds) & !overwrite) {
+  #   kegg_plot <- readRDS(kegg_plot_rds)
+  # } else {
+  #   if(inherits(kegg_data, "gseaResult")) {
+  #     kegg_plot <- go_gsea_plot(kegg_data, !!!dots) # see go...plot
+  #     saveRDS(kegg_plot, file = kegg_plot_rds)
+  #   } else {
+  #     kegg_plot <- NULL
+  #   }
+  # }
+  if(!file.exists(kegg_plot_rds) | overwrite) {
+    kegg_plot <- go_gsea_plot(kegg_data, !!!dots) # see go...plot
+    saveRDS(kegg_plot, file = kegg_plot_rds)
+  }
+  if(file.exists(kegg_plot_rds)) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
-    if(inherits(kegg_data, "gseaResult")) {
-      kegg_plot <- go_gsea_plot(kegg_data, !!!dots) # see go...plot
-      saveRDS(kegg_plot, file = kegg_plot_rds)
-    } else {
-      kegg_plot <- NULL
-    }
+    kegg_plot <- NULL
   }
   #-- run: save to png files
   prefix <- gsub(".rds$", "", basename(kegg_plot_rds))
@@ -151,12 +193,6 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
     .cutoff      = 0.8  # for guessing, te,piRC names
   )
   dots <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
-  #-- force, update positional args
-  # dots <- purrr::list_modify(
-  #   dots,
-  #   gene_list = gene_list,
-  #   organism  = organism
-  # )
   #-- to env
   for(name in names(dots)) {
     assign(name, dots[[name]])
@@ -199,16 +235,15 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
     message(glue::glue(
       "{length(fc1)} of {length(gene_list)} ",
       "({pct1}%) genes found with fold_change, ",
-      "{length(fc0)} genes not."
+      "{fc0} genes not."
     ))
     kegg_gsea_gene <- fc1
-    # kegg_gsea_gene <- sort(fc1, decreasing = TRUE) #
   } else {
     #----------------------------------------------------------------------------#
     #-- round-2
     #-- in case, gene_list and names(fold_change) not match
     #-- so guess both ketypes of gene_list and fold_change
-    fc_keytype <- guess_keytype(names(fold_change), organism)
+    fc_keytype <- guess_keytype(names(fold_change), organism = organism)
     g_str  <- paste(gene_list[1:3], collapse = ", ")
     fc_str <- paste(names(fold_change)[1:3], collapse = ", ")
     message(glue::glue(
@@ -217,9 +252,7 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
       "the keytypes not match, try converting the names ..."
     ))
     #-- check keytypes of fold_change
-    if(is_valid_keytype(keytype, organism = organism)
-       & is_valid_keytype(fc_keytype, organism = organism)
-      ) {
+    if(is_valid_keytype(keytype, organism = organism) & is_valid_keytype(fc_keytype, organism = organism)) {
       trans_table <- convert_id(
         gene_list,
         from_keytype = keytype,
@@ -235,11 +268,10 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
       message(glue::glue(
         "{length(fc2)} of {length(gene_list)} ",
         "({pct2}%) genes found with fold_change, ",
-        "{length(fc1)} genes not."
+        "{fc0} genes not."
       ))
       if(pct2 > 0) {
         kegg_gsea_gene <- setNames(fc2, nm = tt2[names(fc2)]) # convert names
-        # kegg_gsea_gene <- sort(kegg_gsea_gene, decreasing = TRUE) #
       }
     } else {
       message(glue::glue(
@@ -248,41 +280,34 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
         "fold_change is '{fc_keytype}'"
       ))
     }
-    #--------------------------------------------------------------------------#
-    # check kegg_gsea_gene, keytype -> kegg_keytype
-    kegg_keytype <- get_kegg_keytype(organism)
-    if(inherits(kegg_gsea_gene, "numeric")
-       & inherits(names(kegg_gsea_gene), "character")
-       & !keytype == kegg_keytype
-       & inherits(kegg_gsea_gene, "numeric")
-       & inherits(names(kegg_gsea_gene), "character")
-      ) {
-      # convert table
-      trans_table <- to_kegg_gene_id(
-        gene_list    = names(kegg_gsea_gene),
-        organism     = organism,
-        keytype      = keytype,
-        return_table = TRUE,
-        rm_na        = TRUE
-      )
-      tt3  <- setNames(trans_table[[2]], nm = trans_table[[1]]) #
-      fc3  <- setNames(
-        kegg_gse_gene,
-        nm = tt3[names(kegg_gse_gene)]
-      )
-      fc0  <- length(kegg_gsea_gene) - length(fc3)
-      pct3 <- round(length(fc3) / length(kegg_gsea_gene) * 100, 2)
-      message(glue::glue(
-        "{length(fc3)} of {length(kegg_gse_gene)} ",
-        "({pct3}%) genes found with fold_change, ",
-        "{length(fc0)} genes not."
-      ))
-      if(pct3 > 0) {
-        kegg_gsea_gene <- fc3[!is.na(names(fc3))] # remove na
-        # names(kegg_gsea_gene) <- tt[names(kegg_gsea_gene)]
-        # kegg_gsea_gene <- kegg_gsea_gene[!is.na(names(kegg_gsea_gene))]
-        # kegg_gsea_gene <- sort(kegg_gsea_gene, decreasing = TRUE)
-      }
+  }
+  #--------------------------------------------------------------------------#
+  #-- convert kegg_gsea_gene to kegg_keytype
+  #-- check kegg_gsea_gene, keytype -> kegg_keytype
+  kegg_keytype <- get_kegg_keytype(organism)
+  if(inherits(kegg_gsea_gene, "numeric") & inherits(names(kegg_gsea_gene), "character") & !keytype == kegg_keytype & inherits(kegg_gsea_gene, "numeric") & inherits(names(kegg_gsea_gene), "character")) {
+    # convert table
+    trans_table <- to_kegg_gene_id(
+      gene_list    = names(kegg_gsea_gene),
+      organism     = organism,
+      keytype      = keytype,
+      return_table = TRUE,
+      rm_na        = TRUE
+    )
+    tt3  <- setNames(trans_table[[2]], nm = trans_table[[1]]) #
+    fc3  <- setNames(
+      kegg_gsea_gene,
+      nm = tt3[names(kegg_gsea_gene)]
+    )
+    fc0  <- length(kegg_gsea_gene) - length(fc3)
+    pct3 <- round(length(fc3) / length(kegg_gsea_gene) * 100, 2)
+    message(glue::glue(
+      "{length(fc3)} of {length(kegg_gsea_gene)} ",
+      "({pct3}%) genes found with fold_change, ",
+      "{fc0} genes not."
+    ))
+    if(pct3 > 0) {
+      kegg_gsea_gene <- fc3[!is.na(names(fc3))] # remove na
     }
   }
   #-- sort

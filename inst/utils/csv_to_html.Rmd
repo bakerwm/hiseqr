@@ -1,0 +1,62 @@
+---
+title: "HiSeq report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+params:
+  input_csv: ""
+---
+
+<style type="text/css">
+div#TOC li {
+    list-style:none;
+    background-image:none;
+    background-repeat:none;
+    background-position:0; 
+}
+</style>
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+knitr::opts_chunk$set(eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+```
+
+
+```{r config, eval = T}
+input_csv <- params$input_csv
+if(!file.exists(input_csv)) {
+  stop("input file not exists")
+}
+```
+
+## Table 1
+
+```{r, results="asis"}
+df <- readr::read_csv(input_csv, col_names = FALSE, col_types = readr::cols())
+hiseqr::to_DT(df, mode = 3) # html code
+```
+
+**EOF**
+
+

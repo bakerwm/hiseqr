@@ -17,38 +17,36 @@
 #' @param template the template, default from hiseqr
 #'
 #' @export
-hiseq_report <- function(input, output, template_rmd = NULL) {
-  input <- normalizePath(input)
-  if(! dir.exists(output)) dir.create(output, recursive = TRUE)
-  output <- normalizePath(output)
-  outhtml <- file.path(output, "HiSeq_report.html")
-  # subtype
-  if(is_hiseq_dir(input, "_r1")) {
-    hiseq_report_rmd = "hiseq_report_r1.Rmd"
-  } else if(is_hiseq_dir(input, "_rn")) {
-    hiseq_report_rmd = "hiseq_report_rn.Rmd"
-  } else if(is_hiseq_dir(input, "_rx")) {
-    hiseq_report_rmd = "hiseq_report_rx.Rmd"
-  } else {
-    hiseq_report_rmd = "tmp"
-  }
-  # template
-  pd <- read_hiseq(input)
-  if(rlang::has_name(pd, "hiseq_type")) {
-    hiseq_type <- pd$hiseq_type
-  } else {
-    warning(glue::glue("unknown hiseq dir: {input}"))
+hiseq_report <- function(input, output = NULL, template_rmd = NULL) {
+  if(!is_hiseq_dir(input)) {
+    warning(paste0("input is not hiseq dir: ", input))
     return(NULL)
   }
-  # hiseq_type <- list_hiseq_file(input, "hiseq_type")
-  hiseq_type <- gsub("_\\w+$", "", hiseq_type[1])
-  if(is.null(template_rmd)) {
-    template <- system.file(hiseq_type, hiseq_report_rmd, package = "hiseqr")
-  } else {
-    template <- template_rmd
+  input <- normalizePath(input)
+  if(!inherits(output, "character")) {
+    output <- file.path(input, "report")
   }
-  stopifnot(file.exists(template))
-  ## copy template to output
+  output <- file.path(normalizePath(dirname(output)), basename(output))
+  check_path(output)
+  outhtml <- file.path(output, "HiSeq_report.html")
+  # check input
+  pd <- read_hiseq(input)
+  ps <- unlist(strsplit(pd$hiseq_type, "_")) # cnr r1
+  if(length(ps) != 2) {
+    warning(paste0("unknown hiseq_type: ", pd$hiseq_type))
+    return(NULL)
+  }
+  if(inherits(template_rmd, "character")) {
+    template <- template_rmd[1]
+  } else {
+    template_name <- paste0("hiseq_report_", ps[2], ".Rmd")
+    template <- system.file(ps[1], template_name, package = "hiseqr")
+  }
+  if(!file.exists(template)) {
+    warning(paste0("template rmarkdown file not exists: ", template))
+    return(NULL)
+  }
+  # run
   template_to <- file.path(output, basename(template))
   file.copy(template, template_to, overwrite = TRUE)
   rmarkdown::render(input       = template_to,
@@ -57,6 +55,24 @@ hiseq_report <- function(input, output, template_rmd = NULL) {
 }
 
 
+
+#' csv_to_html
+#'
+#' @param input csv file
+#' @param output html file
+#' @param template the template, default from hiseqr
+#'
+#' @export
+csv_to_html_report <- function(input, output) {
+  input <- normalizePath(input)
+  output <- file.path(normalizePath(dirname(output)), basename(output))
+  # output <- normalizePath(output)
+  template <- system.file('utils', 'csv_to_html.Rmd', package = "hiseqr")
+  stopifnot(file.exists(template))
+  rmarkdown::render(input       = template,
+                    output_file = output,
+                    params      = list(input_csv = input))
+}
 
 
 

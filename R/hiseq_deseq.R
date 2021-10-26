@@ -30,8 +30,12 @@
 #'
 #' @export
 hiseq_deseq <- function(x, ...) {
-  # x <- "~/work/devel_pipeline/hiseq/rnaseq/output/dm6_te_piRC/pe_control.vs.pe_treatment"
   #----------------------------------------------------------------------------#
+  #-- Check: args
+  if(!is_hiseq_dir(x, "_rx")) {
+    warning(glue::glue("not a `rnaseq_rx` dir: {x}"))
+    return(NULL)
+  }
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
@@ -53,27 +57,24 @@ hiseq_deseq <- function(x, ...) {
     log2fc_limits  = c(-2, 2), # for ma,volcano,scatter
     overwrite  = FALSE
   )
-  #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
+  #-- update: outdir
+  if(!inherits(args$outdir, "character")) {
+    args$outdir <- list_hiseq_file(x, "deseq_dir", "_rx")
+  }
+  args$outdir <- normalizePath(args$outdir) # absolute path
+  # #-- update args, for child functions
+  # dots_args <- lapply(names(args), function(i) {
+  #   if(!i %in% names(dots)) {
+  #     args[i]
+  #   }
+  # })
+  # dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
   #-- update global
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
-  #-- Check: args
-  if(!is_hiseq_dir(x, "_rx")) {
-    warning(glue::glue("not a `rnaseq_rx` dir: {x}"))
-    return(NULL)
-  }
-  if(!inherits(outdir, "character")) {
-    outdir <- list_hiseq_file(x, "deseq_dir", "_rx")
-  }
-  outdir <- normalizePath(outdir) # absolute path
   #-- Check: pre-compute data
   dds_rds <- file.path(outdir, "deseq_dds.rds")
   if(file.exists(dds_rds)) {
@@ -95,8 +96,8 @@ hiseq_deseq <- function(x, ...) {
   #-- run: deseq
   if(inherits(dds, "DESeqDataSet")) {
     genome <- list_hiseq_file(x, "genome", "rx") # add genome
-    dots$genome <- genome
-    res <- deseq(dds, !!!dots)
+    args$genome <- genome
+    res <- deseq(dds, !!!args)
   } else {
     warning("`deseq()` failed")
     return(NULL)

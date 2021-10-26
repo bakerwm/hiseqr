@@ -19,10 +19,11 @@
 #' @export
 plot_hiseq_trim <- function(x, fish = "Trimma_lantana",
                             direction = "horizontal", position = "fill") {
-  if(is(x, "data.frame")) {
+  if(inherits(x, "data.frame")) {
     col_required <- c("name", "input", "output")
-    if(! all(rlang::has_name(x, col_required))) {
-      warning(glue::glue("failed, missing columns {read_hiseq_trim}"))
+    if(!all(rlang::has_name(x, col_required))) {
+      col_str <- paste(col_required, collapse = ",")
+      warning(glue::glue("failed, missing columns {cor_str}"))
       return(NULL)
     }
     df <- x
@@ -34,9 +35,13 @@ plot_hiseq_trim <- function(x, fish = "Trimma_lantana",
     warning("`data` expect data.frame, failed")
     return(NULL)
   }
+  # fix for trimmed samples
+  # if(all(c(df$input, df$output) == 1)) {
+  if(all(df$input == df$output)) {
+    df <- df %>%
+      dplyr::mutate(input = 1e6, output = 1e6)
+  }
   df %>%
-    # dplyr::mutate(clean_pct = round(output / input * 100, 1),
-    #               short_pct = round(100 - clean_pct, 1)) %>%
     dplyr::mutate(clean = round(output / 1e6, 2),
                   short = round((input - output) / 1e6, 2)) %>%
     dplyr::select(name, clean, short) %>%
@@ -326,7 +331,7 @@ plot_hiseq_peak <- function(x,
 #' @export
 plot_hiseq_lendist <- function(x,
                                hiseq_type = TRUE,
-                               title = "No. of peaks",
+                               title = "Distribution of fragment size",
                                fish = "Trimma_lantana") {
   if(is(x, "data.frame")) {
     df <- x
@@ -346,17 +351,85 @@ plot_hiseq_lendist <- function(x,
     warning("No peak data detected")
     return(NULL)
   }
-  # group by sample
-  df %>%
-    dplyr::mutate(sample = gsub(".rmdup$|_rep\\d", "", id)) %>%
-    hiseqr::fragsize_plot() +
+  # # group by sample
+  # df %>%
+  #   dplyr::mutate(sample = gsub(".rmdup$|_rep\\d", "", id)) %>%
+  #   hiseqr::fragsize_plot() +
+  #   facet_wrap(.~sample, ncol = 2) +
+  #   theme(
+  #     legend.position = "none"
+  #   )
+  if(any(grepl("_rep\\d", df$id))) {
+    df <- df %>%
+      tidyr::separate(id, c("sample", "id"), sep = "_rep", remove = FALSE) %>%
+      tidyr::replace_na(list(id = "merge"))
+  } else {
+    df <- df %>%
+     dplyr::mutate(sample = gsub(".rmdup$|_rep\\d", "", id))
+  }
+  # fix replicate
+  hiseqr::fragsize_plot(df) +
+    ggtitle(title) +
     facet_wrap(.~sample, ncol = 2) +
+    labs(color = "rep") +
+    fishualize::scale_fill_fish_d(option = fish) +
     theme(
-      legend.position = "none"
+      legend.position = "top"
     )
 }
 
 
+
+#' @describeIn plot_hiseq_frip Create bar_plot for FRiP
+#'
+#' Output from read_hiseq_frip_stat()
+#' including columns:
+#' filename, total, map, pct, label (pct=FRiP)
+#'
+#' @param data data.frame From get_rnaseq_align_stat()
+#' @param mode integer map=1, unique/multiple=2, default: 1
+#' @param fish string Name of the fish, use `fishualize::fish_palettes()` list
+#'  all availabel fish names
+#'
+#' @export
+plot_hiseq_frip <- function(x,
+                            hiseq_type = TRUE,
+                            title = "FRiP") {
+  if(is(x, "data.frame")) {
+    df <- x
+  } else if(is(x, "character")) {
+    # check input dirs
+    x_dirs <- list_hiseq_dir(x, hiseq_type)
+    df <- tryCatch(
+      error = function(cnd) NULL,
+      read_hiseq_stat(x_dirs, "frip"))
+  } else {
+    df <- data.frame()
+  }
+  if(!inherits(df, "data.frame")) {
+    message(glue::glue(
+      "plot_hiseq_frip() failed, x is {class(x)}, expect data.frame"
+    ))
+    return(NULL)
+  }
+  col_r <- c("filename", "pct")
+  if(!all(col_r %in% names(df))) {
+    message(glue::glue(
+      "plot_hiseq_frip() failed, required columns missing: [filename, pct]"
+    ))
+    return(NULL)
+  }
+  if(nrow(df) == 0) {
+    message("plot_hiseq_frip(), no records")
+    return(NULL)
+  }
+  # group by sample
+  hiseqr::bar_plot(df, x = "pct", y = "filename", label = "pct",
+                   direction = "horizontal") +
+    xlab(title) + ylab(NULL) +
+    geom_vline(xintercept = c(0.2, 0.3), linetype = 2,
+               color = c("red", "blue"), size = .5)
+}
 
 
 

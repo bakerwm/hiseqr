@@ -13,20 +13,50 @@
 #' @param x path to the input directories
 #' @param keys character, attributes/names in hiseq_dir, default: ["bam"]
 #' @export
-list_hiseq_file <- function(x, keys = "bam", hiseq_type = "r1") {
-  # get project dirs
-  p_dirs <- list_hiseq_dir(x, hiseq_type)
-  lapply(p_dirs, function(f) {
-    pd <- read_hiseq(f)
-    # check
-    if(is(pd, "list")) {
-      if(keys %in% names(pd$args)) {
-        pd[["args"]][[keys]]
+list_hiseq_file <- function(x, keys = "bam", hiseq_type = "auto") {
+  dirs <- list_hiseq_dir(x, hiseq_type)
+  if(length(dirs) > 0) {
+    d_out <- lapply(dirs, function(f) {
+      f_out <- sapply(f, function(j) {
+        pd <- read_hiseq(j)
+        if(hiseq_type == "auto") {
+          hiseq_type <- pd$hiseq_type #
+        }
+        if(isTRUE(keys)) {
+          keys <- names(pd$args)
+        }
+        if(isTRUE(pd$is_hiseq)) {
+          key_out <- sapply(keys, function(k) {
+            pd$args[[k]]
+          }, USE.NAMES = TRUE, simplify = FALSE)
+        } else {
+          key_out <- NULL
+        }
+        # single
+        if(length(key_out) == 1) {
+          key_out <- key_out[[1]] # first one, value
+        }
+      }, USE.NAMES = TRUE, simplify = FALSE)
+      # single
+      if(length(f_out) == 1) {
+        f_out <- f_out[[1]]
       }
+    })
+    # convert to character
+    if(length(x) == 1) {
+      d_out <- unlist(d_out)
     }
-  }) %>%
-    unlist() # !!!! whether or not
+  } else {
+    d_out <- NULL
+  }
+  # check
+  if(length(x) == 1 & length(dirs) == 1 & inherits(d_out, "list")) {
+    d_out <- d_out[[1]]
+  }
+  # return
+  d_out
 }
+
 
 
 #' list_hiseq_dir:
@@ -34,62 +64,124 @@ list_hiseq_file <- function(x, keys = "bam", hiseq_type = "r1") {
 #' @param x path to the input directories
 #' @param log boolen, whether print the log status, default: FALSE
 #'
+#' Fix: support x (multiple items)
+#'
 #' @export
-list_hiseq_dir <- function(x, hiseq_type = "_r1"){
-  #--01.load data
-  pd <- read_hiseq(x)
-  if(! is(pd, "list")) {
-    # warning("Not a hiseq dir: x")
+list_hiseq_dir <- function(x, hiseq_type = "auto"){
+  if(!inherits(x, "character")) {
+    warning(glue::glue("x is {(class)}, expect character"))
     return(NULL)
   }
-  #--02.get dirs
-  # getattr, hasattr ?
-  # for alignment_rn/rx
-  if(is_hiseq_dir(x, "alignment")) {
-    x_dirs <- c(x, pd$args$rep_list)
-    x_dirs <- unique(x_dirs)
-    purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
-  } else if(is_hiseq_dir(x, "_r1")) {
-    x_dirs <- x
-    purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
-  } else if(is_hiseq_dir(x, "_rn")) {
-    x_dirs <- c(x, pd$args$rep_list) # r1 + rn
-    x_dirs <- unique(x_dirs)
-    purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
-  } else if(is_hiseq_dir(x, "_rx")) {
-    # report: r1+rn+rx
-    if(is_hiseq_dir(x, "atac")) { # ATACseq
-      x_dirs <- list.dirs(x, recursive = FALSE)
-      x_dirs <- c(x, x_dirs)
-      x_dirs <- unique(x_dirs)
-      x_dirs <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type = TRUE))
-    } else {
-      if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {
-        rn_dirs <- c(pd$args$ip_dir, pd$args$input_dir) # chip/cnr
-      } else if(is_hiseq_dir(x, "rnaseq_rx")) {
-        rn_dirs <- c(pd$args$mut_dir, pd$args$wt_dir) # RNAseq
-      } else {
-        rn_dirs <- c()
-      }
-      # for r1
-      r1 <- lapply(rn_dirs, list_hiseq_dir, hiseq_type="r1") %>% unlist()
-      # for rn
-      rn <- rn_dirs
-      # for rx
-      x_dirs <- c(r1, rn, x)
+  d_out <- sapply(x, function(f) {
+    pd <- read_hiseq(f)
+    if(!isTRUE(pd$is_hiseq)) {
+      return(NULL)
     }
-    # output
-    purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
-  } else if(pd$is_hiseq_rp) {
-    x
-  } else if(is_hiseq_dir(x, TRUE)) {
-    x
-  } else {
-    c()
+    if(hiseq_type == "auto") {
+      hiseq_type = pd$hiseq_type #
+    }
+    # check
+    if(pd$is_hiseq_r1 | pd$is_hiseq_rp | pd$is_hiseq_merge | pd$is_hiseq_deseq2 | is_hiseq_dir(f, "alignment")) {
+      out <- f
+    } else if(pd$is_hiseq_rn) {
+      dirs <- c(f, pd$args$rep_list) # r1 + rn
+      out  <- purrr::keep(unique(dirs), is_hiseq_dir)
+    } else if(pd$is_hiseq_rx) {
+      # report: r1+rn+rx
+      if(is_hiseq_dir(f, "atac_")) {
+        dirs <- list.dirs(f, recursive = FALSE)
+        out  <- purrr::keep(unique(c(f, dirs)), is_hiseq_dir)
+      } else {
+        if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {
+          rn_dirs <- c(pd$args$ip_dir, pd$args$input_dir) # chip/cnr
+        } else if(is_hiseq_dir(f, "rnaseq_rx")) {
+          rn_dirs <- c(pd$args$mut_dir, pd$args$wt_dir) # RNAseq
+        } else {
+          rn_dirs <- c()
+        }
+        # for r1
+        r1_dirs <- lapply(rn_dirs, list_hiseq_dir, hiseq_type = "r1") %>% unlist()
+        # output
+        out <- purrr::keep(unique(c(r1_dirs, rn_dirs, f)), is_hiseq_dir)
+      }
+    } else {
+      out <- f
+    }
+    # filter
+    purrr::keep(unique(out), function(i) is_hiseq_dir(i, hiseq_type))
+  }, USE.NAMES = TRUE, simplify = FALSE)
+  # single
+  if(length(x) == 1) {
+    d_out <- d_out[[1]]
   }
+  # return
+  d_out
 }
 
 
+#' #' list_hiseq_dir:
+#' #'
+#' #' @param x path to the input directories
+#' #' @param log boolen, whether print the log status, default: FALSE
+#' #'
+#' #' Fix: support x (multiple items)
+#' #'
+#' #' @export
+#' list_hiseq_dir <- function(x, hiseq_type = "_r1"){
+#'   #--01.load data
+#'   pd <- read_hiseq(x)
+#'   if(! is(pd, "list")) {
+#'     # warning("Not a hiseq dir: x")
+#'     return(NULL)
+#'   }
+#'   #--02.get dirs
+#'   # getattr, hasattr ?
+#'   # for alignment_rn/rx
+#'   if(is_hiseq_dir(x, "alignment")) {
+#'     x_dirs <- c(x, pd$args$rep_list)
+#'     x_dirs <- unique(x_dirs)
+#'     out <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
+#'   } else if(is_hiseq_dir(x, "_r1")) {
+#'     x_dirs <- x
+#'     out <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
+#'   } else if(is_hiseq_dir(x, "_rn")) {
+#'     x_dirs <- c(x, pd$args$rep_list) # r1 + rn
+#'     x_dirs <- unique(x_dirs)
+#'     out <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
+#'   } else if(is_hiseq_dir(x, "_rx")) {
+#'     # report: r1+rn+rx
+#'     if(is_hiseq_dir(x, "atac")) { # ATACseq
+#'       x_dirs <- list.dirs(x, recursive = FALSE)
+#'       x_dirs <- c(x, x_dirs)
+#'       x_dirs <- unique(x_dirs)
+#'       out    <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type = TRUE))
+#'     } else {
+#'       if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {
+#'         rn_dirs <- c(pd$args$ip_dir, pd$args$input_dir) # chip/cnr
+#'       } else if(is_hiseq_dir(x, "rnaseq_rx")) {
+#'         rn_dirs <- c(pd$args$mut_dir, pd$args$wt_dir) # RNAseq
+#'       } else {
+#'         rn_dirs <- c()
+#'       }
+#'       # for r1
+#'       r1 <- lapply(rn_dirs, list_hiseq_dir, hiseq_type="r1") %>% unlist()
+#'       # for rn
+#'       rn <- rn_dirs
+#'       # for rx
+#'       x_dirs <- unique(c(r1, rn, x))
+#'       # output
+#'       out <- purrr::keep(x_dirs, is_hiseq_dir(x_dirs, hiseq_type))
+#'     }
+#'   } else if(pd$is_hiseq_rp) {
+#'     out <- x
+#'   } else if(is_hiseq_dir(x, TRUE)) {
+#'     out <- x
+#'   } else {
+#'     out <- c()
+#'   }
+#'   # output
+#'   return(unique(out))
+#' }
 
 
 #' @describeIn check x is hiseq or not
@@ -106,22 +198,68 @@ list_hiseq_dir <- function(x, hiseq_type = "_r1"){
 #'
 is_hiseq_dir <- function(x, hiseq_type = TRUE) {
   if(inherits(x, "character")) {
-    sapply(x, function(i) {
-      pd     <- read_hiseq(i)
-      i_type <- ifelse(is(pd, "list"), pd$hiseq_type, "")
-      i_is_hiseq <- ifelse(is(pd, "list"), pd$is_hiseq, FALSE)
-      i_is_hiseq <- i_is_hiseq && (! endsWith(i, "config")) # exclude "config/"
-      if(isTRUE(hiseq_type)) {
-        i_is_hiseq
-      } else if(is(hiseq_type, "character")) {
-        endsWith(i_type, hiseq_type) | startsWith(i_type, hiseq_type)
+    # out <- sapply(x, function(i) {
+    out <- purrr::map_lgl(x, function(i) {
+      pd <- read_hiseq(i)
+      if(isTRUE(pd$is_hiseq)) {
+        i_type <- pd$hiseq_type
+        if(isTRUE(hiseq_type)) {
+          out <- pd$is_hiseq
+        } else if(inherits(hiseq_type, "character")) {
+          if(length(hiseq_type) > 1) {
+            warning(
+              "hiseq_type has length > 1 and only the first element will be used"
+            )
+            hiseq_type <- hiseq_type[1]
+          }
+          out <- startsWith(i_type, hiseq_type) | endsWith(i_type, hiseq_type)
+        }
+        out & (!endsWith(i, "config")) # exclude "config/"
+      } else {
+        FALSE
       }
     })
   } else {
-    FALSE
+    out <- FALSE
   }
+  # single one
+  if(length(x) == 1) {
+    out <- out[[1]] # fist one
+  }
+  # return
+  out
 }
 
+
+#' #' @describeIn check x is hiseq or not
+#' #' @param x string, path to dir
+#' #'
+#' #' @export
+#' #'
+#' #' @example
+#' #'
+#' #' > is_hiseq_dir(x, "r1")
+#' #' > is_hsieq_dir(x, "rnaseq")
+#' #' > is_hiseq_dir(x, "atacseq_rx")
+#' #'
+#' #'
+#' is_hiseq_dir <- function(x, hiseq_type = TRUE) {
+#'   if(inherits(x, "character")) {
+#'     sapply(x, function(i) {
+#'       pd     <- read_hiseq(i)
+#'       i_type <- ifelse(is(pd, "list"), pd$hiseq_type, "")
+#'       i_is_hiseq <- ifelse(is(pd, "list"), pd$is_hiseq, FALSE)
+#'       i_is_hiseq <- i_is_hiseq && (! endsWith(i, "config")) # exclude "config/"
+#'       if(isTRUE(hiseq_type)) {
+#'         i_is_hiseq
+#'       } else if(is(hiseq_type, "character")) {
+#'         endsWith(i_type, hiseq_type) | startsWith(i_type, hiseq_type)
+#'       }
+#'     })
+#'   } else {
+#'     FALSE
+#'   }
+#' }
 
 
 
@@ -132,33 +270,91 @@ is_hiseq_dir <- function(x, hiseq_type = TRUE) {
 #'
 #' @param x string path
 #'
+#' Fix: support multiple element
+#'
 #' @export
 read_hiseq <- function(x) {
-  if(is(x, "character")) {
-    x  <- x[1]
-    pk <- list_arguments_file(x)
-    if(length(pk)) {
-      args <- load_config(pk[1])
-      ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type", "align_type",
-        "chipseq_type")
-      ht_list <- ht_list[ht_list %in% names(args)]
-      if(length(ht_list) > 0) {
-        ht_list <- ht_list[1]
-        ht_type <- args[[ht_list]]
-        list(
-          hiseq_type = ht_type,
-          files      = path_to_list(x[1], recursive = TRUE),
-          args       = args,
+  if(!inherits(x, "character")) {
+    warning(glue::glue("x is {class(x)}, expect character"))
+    return(NULL)
+  }
+  px <- sapply(x, function(i) {
+    cfiles <- list_arguments_file(i) # config files
+    # default
+    out <- NULL
+    if(length(cfiles) > 0) {
+      pd <- load_config(cfiles[1])
+      ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type",
+                   "align_type", "chipseq_type")
+      m <- match(ht_list, names(pd))
+      m <- m[!is.na(m)]
+      if(length(m) > 0) {
+        ht <- names(pd)[m[1]]
+        hiseq_type <- pd[[ht]]
+        # update
+        out <- list(
+          hiseq_type = hiseq_type,
+          files      = path_to_list(i, recursive = TRUE),
+          args       = pd,
           is_hiseq   = TRUE,
-          is_hiseq_r1 = endsWith(ht_type, "r1"),
-          is_hiseq_rn = endsWith(ht_type, "rn"),
-          is_hiseq_rx = endsWith(ht_type, "rx"),
-          is_hiseq_rp = endsWith(ht_type, "rp")
+          is_hiseq_r1 = endsWith(hiseq_type, "_r1"),
+          is_hiseq_rn = endsWith(hiseq_type, "_rn"),
+          is_hiseq_rx = endsWith(hiseq_type, "_rx"),
+          is_hiseq_rp = endsWith(hiseq_type, "_rp"),
+          is_hiseq_merge = endsWith(hiseq_type, "_merge"),
+          is_hiseq_deseq2 = endsWith(hiseq_type, '_deseq2')
         )
       }
     }
+    out
+  }, USE.NAMES = TRUE, simplify = FALSE)
+  # output
+  if(length(x) == 1) {
+    px <- px[[1]] # the first one
   }
+  # return
+  px
 }
+
+
+
+#' #' read HiSeq directory
+#' #'
+#' #' input dir
+#' #' output files: pickle, toml, json
+#' #'
+#' #' @param x string path
+#' #'
+#' #' @export
+#' read_hiseq <- function(x) {
+#'   if(is(x, "character")) {
+#'     # if(length(x) > 1) {
+#'     #   warning("the x length > 1 and only the first element will be used")
+#'     #   x  <- x[1]
+#'     # }
+#'     pk <- list_arguments_file(x)
+#'     if(length(pk) > 0) {
+#'       args <- load_config(pk[1])
+#'       ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type", "align_type",
+#'                    "chipseq_type")
+#'       ht_list <- ht_list[ht_list %in% names(args)]
+#'       if(length(ht_list) > 0) {
+#'         ht_list <- ht_list[1]
+#'         ht_type <- args[[ht_list]]
+#'         list(
+#'           hiseq_type = ht_type,
+#'           files      = path_to_list(x[1], recursive = TRUE),
+#'           args       = args,
+#'           is_hiseq   = TRUE,
+#'           is_hiseq_r1 = endsWith(ht_type, "r1"),
+#'           is_hiseq_rn = endsWith(ht_type, "rn"),
+#'           is_hiseq_rx = endsWith(ht_type, "rx"),
+#'           is_hiseq_rp = endsWith(ht_type, "rp")
+#'         )
+#'       }
+#'     }
+#'   }
+#' }
 
 
 
@@ -182,9 +378,9 @@ load_config <- function(x) {
         reticulate::use_condaenv("hiseq", required = TRUE) # !!! switch to toml ?
         pd <- reticulate::import("pandas")
         pd$read_pickle(x)
-      } else if(endsWith(x, "*.yaml")) {
-        configr::read.config(x)
-      } else if(endsWith(x, "*.json")) {
+      } else if(endsWith(x, ".yaml")) {
+        yaml::read_yaml(x, )
+      } else if(endsWith(x, ".json")) {
         jsonlite::read_json(x)
       } else {
         configr::read.config(x)

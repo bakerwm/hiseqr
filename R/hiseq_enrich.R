@@ -36,37 +36,38 @@ hiseq_enrich<- function(x, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: arguments
   #-- scan shrink method, sig type (sig, up, down)
-  for(shrink in c("ashr", "standard", "apeglm", "normal")) {
+  # for(shrink in c("ashr", "standard", "apeglm", "normal")) {
+  for(shrink in c("apeglm", "standard")) {
     for(sig in c("sig", "up", "down")) {
       message(glue::glue(
         ">>> run hiseq_enrich() for '{shrink}'-'{sig}'"
       ))
       dots <- rlang::list2(...) # init
-      dots <- hiseq_prep_enrich(
+      args <- hiseq_prep_enrich(
         x,
         !!!dots,
         shrink_method = shrink,
         sig_type = sig
       ) # valid args
-      if(is.null(dots)) {
+      if(is.null(args)) {
         message("hiseq_enrich() skipped for '{shrink}'-'{sig}'")
         next
       }
       #-- to env
-      for(name in names(dots)) {
-        assign(name, dots[[name]])
+      for(name in names(args)) {
+        assign(name, args[[name]])
       }
       #------------------------------------------------------------------------#
       #-- update subdir
-      dots$outdir <- file.path(dots$outdir, shrink, sig) # update directory
-      check_path(dots$outdir)
+      args$outdir <- file.path(args$outdir, shrink, sig) # update directory
+      check_path(args$outdir)
       #-- save arguments to file
-      args_rds <- file.path(dots$outdir, "args.rds")
+      args_rds <- file.path(args$outdir, "args.rds")
       saveRDS(dots, args_rds)
       #-- run
       if(inherits(gene_list, "character")) {
-        go(gene_list, organism, !!!dots)
-        kegg(gene_list, organism, !!!dots)
+        go(gene_list, organism, !!!args)
+        kegg(gene_list, organism, !!!args)
       }
     }
   }
@@ -103,8 +104,8 @@ hiseq_prep_enrich <- function(x, ...) {
     show_category = 12,
     level         = 2,   # for GO group, level
     text_width    = 40,
-    pval_cutoff   = 0.9, # try to return enrich results for all
-    qval_cutoff   = 0.9, # see pval_cutoff
+    pval_cutoff   = 0.05, # try to return enrich results for all
+    qval_cutoff   = 0.05, # see pval_cutoff
     readable      = TRUE # for enrich, readable
   )
   dots <- purrr::list_modify(args, !!!dots) # from arguments

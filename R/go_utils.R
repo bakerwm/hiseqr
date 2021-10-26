@@ -345,7 +345,7 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
   #----------------------------------------------------------------------------#
   #-- arguments
   dots <- rlang::list2(...)
-  args <- list(multi_vars = "first", simplify = FALSE) # multiVars
+  args <- list(multi_vars = "first", simplified = FALSE) # multiVars
   dots <- purrr::list_modify(args, !!!dots)
   for(name in names(dots)) {
     assign(name, dots[[name]])
@@ -410,32 +410,24 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
       multiVals = multi_vars
     )
     out <- rlang::exec(AnnotationDbi::select, !!!args)
-    # out <- AnnotationDbi::select(
-    #   orgdb,
-    #   keys      = x,
-    #   keytype   = from_keytype,
-    #   columns   = c(from_keytype, to_keytype),
-    #   multiVals = "first"
-    # )
     # failed rows, keys
     tk_na <- rowSums(as.matrix(apply(out[-1], 2, is.na))) == ncol(out[-1])
     pct   <- round(sum(tk_na) / length(tk_na) * 100, 2)
     # tk_na <- which(is.na(out[[2]])) # na
     if(sum(!tk_na) > 0) {
       message(glue::glue(
-        "{sum(tk_na)} of {length(tk_na)} ({pct}%) genes not convert to new keytype"
+        "{sum(tk_na)} of {length(tk_na)} ({pct}%) genes not converted"
       ))
       if(rm_na) {
         out <- out[!tk_na, ] # remove na rows
       }
-      #-- return
-      if(simplify & length(to_keytype) == 1) {
-        setNames(out[[to_keytype]], nm = out[[keytype]])
-      } else {
-        out
-      }
+    }
+    #-- simplified
+    if(simplified & length(to_keytype) == 1) {
+      out <- setNames(out[[to_keytype]], nm = out[[keytype]])
     }
   }
+  out
 }
 
 

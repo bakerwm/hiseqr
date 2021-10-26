@@ -53,14 +53,16 @@ library(GenomicRanges)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
+# input_dir <- ".."
 input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rx")) {
   stop(paste0("Input file is not a HiSeq rx directory: ", input_dir))
 }
 ```
 
+
 ```{r loading data}
-pd <- summary_hiseq(input_dir, TRUE)
+pd <- hiseq_summary(input_dir, hiseq_type = TRUE)
 
 # summary
 n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
@@ -97,16 +99,16 @@ print(sum_text)
 ### 2.1 Table 1. Trimming reads
 
 ```{r}
-pd$trim %>%
+df_trim <- pd$trim %>%
   dplyr::select(name, input, output, out_pct, rm_pct) %>%
   dplyr::rename(clean = output, 
                 clean_pct = out_pct,
-                short_pct = rm_pct) %>%
-  hiseqr::to_DT()
+                short_pct = rm_pct)
+hiseqr::to_DT(df_trim)
 ```
 
 ```{r figure1_trim_reads, fig.height=3, fig.width=6}
-plot_hiseq_trim(input_dir)
+plot_hiseq_trim(pd$trim)
 ```
 
 ### 2.2 Table 2. Mapping reads
@@ -114,27 +116,27 @@ plot_hiseq_trim(input_dir)
 + Map reads
 
 ```{r}
-pd$align %>%
+df_align1 <- pd$align %>%
   dplyr::select(name, total, map, unmap) %>%
-  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
-  hiseqr::to_DT()
+  dplyr::mutate(map_pct = round(map / total * 100, 2))
+hiseqr::to_DT(df_align1)
 ```
 
 ```{r figure1_align_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
+plot_hiseq_align(pd$align, columns = c("map", "chrM", "spikein", "unmap"))
 ```
 
 + Unique percentage
 
 ```{r}
-pd$align %>%
+df_align2 <- pd$align %>%
   dplyr::select(name, total, unique, multi, unmap) %>%
-  dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
-  hiseqr::to_DT()
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2))
+hiseqr::to_DT(df_align2)
 ```
 
 ```{r figure1_unique_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
 ```
 
 + PCR-Duplication reads
@@ -143,30 +145,29 @@ plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 if(all(c("dup", "nodup") %in% colnames(pd$align))) {
   df_dup <- pd$align %>%
     dplyr::select(name, total, map, dup, nodup) %>%
-    dplyr::mutate(dup_pct = round(dup / total * 100, 2))
+    dplyr::mutate(dup_pct = round(dup / map * 100, 2))
 } else {
   df_dup <- pd$align %>%
     dplyr::select(name, total, map)
 }
-df_dup %>% 
-  hiseqr::to_DT()
+hiseqr::to_DT(df_dup)
 ```
 
 ```{r pcr_dup_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("nodup", "dup", "unmap"))
+plot_hiseq_align(pd$align, columns = c("nodup", "dup", "unmap"))
 ```
 
 
 ### 2.3 Figure2. Number of peaks
 
 ```{r figure2_peaks, fig.height=5, fig.width=8}
-p1 <- plot_hiseq_align(input_dir, 
-                       columns = "unique", 
+p1 <- plot_hiseq_align(pd$align, 
+                       columns = "nodup", 
                        position = "identity", 
                        add_label = TRUE) + 
   theme(legend.position = "none")
 # print(p1)
-p2 <- plot_hiseq_peak(input_dir, hiseq_type = TRUE)
+p2 <- plot_hiseq_peak(pd$peak, hiseq_type = TRUE)
 # print(p2)
 patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)) + 
   patchwork::plot_layout(guides = "collect")
@@ -190,13 +191,17 @@ if(nrow(pd$frip) > 0) {
 }
 ```
 
+
+```{r frip_plot, fig.height=3, fig.width=6}
+plot_hiseq_frip(pd$frip)
+```
+
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height=3, fig.width=8}
-plot_hiseq_lendist(input_dir, hiseq_type = TRUE) + 
-  theme(legend.position = "None")
+```{r figure3_fragment_length, fig.height=3.5, fig.width=8}
+plot_hiseq_lendist(pd$lendist, hiseq_type = TRUE)
 ```
 
 ### 2.6 Figure4. TSS enrichment
@@ -250,24 +255,24 @@ if(length(gb_list) > 0) {
 The Pearson correlation coefficient were caculated, using the reads coverage on 500 bp window on the genome.
 
 ```{r fig7_bam_cor, eval = TRUE, fig.height = 4}
-hm_list <- lapply(pd$cor, function(i) i$heatmap) %>% unlist()
-hm_list <- purrr::keep(hm_list, file.exists)
-hm_list <- purrr::keep(hm_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
+ht_list <- lapply(pd$cor, function(i) {
+  purrr::keep(i$cor_heatmap, file.exists)
+})
 
-if(length(hm_list) > 0) {
-  knitr::include_graphics(hm_list)
+if(length(ht_list) > 0) {
+  knitr::include_graphics(unlist(ht_list))
 }
 ```
 
 #### PCA analysis for each replicate
 
 ```{r fig7_bam_pca, eval = TRUE, fig.width=5, fig.height=5}
-pca_list <- lapply(pd$cor, function(i) i$pca) %>% unlist()
-pca_list <- purrr::keep(pca_list, file.exists)
-pca_list <- purrr::keep(pca_list, function(i) is_hiseq_dir(dirname(dirname(i)), "rx"))
+pca_list <- lapply(pd$cor, function(i) {
+  purrr::keep(i$cor_pca, file.exists)
+})
 
 if(length(pca_list) > 0) {
-  knitr::include_graphics(pca_list)
+  knitr::include_graphics(unlist(pca_list))
 }
 ```
 
@@ -275,17 +280,41 @@ if(length(pca_list) > 0) {
 
 ```{r fig7_peak_overlap, eval = TRUE, fig.height = 4}
 ov_list <- lapply(pd$cor, function(i) {
-  i$overlap
-}) %>% unlist()
-ov_list <- purrr::keep(ov_list, file.exists)
+  purrr::keep(i$peak_overlap, file.exists)
+})
+
 if(length(ov_list) > 0) {
-  knitr::include_graphics(ov_list)
+  knitr::include_graphics(unlist(ov_list))
 }
 ```
 
 
+### 2.8 Figure6. IDR, Irreproducibility Discovery Rate
+
+用IDR (Irreproducibility Discovery Rate) 的方法获得高重复性的peaks
+
+> The basic idea is that if two replicates measure the same underlying biology, the most significant peaks, which are likely to be genuine signals, are expected to have high consistency between replicates, whereas peaks with low significance, which are more likely to be noise, are expected to have low consistency. If the consistency between a pair of rank lists (peaks) that contains both significant and insignificant findings is plotted, a transition in consistency is expected (Fig. 1C). This consistency transition provides an internal indicator of the change from signal to noise and suggests how many peaks have been reliably detected.” -Excerpted from https://ccg.vital-it.ch/var/sib_april15/cases/landt12/idr.html  
+ 
+Why IDR?
+
+  - IDR avoids choices of initial cutoffs, which are not comparable for different callers   
+  - IDR does not depend on arbitrary thresholds and so all regions/peaks are considered.    
+  - It is based on ranks, so does not require the input signals to be calibrated or with a specific fixed scale (only order matters).
+  
+See [here](https://hbctraining.github.io/Intro-to-ChIPseq/lessons/07_handling-replic ates-idr.html) for more details.
+
+```{r firug6_idr, eval = T, fig.height=5}
+idr_list <- lapply(pd$cor, function(i) {
+  purrr::keep(c(i$peak_idr, i$peak_idr_list), file.exists)
+})
+
+if(length(idr_list) > 0) {
+  knitr::include_graphics(unlist(idr_list))
+}
+```
+
 <!-- not for CUT&Tag experiment, because of IgG is not Input -->
-<!-- ### 2.8 Figure 8. Bam fingerPrint -->
+<!-- ### 2.9 Figure 8. Bam fingerPrint -->
 <!-- Answer the question: did the antibody-treatment enrich sufficiently so that the ChIP signal can be separated from the background signal?  -->
 
 <!-- ```{r fig8_bam_fingerprint, eval = TRUE, fig.height = 6} -->
@@ -298,41 +327,69 @@ if(length(ov_list) > 0) {
 <!-- ``` -->
 
 
-
 ## 3 Detail report
 
 ```{r}
-data_dir <- "data"
-dir.create(data_dir, showWarnings = FALSE)
-
-# from html
-report_dirs <- list_hiseq_file(input_dir, "report_dir", TRUE)
-report_html_list <- file.path(report_dirs, "HiSeq_report.html")
-
-# to html
-if(length(report_html_list)) {
-  local_html <- sapply(report_html_list, function(f) {
-    f_prefix <- basename(dirname(dirname(f)))
-    f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-    if(! file.exists(f_html)) {
-      file.copy(f, f_html)
-    }
-    f_html
-  })
-} else {
-  local_html <- NULL
+data_dir <- "data" # under "report/"
+check_path(data_dir)
+# copy files
+dirs <- list_hiseq_file(input_dir, "report_dir", hiseq_type = TRUE)
+report_list <- c()
+for(i in dirs) {
+  src_html <- list_hiseq_file(dirname(i), "report_html", hiseq_type = "auto")
+  smp_name <- list_hiseq_file(dirname(i), "smp_name", hiseq_type = "auto")
+  dest_html <- file.path(data_dir, paste0(smp_name, ".report.html"))
+  file.copy(src_html, dest_html, overwrite = TRUE, copy.date = TRUE)
+  m <- list(html = dest_html)
+  names(m) <- smp_name
+  report_list <- c(report_list, m)
 }
 
-# show in table
-if(length(local_html)) {
-  data.frame(id = basename(dirname(dirname(report_html_list))),
-             url = local_html
+# to data.frame
+if(length(report_list) > 0) {
+  df_report <- data.frame(
+    name = names(report_list),
+    file = unlist(report_list)
   ) %>%
-    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-    dplyr::select(link) %>%
-    tibble::remove_rownames() %>% 
-    to_DT(mode = 3)
+    dplyr::mutate(
+      link = paste0("<a href=", file, " target='_blank'>", name, "</a>")) %>%
+  dplyr::select(link) %>%
+    tibble::remove_rownames()
+  # to table
+  hiseqr::to_DT(df_report, mode = 3)
 }
+
+# data_dir <- "data"
+# dir.create(data_dir, showWarnings = FALSE)
+# 
+# # from html
+# report_dirs <- list_hiseq_file(input_dir, "report_dir", TRUE)
+# report_html_list <- file.path(report_dirs, "HiSeq_report.html")
+# 
+# # to html
+# if(length(report_html_list)) {
+#   local_html <- sapply(report_html_list, function(f) {
+#     f_prefix <- basename(dirname(dirname(f)))
+#     f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
+#     if(! file.exists(f_html)) {
+#       file.copy(f, f_html)
+#     }
+#     f_html
+#   })
+# } else {
+#   local_html <- NULL
+# }
+# 
+# # show in table
+# if(length(local_html)) {
+#   data.frame(id = basename(dirname(dirname(report_html_list))),
+#              url = local_html
+#   ) %>%
+#     dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
+#     dplyr::select(link) %>%
+#     tibble::remove_rownames() %>% 
+#     to_DT(mode = 3)
+# }
 ```
 
 

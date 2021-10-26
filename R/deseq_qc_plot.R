@@ -34,28 +34,23 @@
 #' @return ggplot
 #'
 #' @export
-deseq_qc_counts <- function(x, outdir = NULL, ...) {
+deseq_qc_counts <- function(x, ...) {
   message("run 'deseq_qc_counts()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    outdir = NULL,
     n_max = 16,
     transform_method = "standard", # vst, rlog
     overwrite  = FALSE,
     readable   = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- n_max
@@ -156,27 +151,22 @@ deseq_qc_counts <- function(x, outdir = NULL, ...) {
 #' @return ggplot
 #'
 #' @export
-deseq_qc_mean_sd <- function(x, outdir = NULL, ...) {
+deseq_qc_mean_sd <- function(x, ...) {
   message("run 'deseq_qc_mean_sd()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    outdir = NULL,
     transform_method = "standard", # vst, rlog
     overwrite  = FALSE,
     readable   = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- transform
@@ -231,28 +221,23 @@ deseq_qc_mean_sd <- function(x, outdir = NULL, ...) {
 #' @return ggplot
 #'
 #' @export
-deseq_qc_top_gene <- function(x, outdir = NULL, ...) {
+deseq_qc_top_gene <- function(x, ...) {
   message("run 'deseq_qc_top_gene()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    outdir = NULL,
     n_max = 20,
     transform_method = "standard", # vst, rlog
     overwrite  = FALSE,
     readable   = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- n_max
@@ -322,27 +307,22 @@ deseq_qc_top_gene <- function(x, outdir = NULL, ...) {
 #' @return ggplot
 #'
 #' @export
-deseq_qc_dist <- function(x, outdir = NULL, ...) {
+deseq_qc_dist <- function(x, ...) {
   message("run 'deseq_qc_dist()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    outdir = NULL,
     transform_method = "standard", # vst, rlog
     overwrite  = FALSE,
     readable   = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- transform
@@ -400,27 +380,22 @@ deseq_qc_dist <- function(x, outdir = NULL, ...) {
 #' @return ggplot
 #'
 #' @export
-deseq_qc_pca <- function(x, outdir = NULL, ...) {
+deseq_qc_pca <- function(x, ...) {
   message("run 'deseq_qc_pca()' ...")
   #----------------------------------------------------------------------------#
   #-- Check: default values
   dots <- rlang::list2(...)
   args <- rlang::list2(
+    outdir = NULL,
     transform_method = "standard", # vst, rlog
     overwrite  = FALSE,
     readable   = TRUE
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- transform
@@ -506,23 +481,20 @@ deseq_qc_ma <- function(x, ...) {
     overwrite  = FALSE,
     readable   = TRUE,
     # .col_label = "gene_id",
+    add_sig    = FALSE,
     shrink_method = "standard" # apeglm, ashr, normal
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
+  args$log2fc_limits <- args$ylim
   #-- update global
-  for(name in names(dots)) {
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- run: load data.frame
-  df <- deseq_qc_res(x, log2fc_limits = ylim, !!!dots)
+  df <- deseq_qc_res(x, log2fc_limits = ylim, !!!args)
   #-- Check columns
   rc <- c("log10basemean", "log2fc", "ext", "gene_id", "log2FoldChange")
   if(inherits(df, "data.frame")) {
@@ -556,11 +528,11 @@ deseq_qc_ma <- function(x, ...) {
   breaks <- scales::breaks_extended(n = 5)(ylim)
   #----------------------------------------------------------------------------#
   #-- add 'sig', force, re-run
-  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!dots)
+  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!args)
   title <- glue::glue("criteria: foldChange >= {fc}, pvalue < {pvalue}")
   #----------------------------------------------------------------------------#
   #-- plot
-  df %>%
+  p <- df %>%
     ggplot(aes(log10basemean, log2fc, color = sig, shape = ext)) +
     geom_hline(yintercept = c(-1, 1), size = .5, color = "grey30", linetype = 2) +
     geom_hline(yintercept = 0, size = .5, color = "grey30") +
@@ -579,6 +551,12 @@ deseq_qc_ma <- function(x, ...) {
     ggtitle(title) +
     theme_bw() +
     theme(legend.position = "none")
+  #-- add sig labels
+  if(add_sig) {
+    p <- deseq_qc_add_sig_label(p)
+  }
+  #-- return
+  p
 }
 
 
@@ -618,23 +596,20 @@ deseq_qc_volcano <- function(x, ...) {
     overwrite  = FALSE,
     readable   = TRUE,
     # .col_label = "gene_id",
+    add_sig    = FALSE,
     shrink_method = "standard"
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots) # update log2fc_limit
+  args$log2fc_limits <- args$xlim
   #-- update global
-  for(name in names(dots)) {
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: arguments: update log2fc
-  df <- deseq_qc_res(x, !!!dots)
+  df <- deseq_qc_res(x, !!!args)
   #-- Check columns
   rc <- c("log10pval", "log2fc", "ext", "gene_id", "log2FoldChange")
   if(inherits(df, "data.frame")) {
@@ -667,11 +642,11 @@ deseq_qc_volcano <- function(x, ...) {
   breaks <- scales::breaks_extended(n = 5)(xlim)
   #----------------------------------------------------------------------------#
   #-- update 'sig', force, re-run
-  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!dots)
+  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!args)
   title <- glue::glue("criteria: foldChange >= {fc}, pvalue < {pvalue}")
   #----------------------------------------------------------------------------#
   #-- plot:
-  df %>%
+  p <- df %>%
     ggplot(aes(log2fc, log10pval, color = sig, shape = ext)) +
     geom_vline(xintercept = c(-1, 1), size = .5, color = "grey30", linetype = 2) +
     geom_vline(xintercept = 0, size = .5, color = "grey30") +
@@ -689,6 +664,12 @@ deseq_qc_volcano <- function(x, ...) {
     ggtitle(title) +
     theme_bw() +
     theme(legend.position = "none")
+  #-- add sig labels
+  if(add_sig) {
+    p <- deseq_qc_add_sig_label(p)
+  }
+  #-- return
+  p
 }
 
 
@@ -729,23 +710,19 @@ deseq_qc_scatter <- function(x, ...) {
     readable   = TRUE,
     density_point = FALSE,
     # .col_label = "gene_id",
+    add_sig    = FALSE,
     shrink_method = "standard"
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
   #-- update global
-  for(name in names(dots)) {
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: arguments: update log2fc
-  df <- deseq_qc_res(x, !!!dots)
+  df <- deseq_qc_res(x, !!!args)
   #-- Check columns
   rc <- c("log2FoldChange", "log2fc", "ext", "gene_id", "log2FoldChange")
   if(inherits(df, "data.frame")) {
@@ -789,7 +766,7 @@ deseq_qc_scatter <- function(x, ...) {
   breaks <- scales::breaks_extended(n = 5)(ylim)
   #----------------------------------------------------------------------------#
   #-- update 'sig', force, re-run
-  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, ...)
+  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!args)
   title <- glue::glue("criteria: foldChange >= {fc}, pvalue < {pvalue}")
   #-- run: plot
   if(isTRUE(density_point)) {
@@ -806,7 +783,7 @@ deseq_qc_scatter <- function(x, ...) {
   }
   #----------------------------------------------------------------------------#
   #-- plot
-  p1 +
+  p1 <- p1 +
     scale_color_manual(values = c("up"   = "red",
                                   "not"  = "grey60",
                                   "down" = "blue")) +
@@ -823,7 +800,12 @@ deseq_qc_scatter <- function(x, ...) {
     ggtitle(title) +
     theme_bw() +
     theme(panel.grid = element_blank())
-  #-- sig labels
+  #-- add sig labels
+  if(add_sig) {
+    p1 <- deseq_qc_add_sig_label(p1)
+  }
+  #-- return
+  p1
 }
 
 
@@ -850,16 +832,11 @@ deseq_qc_add_sig_label <- function(x, ...) {
     .col_label = "auto" # gene_id, SYMBOL, Gene, ...
   )
   #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
+  args <- purrr::list_modify(args, !!!dots)
   #-- update args,
-  for(name in names(dots)) {
+  for(name in names(args)) {
     if(rlang::is_empty(name)) next
-    assign(name, dots[[name]])
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: ggplot input

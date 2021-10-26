@@ -48,20 +48,15 @@ go_gsea <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: args
   dots <- rlang::list2(...)
-  # dots <- purrr::list_modify(
-  #   dots,
-  #   gene_list = gene_list,
-  #   organism  = organism
-  # )
-  dots <- prep_go_gsea(gene_list, organism, !!!dots) # update arguments
+  args <- prep_go_gsea(gene_list, organism, !!!dots) # update arguments
   #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- init args
   #-- Check: valid args
-  if(is.null(dots) || !is_valid_go_input(!!!dots)) {
+  if(is.null(args) || !is_valid_go_input(!!!args)) {
     message("go_gsea() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -79,20 +74,12 @@ go_gsea <- function(gene_list, organism, ...) {
   #-- run
   go_data <- sapply(onts, function(ont) {
     message(glue::glue(">>> run gseaGO() for {ont}"))
-    go_ont_data_rds <- file.path(
-      outdir,
-      glue::glue("go_gsea.data.{ont}.rds")
-    )
-    go_ont_plot_rds <- file.path(
-      outdir,
-      glue::glue("go_gsea.plot.{ont}.rds")
-    )
-    if(file.exists(go_ont_data_rds) & !overwrite) {
-      go_ont_data <- readRDS(go_ont_data_rds)
-    } else {
-      go_ont_data <- tryCatch(
+    go_ont_data_rds <- file.path(outdir, glue::glue("go_gsea.data.{ont}.rds"))
+    go_ont_plot_rds <- file.path(outdir, glue::glue("go_gsea.plot.{ont}.rds"))
+    if(!file.exists(go_ont_data_rds) | overwrite) {
+      tmp <- tryCatch(
         {
-          go_ont_data <- clusterProfiler::gseGO(
+          ggo <- clusterProfiler::gseGO(
             gene         = gsea_gene,
             keyType      = keytype,
             OrgDb        = orgdb,
@@ -101,10 +88,12 @@ go_gsea <- function(gene_list, organism, ...) {
             minGSSize    = 120,
             # maxGSSize    = 500,
             pvalueCutoff = pval_cutoff,
-            verbose      = FALSE)
+            verbose      = FALSE
+          )
+          #-- readable
+          ggo <- setReadable(ggo, orgdb)
           #--Save to rds
-          saveRDS(go_ont_data, file = go_ont_data_rds)
-          return(go_ont_data)
+          saveRDS(ggo, file = go_ont_data_rds)
         },
         error=function(cond) {
           warning("gseaGO() failed")
@@ -112,16 +101,18 @@ go_gsea <- function(gene_list, organism, ...) {
         }
       )
     }
+    if(file.exists(go_ont_data_rds)) {
+      go_ont_data <- readRDS(go_ont_data_rds)
+    } else {
+      go_ont_data <- NULL
+    }
     #--------------------------------------------------------------------------#
     #-- run: go plots
     if(file.exists(go_ont_plot_rds) & !overwrite) {
       go_ont_plot <- readRDS(go_ont_plot_rds)
-    } else if(inherits(go_ont_data, "enrichResult")) {
-      go_ont_plot <- go_gsea_plots(go_ont_data, !!!dots)# !!!! group_go_plot
-      saveRDS(go_ont_plot, file = go_ont_plot_rds)
     } else {
-      warning("go_gsea() failed")
-      go_ont_plot <- NULL
+      go_ont_plot <- go_gsea_plots(go_ont_data, !!!dots) # !!!! group_go_plot
+      saveRDS(go_ont_plot, file = go_ont_plot_rds)
     }
     #--------------------------------------------------------------------------#
     #-- run: save to png files
@@ -133,9 +124,6 @@ go_gsea <- function(gene_list, organism, ...) {
     #--Return:
     go_ont_data
   }, USE.NAMES = TRUE)
-  #--GO plotting: wego plot: to-do
-  # wego <- go_wego_plot(go_data)
-  # save_go_plot(wego, outdir, "group_go.plot.wego")
 }
 
 
@@ -167,16 +155,16 @@ prep_go_gsea <- function(gene_list, organism, ...) {
     kegg_keytype = NULL,
     .cutoff      = 0.8  # for guessing, te,piRC names
   )
-  dots <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
-  #-- force, update positional args
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
+  args <- purrr::list_modify(args, !!!dots) # args, overwrite by dots
+  # #-- force, update positional args
+  # dots <- purrr::list_modify(
+  #   dots,
+  #   gene_list = gene_list,
+  #   organism  = organism
+  # )
   #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- outdir
@@ -205,8 +193,6 @@ prep_go_gsea <- function(gene_list, organism, ...) {
     ))
     return(NULL)
   }
-  # gene_list_fc <- fold_change[gene_list]
-  # gene_list_fc <- purrr::discard(gene_list_fc, is.na)
   #----------------------------------------------------------------------------#
   #-- prepare gsea_gene
   #-- round-1

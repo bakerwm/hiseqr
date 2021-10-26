@@ -8,10 +8,7 @@
 #' @name hiseq_summary_modules
 
 
-
 #' @describeIn  read_hiseq_stat
-#'
-#'
 #'
 #' input: trim_json/trim_stat_json
 #' output: name, total, clean, too_short, too_short2, ...
@@ -19,54 +16,73 @@
 #'
 #' @param x path to hiseq, single
 #' @param keys character, quality control groups
-#'  options: c("trim", "align", "peak", "lendist", "frip", "report")
+#'  options: c("trim", "align", "peak", "lendist", "frip", "report",
+#'  "enrich", "cor")
+#' @param add_tag add SHA-256 value of dirnname(x), first-7 characters
+#'
 #'
 #' @import dplyr
 #' @import readr
 #'
 #' @export
-read_hiseq_stat <- function(x, keys = "align") {
-  # check arguments
-  pd <- read_hiseq(x)
-  if(! is(pd, "list")) {
-    warning(paste0("Not a hiseq directory: ", x))
+read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
+  if(!inherits(x, "character")) {
+    message(glue::glue("read_hiseq_stat() faild, x is {class(x)}, expect character"))
     return(NULL)
   }
-  # tss_enrich
-  # genebody_enrich
-  # bam_cor: PCA, heatmap
-  # bam_fingerprint
-  # peak_overlap
-  # peak_idr
+  # filter
+  x <- purrr::keep(x, is_hiseq_dir)
+  if(length(x) == 0) {
+    message("read_hiseq_stat() failed, not enough x")
+    return(NULL)
+  }
+  # for keys
   k_list <- c(
     "trim", "align", "peak", "lendist", "frip", "report",
     "enrich", "cor")
   if(isTRUE(keys)) {
     keys <- k_list
   }
-  keys   <- purrr::keep(keys, function(i) i %in% k_list)
-  k_rm   <- purrr::discard(keys, function(i) i %in% k_list)
+  keys <- purrr::keep(keys, function(i) i %in% k_list)
+  k_rm <- purrr::discard(keys, function(i) i %in% k_list)
   if(length(k_rm) > 0) {
-    warning(paste(c("unknown keys skipped:", k_rm), collapse = ", "))
+    k_rm_str <- paste(k_rm, collapse = ",")
+    message(glue::glue("unknown keys: {k_rm_str}"))
   }
   if(length(keys) == 0) {
-    warning(paste(c("no keys, expect", k_list), collapse = ", "))
+    k_str <- paste(k_list, collapse = ",")
+    message(glue::glue("no keys found, expect: {k_str}"))
     return(NULL)
   }
-  # output
-  out <- lapply(keys, function(k) {
-    # build function
+
+  out <- sapply(keys, function(k) {
     f  <- paste0("read_hiseq_", k, "_stat")
-    fn <- tryCatch(error = function(cnd) {
-      warning(paste0("unknown keys: ", k))
-      NULL
-    },
-    match.fun(f))
+    fn <- tryCatch(
+      error = function(cnd) {
+        warning(paste0("unknown keys: ", k))
+        NULL
+      },
+      match.fun(f)
+    )
     # do the things
-    fn(x) %>% unique()
-  })
-  # assign names
-  names(out) <- keys
+    tmp2 <- lapply(x, function(i) {
+      tmp <- fn(i) # result
+      if(isTRUE(add_tag) & inherits(tmp, "data.frame")) {
+        tag <- substr(hash_string(dirname(i)), 1, 7)
+        tmp$label <- paste0(basename(i), ".", tag)
+      }
+      tmp
+    })
+    names(tmp2) <- x
+    tmp2 <- purrr::discard(tmp2, is.null)
+    # merge data.frame
+    if(all(sapply(tmp2, is.data.frame))) {
+      tmp2 <- dplyr::bind_rows(tmp2)
+    }
+    tmp2
+  }, USE.NAMES = TRUE, simplify = FALSE)
+  # # assign names
+  # names(out) <- keys
   out
 }
 
@@ -91,17 +107,28 @@ read_hiseq_stat <- function(x, keys = "align") {
 #'
 #' @export
 read_hiseq_trim_stat <- function(x) {
-  f <- list_hiseq_file(x, "trim_summary_json", "r1")
-  if(length(f) > 0) {
-    lapply(f, function(i) {
-      jsonlite::read_json(i) %>%
-        as.data.frame()
-    }) %>%
-      dplyr::bind_rows()
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      j <- list_hiseq_file(i, "trim_summary_json")
+      tryCatch(
+        {
+          as.data.frame(jsonlite::read_json(j))
+        },
+        error = function(cond) {
+          return(NULL)
+        }
+      )
+    }
+  })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
   }
+  # return
+  p_out
 }
-
-
 
 
 #' @describeIn  read_hiseq_align_stat
@@ -121,9 +148,56 @@ read_hiseq_trim_stat <- function(x) {
 #'
 #' @export
 read_hiseq_align_stat <- function(x) {
-  # pd <- read_hiseq(x)
-  f <- list_hiseq_file(x, "align_summary_json", "r1")
-  if(length(f) > 0) {
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      j <- list_hiseq_file(i, "align_summary_json")
+      tryCatch(
+        {
+          read_hiseq_align_json(j)
+        },
+        error = function(cond) {
+          return(NULL)
+        }
+      )
+    }
+  })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
+}
+
+
+#' @describeIn  read_hiseq_align_json
+#'
+#' Only for r1 directory (atac, ... )
+#' or trim dir
+#' parsing the alignment status
+#'
+#' input: trim_json/trim_stat_json
+#' output: name, total, clean, too_short, too_short2, ...
+#'
+#'
+#' @param x json file
+#'
+#' @import dplyr
+#' @import readr
+#'
+#' @export
+read_hiseq_align_json <- function(x) {
+  # filtering, only .json file
+  x <- purrr::keep(x, function(i) {
+    file.exists(i) & endsWith(i, ".json")
+  })
+  if(length(x) < 1) {
+    message("failed reading align_json")
+    return(NULL)
+  }
+  lapply(x, function(f) {
     df <- lapply(f, function(i) {
       jsonlite::read_json(i) %>%
         as.data.frame()
@@ -145,12 +219,9 @@ read_hiseq_align_stat <- function(x) {
       t_cols <- c(t_cols, t3)
     }
     dplyr::select(df, all_of(t_cols))
-  }
+  }) %>%
+    dplyr::bind_rows()
 }
-
-
-
-
 
 
 #' @describeIn read_hiseq_peak_stat
@@ -162,31 +233,41 @@ read_hiseq_align_stat <- function(x) {
 #'
 #' @export
 read_hiseq_peak_stat <- function(x) {
-  lapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      # search for: trim_dir
-      if(startsWith(pd$hiseq_type, "callpeak")) {
-        t <- c("macs2_peak", 'seacr_peak') # peak_dir
-      } else {
-        t <- c("peak", 'peak_seacr') # pipeline
-      }
-      t <- purrr::keep(t, function(i) {i %in% names(pd$args)})
-      t <- t[1] # first one
-      j <- pd$args[[t]]
-      n_peak <- tryCatch(error = function(cnd) 0, length(readLines(j)))
-      # output
-      if(length(j) > 0) {
-        data.frame(
-          id    = pd$args$smp_name,
+  p_out <- lapply(x, function(i) {
+    out <- NULL
+    if(is_hiseq_dir(i)) {
+      # load json
+      j_list <- sapply(c("peak", "macs2_peak", "seacr_peak"), function(j) {
+        list_hiseq_file(i, j)
+      })
+      j_list <- purrr::discard(j_list, is.null)
+      if(length(j_list) > 0) {
+        n_peak <- tryCatch(
+          {
+            length(readLines(unlist(j_list[[1]])[1]))
+          },
+          error = function(cnd) {
+            return(0)
+          })
+        # data.frame
+        out <- data.frame(
+          id    = list_hiseq_file(i, "smp_name"),
           count = n_peak
         )
       }
     }
-  }) %>%
-    dplyr::bind_rows()
+    # return
+    out
+  })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
 }
-
 
 
 #' @describeIn read_hiseq_lendist_stat
@@ -197,25 +278,53 @@ read_hiseq_peak_stat <- function(x) {
 #'
 #' @export
 read_hiseq_lendist_stat <- function(x) {
-  lapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      # search for: trim_dir
-      if(startsWith(pd$hiseq_type, "qc")) {
-        t <- c("lendist_csv", "lendist_json") # qc_dir
-      } else {
-        t <- c("lendist_csv") # pipeline
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      # load json
+      j_list <- sapply(c("lendist_csv", "lendist_json"), function(j) {
+        list_hiseq_file(i, j)
+      })
+      j_list <- purrr::discard(j_list, is.null)
+      if(length(j_list) > 0) {
+        tryCatch(
+          {
+            read_hiseq_lendist_json(unlist(j_list[[1]]))
+          },
+          error = function(cond) {
+            return(NULL)
+          }
+        )
       }
-      t <- purrr::keep(t, function(i) {i %in% names(pd$args)})
-      t <- t[1] # first one
-      j <- pd$args[[t]]
-      # output\
-      tryCatch(error = function(cnd) NULL, read_text(j))
     }
+  })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
+}
+
+
+#' @describeIn read_hiseq_lendist_json
+#'
+#' Gather length distributino of hiseq: r1
+#'
+#' @param x path to the csv/json file
+#'
+#' @export
+read_hiseq_lendist_json <- function(x) {
+  # filtering, only .csv file
+  x <- purrr::keep(x, function(i) {
+    file.exists(i) & (endsWith(i, ".csv") | endsWith(i, ".json"))
+  })
+  lapply(x, function(f) {
+    tryCatch(error = function(cnd) NULL, read_text(f))
   }) %>%
     dplyr::bind_rows()
 }
-
 
 
 #' @describeIn read_hiseq_frip_stat
@@ -226,58 +335,50 @@ read_hiseq_lendist_stat <- function(x) {
 #'
 #' @export
 read_hiseq_frip_stat <- function(x) {
-  lapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      # search for: trim_dir
-      if(startsWith(pd$hiseq_type, "qc")) {
-        t <- c("frip_json", "frip_toml", "frip_txt") # qc_dir
-      } else {
-        t <- c("frip_json") # pipeline
+  p_out <- lapply(x, function(i) {
+    out <- NULL
+    if(is_hiseq_dir(i)) {
+      # load json
+      j_list <- sapply(c("frip_json", "frip_toml", "frip_txt"), function(j) {
+        list_hiseq_file(i, j)
+      })
+      j_list <- purrr::discard(j_list, is.null)
+      if(length(j_list) > 0) {
+        out <- read_hiseq_frip_json(unlist(j_list[[1]]))
       }
-      t <- purrr::keep(t, function(i) {i %in% names(pd$args)})
-      t <- t[1] # first one
-      j <- pd$args[[t]]
-      # output
-      l <- tryCatch(error = function(cnd) NULL, jsonlite::read_json(j))
-      if(is(l, "list")) {
-        as.data.frame(l)
-      }
+    } else {
+      out <- list(tss = NULL, genebody = NULL)
+    }
+    # return
+    out
+  })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
+}
+
+
+#' @describeIn read_hiseq_frip_json
+#'
+#' Fraction in peak
+#'
+#' @param x json file
+#'
+#' @export
+read_hiseq_frip_json <- function(x) {
+  lapply(x, function(j) {
+    y <- tryCatch(error = function(cnd) NULL, jsonlite::read_json(j))
+    if(is(y, "list")) {
+      as.data.frame(y)
     }
   }) %>%
     dplyr::bind_rows()
 }
-
-
-
-
-#' @describeIn read_hiseq_report_stat
-#'
-#' Return the report/HiSeq_report.html
-#'
-#' @param x path to the directory
-#'
-#' @export
-read_hiseq_report_stat <- function(x) {
-  sapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      t <- "report_dir"
-      j <- ifelse(t %in% names(pd$args), pd$args[[t]], "")
-      # for html file
-      if(is(j, "character") & file.exists(j)) {
-        h <- list.files(j, "*html$", full.names = TRUE)
-        if(length(h) > 1) {
-          h <- h[1]
-          message("More than 1 html detected")
-        }
-        h
-      }
-    }
-  })
-}
-
-
 
 
 #' @describeIn read_hiseq_enrich_stat
@@ -288,35 +389,25 @@ read_hiseq_report_stat <- function(x) {
 #'
 #' @export
 read_hiseq_enrich_stat <- function(x) {
-  lapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      t <- "qc_dir"
-      j <- ifelse(t %in% names(pd$args), pd$args[[t]], "")
-      # for html file
-      if(is(j, "character") & file.exists(j)) {
-        # TSS enrichment
-        e_tss      <- list.files(j, "tss_enrich.*png", full.names = TRUE)
-        if(length(e_tss) > 1) {
-          e_tss <- e_tss[1]
-          message("More than 1 tss_enrich png detected")
-        }
-        # Genebody enrichment
-        e_genebody <- list.files(j, "genebody_enrich.*png", full.names = TRUE)
-        if(length(e_genebody) > 1) {
-          e_genebody <- e_genebody[1]
-          message("More than 1 genebody_enrich png detected")
-        }
-        # output
-        list(
-          tss      = e_tss,
-          genebody = e_genebody
-        )
-      }
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      out <- list(
+        tss = list_hiseq_file(i, "tss_enrich_png"),
+        genebody = list_hiseq_file(i, "genebody_enrich_png")
+      )
+    } else {
+      out <- list(tss = NULL, genebody = NULL)
     }
   })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
 }
-
 
 
 #' @describeIn read_hiseq_cor_stat
@@ -327,44 +418,53 @@ read_hiseq_enrich_stat <- function(x) {
 #'
 #' @export
 read_hiseq_cor_stat <- function(x) {
-  lapply(x, function(f) {
-    if(is_hiseq_dir(f)) {
-      pd <- read_hiseq(f)
-      t <- "qc_dir"
-      j <- ifelse(t %in% names(pd$args), pd$args[[t]], "")
-      # for html file
-      if(is(j, "character") & file.exists(j)) {
-        # cor
-        cor_heatmap     <- list.files(j, "cor_heatmap.*png", full.names = TRUE)
-        cor_pca         <- list.files(j, "cor_PCA.*png", full.names = TRUE)
-        cor_fingerprint <- list.files(j, "fingerprint.png", full.names = TRUE)
-        peak_overlap    <- list.files(j, "peak_overlap.png", full.names = TRUE)
-        peak_idr        <- list.files(j, "peak_dir.*png", full.names = TRUE)
-        # filter
-        if(length(cor_heatmap) > 1) cor_heatmap <- cor_heatmap[1]
-        if(length(cor_pca) > 1) cor_pca <- cor_pca[1]
-        if(length(cor_fingerprint) > 1) cor_fingerprint <- cor_fingerprint[1]
-        if(length(peak_overlap) > 1) peak_overlap <- peak_overlap[1]
-        list(
-          heatmap = cor_heatmap,
-          pca     = cor_pca,
-          fingerprint = cor_fingerprint,
-          overlap = peak_overlap,
-          idr     = peak_idr
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      qc_dir <- list_hiseq_file(i, "qc_dir")
+      if(inherits(qc_dir, "character")) {
+        out <- list(
+          cor_heatmap     = list_hiseq_file(i, "bam_cor_heatmap_png"),
+          cor_pca         = list_hiseq_file(i, "bam_cor_pca_png"),
+          cor_fingerprint = list_hiseq_file(i, "bam_fingerprint_png"),
+          peak_overlap    = list_hiseq_file(i, "peak_overlap_png"),
+          peak_idr        = list_hiseq_file(i, "peak_idr_png"), # error
+          peak_idr_list   = list.files(qc_dir, ".*peak_idr.*png", full.names = TRUE)
         )
       }
     }
   })
+  # single
+  if(length(x) == 1 & inherits(p_out, "list")) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  # return
+  p_out
 }
 
 
-# tss_enrich
-# genebody_enrich
-# bam_cor: PCA, heatmap
-# bam_fingerprint
-# peak_overlap
-# peak_idr
-
+#' @describeIn read_hiseq_report_stat
+#'
+#' Return the report/HiSeq_report.html
+#'
+#' @param x path to the directory
+#'
+#' @export
+read_hiseq_report_stat <- function(x) {
+  p_out <- lapply(x, function(i) {
+    if(is_hiseq_dir(i)) {
+      list_hiseq_file(i, "report_html")
+    }
+  })
+  # single
+  if(length(x) == 1) {
+    p_out <- p_out[[1]]
+  } else if(length(x) > 1) {
+    names(p_out) <- x
+  }
+  p_out
+}
 
 
 #' @describeIn read_rnaseq_deseq
@@ -413,5 +513,148 @@ read_rnaseq_deseq <- function(x, sig_list = TRUE) {
 
 
 
+
+
+
+#' #' @describeIn  read_hiseq_stat
+#' #'
+#' #' input: trim_json/trim_stat_json
+#' #' output: name, total, clean, too_short, too_short2, ...
+#' #'
+#' #'
+#' #' @param x path to hiseq, single
+#' #' @param keys character, quality control groups
+#' #'  options: c("trim", "align", "peak", "lendist", "frip", "report")
+#' #' @param add_tag add SHA-256 value of dirnname(x), first-7 characters
+#' #'
+#' #'
+#' #' @import dplyr
+#' #' @import readr
+#' #'
+#' #' @export
+#' read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
+#'   # check arguments
+#'   pd <- read_hiseq(x)
+#'   if(! is(pd, "list")) {
+#'     warning(paste0("Not a hiseq directory: ", x))
+#'     return(NULL)
+#'   }
+#'   # tss_enrich
+#'   # genebody_enrich
+#'   # bam_cor: PCA, heatmap
+#'   # bam_fingerprint
+#'   # peak_overlap
+#'   # peak_idr
+#'   k_list <- c(
+#'     "trim", "align", "peak", "lendist", "frip", "report",
+#'     "enrich", "cor")
+#'   if(isTRUE(keys)) {
+#'     keys <- k_list
+#'   }
+#'   keys   <- purrr::keep(keys, function(i) i %in% k_list)
+#'   k_rm   <- purrr::discard(keys, function(i) i %in% k_list)
+#'   if(length(k_rm) > 0) {
+#'     warning(paste(c("unknown keys skipped:", k_rm), collapse = ", "))
+#'   }
+#'   if(length(keys) == 0) {
+#'     warning(paste(c("no keys, expect", k_list), collapse = ", "))
+#'     return(NULL)
+#'   }
+#'   # output
+#'   out <- lapply(keys, function(k) {
+#'     # build function
+#'     f  <- paste0("read_hiseq_", k, "_stat")
+#'     fn <- tryCatch(error = function(cnd) {
+#'       warning(paste0("unknown keys: ", k))
+#'       NULL
+#'     },
+#'     match.fun(f))
+#'     # do the things
+#'     df <- fn(x) %>% unique() #
+#'     if(isTRUE(add_tag) & inherits(df, "data.frame")) {
+#'       tag <- substr(hash_string(dirname(x)), 1, 7)
+#'       df$label <- paste0(basename(x), ".", tag)
+#'     }
+#'     df
+#'   })
+#'   # assign names
+#'   names(out) <- keys
+#'   out
+#' }
+
+
+#' #' @describeIn read_hiseq_frip_stat
+#' #'
+#' #' Fraction in peak
+#' #'
+#' #' @param x path to the directory
+#' #'
+#' #' @export
+#' read_hiseq_frip_stat <- function(x) {
+#'   j_list <- sapply(x, function(i) {
+#'     if(is_hiseq_dir(i)) {
+#'       pd <- read_hiseq(i)
+#'       # search for: trim_dir
+#'       if(startsWith(pd$hiseq_type, "qc")) {
+#'         t <- c("frip_json", "frip_toml", "frip_txt") # qc_dir
+#'       } else {
+#'         t <- c("frip_json") # pipeline
+#'       }
+#'       t <- purrr::discard(t, function(k) is.null(list_hiseq_file(i, k)))
+#'       pd$args[[t]] # json
+#'     }
+#'   })
+#'   read_hiseq_frip_json(j_list)
+#' }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#'
+#' #' @describeIn read_hiseq_report_stat
+#' #'
+#' #' Return the report/HiSeq_report.html
+#' #'
+#' #' @param x path to the directory
+#' #'
+#' #' @export
+#' read_hiseq_report_stat <- function(x) {
+#'   sapply(x, function(f) {
+#'     if(is_hiseq_dir(f)) {
+#'       pd <- read_hiseq(f)
+#'       t <- "report_dir"
+#'       j <- ifelse(t %in% names(pd$args), pd$args[[t]], "")
+#'       # for html file
+#'       if(is(j, "character") & file.exists(j)) {
+#'         h <- list.files(j, "*html$", full.names = TRUE)
+#'         if(length(h) > 1) {
+#'           h <- h[1]
+#'           message("More than 1 html detected")
+#'         }
+#'         h
+#'       }
+#'     }
+#'   })
+#' }
+
+
+# tss_enrich
+# genebody_enrich
+# bam_cor: PCA, heatmap
+# bam_fingerprint
+# peak_overlap
+# peak_idr
 
 

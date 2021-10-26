@@ -52,6 +52,7 @@ library(glue)
 
 ```{r config, eval = T}
 input_dir <- params$input_dir
+# input_dir <- ".."
 input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "r1")) {
   stop(paste0("Input file is not a single HiSeq r1 directory: ", input_dir))
@@ -60,22 +61,15 @@ if(! is_hiseq_dir(input_dir, "r1")) {
 
 
 ```{r loading data}
-pd <- summary_hiseq(input_dir, "r1")
-
-# plot data
-df_trim    <- pd$trim
-df_align   <- pd$align
-df_peak    <- pd$peak
-df_frip    <- pd$frip
-df_lendist <- pd$lendist
+pd <- hiseq_summary(input_dir, hiseq_type = TRUE)
 
 # summary
-n_smp    <- 1
-total    <- df_trim %>% pull(input)
-mito     <- df_align %>% pull(chrM)
-map      <- df_align %>% pull(map)
-dup      <- df_align %>% pull(dup)
-nodup    <- df_align %>% pull(nodup)
+n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
+total    <- pd$align %>% pull(total) %>% sum()
+mito     <- pd$align %>% pull(chrM) %>% sum()
+map      <- pd$align %>% pull(map) %>% sum()
+dup      <- pd$align %>% pull(dup) %>% sum()
+nodup    <- pd$align %>% pull(nodup) %>% sum()
 mito_pct <- round(mito / total * 100, 2)
 map_pct  <- round(map / total * 100, 2)
 dup_pct  <- round(dup / total * 100, 2)
@@ -92,57 +86,60 @@ dup   <- round(dup / 1e6, 4)
 sum_text <- glue::glue(
   "A total of {n_smp} samples; {total}M sequencing depth ",
   "with {map}M ({map_pct}%) reads mapped to reference genome; ",
-  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads;",
+  "and contains {mito}M ({mito_pct}%) Mitochondrial DNA reads; ",
   "and contains {dup}M ({dup_pct}%) PCR_duplication."
 )
 print(sum_text)
 ```
 
+
 ## 2 Results
 
+
+## 2 Results
 
 ### 2.1 Table 1. Trimming reads
 
 ```{r}
-pd$trim %>%
+df_trim <- pd$trim %>%
   dplyr::select(name, input, output, out_pct, rm_pct) %>%
   dplyr::rename(clean = output, 
                 clean_pct = out_pct,
-                short_pct = rm_pct) %>%
-  hiseqr::to_DT()
+                short_pct = rm_pct)
+hiseqr::to_DT(df_trim)
 ```
 
 ```{r figure1_trim_reads, fig.height=3}
-plot_hiseq_trim(input_dir)
+plot_hiseq_trim(pd$trim)
 ```
 
 
 ### 2.2 Table 2. Mapping reads
 
+
 ```{r}
-pd$align %>%
+df_align1 <- pd$align %>%
   dplyr::select(name, total, map, unmap) %>%
-  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
-  hiseqr::to_DT()
+  dplyr::mutate(map_pct = round(map / total * 100, 2))
+hiseqr::to_DT(df_align1)
 ```
 
-```{r figure1_align_reads, fig.height=3}
-plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
+```{r figure1_align_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("map", "chrM", "spikein", "unmap"))
 ```
 
-+ unique and multiple mapping reads
++ Unique percentage
 
 ```{r}
-pd$align %>%
+df_align2 <- pd$align %>%
   dplyr::select(name, total, unique, multi, unmap) %>%
-  dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
-  hiseqr::to_DT()
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2))
+hiseqr::to_DT(df_align2)
 ```
 
-```{r unique_multi_reads, fig.height=3}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```{r figure1_unique_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
 ```
-
 
 + PCR-Duplication reads
 
@@ -150,35 +147,36 @@ plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 if(all(c("dup", "nodup") %in% colnames(pd$align))) {
   df_dup <- pd$align %>%
     dplyr::select(name, total, map, dup, nodup) %>%
-    dplyr::mutate(dup_pct = round(dup / total * 100, 2))
+    dplyr::mutate(dup_pct = round(dup / map * 100, 2))
 } else {
   df_dup <- pd$align %>%
     dplyr::select(name, total, map)
 }
-df_dup %>% 
-  hiseqr::to_DT()
+hiseqr::to_DT(df_dup)
 ```
 
-```{r pcr_dup_reads, fig.height=3}
-plot_hiseq_align(input_dir, columns = c("nodup", "dup", "unmap"))
+```{r pcr_dup_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("nodup", "dup", "unmap"))
 ```
 
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks}
-p1 <- plot_hiseq_align(input_dir, 
-                       columns = "unique", 
+```{r figure2_peaks, fig.height=5, fig.width=8}
+p1 <- plot_hiseq_align(pd$align, 
+                       columns = "nodup", 
                        position = "identity", 
-                       add_label = FALSE)
-
-p2 <- plot_hiseq_peak(input_dir, hiseq_type = "r1")
-
-patchwork::wrap_plots(p1, p2, ncol = 1)
+                       add_label = TRUE) + 
+  theme(legend.position = "none")
+# print(p1)
+p2 <- plot_hiseq_peak(pd$peak, hiseq_type = TRUE)
+# print(p2)
+patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)) + 
+  patchwork::plot_layout(guides = "collect")
 ```
 
 
-### 2.4 FRiP
+### 2.4 FRiP.
 
 > Fraction of reads in peaks (FRiP) – Fraction of all mapped reads that fall into the called peak regions, i.e. usable reads in significantly enriched peaks divided by all usable reads. In general, FRiP scores correlate positively with the number of regions. (Landt et al, Genome Research Sept. 2012, 22(9): 1813–1831)
 >
@@ -186,6 +184,7 @@ patchwork::wrap_plots(p1, p2, ncol = 1)
 
 > The fraction of reads in called peak regions (FRiP score) should be >0.3, though values greater than 0.2 are acceptable. For EN-TEx tissues, FRiP scores will not be enforced as QC metric. TSS enrichment remains in place as a key signal to noise measure
 > source: https://www.encodeproject.org/atac-seq/
+
 
 ```{r table2_frip}
 if(nrow(pd$frip) > 0) {
@@ -196,30 +195,60 @@ if(nrow(pd$frip) > 0) {
 ```
 
 
+```{r frip_plot, fig.height=3.5, fig.width=6}
+plot_hiseq_frip(pd$frip)
+```
+
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height = 5}
-plot_hiseq_lendist(input_dir, "r1")
+```{r figure3_fragment_length, fig.height=3, fig.width=8}
+plot_hiseq_lendist(pd$lendist, hiseq_type = TRUE)
 ```
 
-### 2.6 TSS enrichment
+### 2.6 Figure4. TSS enrichment
 
 > Transcription Start Site (TSS) Enrichment Score - The TSS enrichment calculation is a signal to noise calculation. The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp). This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth. This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle. We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric. Used to evaluate ATAC-seq. 
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
+#### TSS
+
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
-# TSS
-ph <- pd$enrich[[1]]
+tss_list <- lapply(pd$enrich, function(i) {
+  s    <- i$tss
+  sdir <- dirname(dirname(s))
+  si   <- is_hiseq_dir(sdir)
+  if(isTRUE(si)) {
+    s
+  }
+}) %>% unlist()
+tss_list <- purrr::keep(tss_list, file.exists)
 
 # TSS
-if(length(ph$tss) > 0) {
-  knitr::include_graphics(ph$tss)
+if(length(tss_list) > 0) {
+  knitr::include_graphics(tss_list)
 }
-if(length(ph$genebody) > 0) {
-  knitr::include_graphics(ph$genebody)
+
+```
+
+
+#### Genebody
+
+```{r figure4_genebody_enrich, eval = T, fig.height = 4}
+gb_list <-  lapply(pd$enrich, function(i) {
+  s    <- i$genebody
+  sdir <- dirname(dirname(s))
+  si   <- is_hiseq_dir(sdir)
+  if(isTRUE(si)) {
+    s
+  }
+}) %>% unlist()
+gb_list <- purrr::keep(gb_list, file.exists)
+
+if(length(gb_list) > 0) {
+  knitr::include_graphics(gb_list)
 }
 ```
 

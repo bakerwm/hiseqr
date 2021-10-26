@@ -58,19 +58,19 @@ go_group <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: args
   dots <- rlang::list2(...)
-  dots <- prep_go(gene_list, organism, !!!dots) # update arguments
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
+  args <- prep_go(gene_list, organism, !!!dots) # update arguments
+  # dots <- purrr::list_modify(
+  #   dots,
+  #   gene_list = gene_list,
+  #   organism  = organism
+  # )
   #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: valid args
-  if(is.null(dots) || !is_valid_go_input(!!!dots)) {
+  if(is.null(args) || !is_valid_go_input(!!!args)) {
     message(">>> go_group() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -82,30 +82,22 @@ go_group <- function(gene_list, organism, ...) {
   onts <- c("BP", "CC", "MF")
   go_data <- sapply(onts, function(ont) {
     message(glue::glue(">>> run groupGO() for {ont}"))
-    go_ont_data_rds <- file.path(
-      outdir,
-      glue::glue("go_group.data.{ont}.rds")
-    )
-    go_ont_plot_rds <- file.path(
-      outdir,
-      glue::glue("go_group.plot.{ont}.rds")
-    )
+    go_ont_data_rds <- file.path(outdir, glue::glue("go_group.data.{ont}.rds"))
+    go_ont_plot_rds <- file.path(outdir, glue::glue("go_group.plot.{ont}.rds"))
     #--------------------------------------------------------------------------#
     #-- run: go_group
-    if(file.exists(go_ont_data_rds) & !overwrite) {
-      go_ont_data <- readRDS(go_ont_data_rds)
-    } else {
-      go_ont_data <- tryCatch(
+    if(!file.exists(go_ont_data_rds) | overwrite) {
+      tmp <- tryCatch(
         {
-          gd <- clusterProfiler::groupGO(
+          ggo <- clusterProfiler::groupGO(
             gene     = gene_list,
             OrgDb    = orgdb,
             keyType  = keytype,
             ont      = ont,
             level    = level,
-            readable = readable)
-          saveRDS(gd, file = go_ont_data_rds)
-          return(gd)
+            readable = readable
+          )
+          saveRDS(ggo, file = go_ont_data_rds)
         },
         error=function(cond) {
           warning("groupGO() failed")
@@ -113,22 +105,23 @@ go_group <- function(gene_list, organism, ...) {
         }
       )
     }
+    if(file.exists(go_ont_data_rds)) {
+      go_ont_data <- readRDS(go_ont_data_rds)
+    } else {
+      go_ont_data <- NULL
+    }
     #--------------------------------------------------------------------------#
     #-- run: go plots
-    message(class(go_ont_data))
-    if(file.exists(go_ont_plot_rds) & !overwrite) {
-      go_ont_plot <- readRDS(go_ont_plot_rds)
-    } else if(is_go_result(go_ont_data, "groupGOResult")) {
-      message("save plot")
+    if(file.exists(go_ont_plot_rds) & ! overwrite) {
+      go_ont_plot <-  readRDS(go_ont_plot_rds)
+    } else {
       go_ont_plot <- go_group_plot(go_ont_data, !!!dots) # !!!! go_group_plot
       saveRDS(go_ont_plot, file = go_ont_plot_rds)
-    } else {
-      warning("go_group() failed")
-      go_ont_plot <- NULL
     }
     #--------------------------------------------------------------------------#
     #-- run: save to png files
     prefix <- glue::glue("go_group.plot.{ont}")
+    message("saving to png files")
     save_go_plot(go_ont_plot, outdir, prefix)
     #-- run: save to table
     prefix <- glue::glue("go_group.data.{ont}")

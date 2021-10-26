@@ -312,13 +312,7 @@ go_gsea_plot <- function(x, ...) {
     cex_category  = .8,
     cex_line      = .4,
   )
-  dots <- purrr::list_modify(args, !!!dots)
-  #-- convert arguments
-  dots <- purrr::list_modify(
-    dots,
-    x            = x,
-    foldChange   = dots$fold_change
-  )
+  args <- purrr::list_modify(args, x = x, foldChange = args$fold_change, !!!dots)
   #----------------------------------------------------------------------------#
   #-- update arguments
   #-- enrichResult, gseaResult, compareClusterResult
@@ -330,10 +324,11 @@ go_gsea_plot <- function(x, ...) {
   }
   #----------------------------------------------------------------------------#
   p_list <- lapply(seq_len(nrow(x)), function(i){
-    dots <- purrr::list_modify(
-      dots, geneSetID = i, title = x$Description[i], pvalue_table = TRUE
+    args_local <- purrr::list_modify(
+      args, geneSetID = i, title = x$Description[i], pvalue_table = TRUE
     )
-    rlang::exec(enrichplot::gseaplot2, !!!dots)
+    # rlang::exec(enrichplot::gseaplot2, !!!args_local)
+    rlang::exec(enrichplot::gseaplot, !!!args_local)
   })
   names(p_list) <- seq_len(nrow(x)) # paste0("gsea.", seq_len(nrow(x)))
   p_list
@@ -462,13 +457,13 @@ go_wego_plot <- function(x, ...) {
     assign(name, dots[[name]])
   }
   #----------------------------------------------------------------------------#
-  #-- enrichResult, gseaResult, compareClusterResult
-  if(!is_go_result(x)) {
-    warning(glue::glue(
-      "x is {class(x)}, expect 'enrichResult'"
-    ))
-    return(NULL)
-  }
+  # #-- enrichResult, gseaResult, compareClusterResult
+  # if(!is_go_result(x)) {
+  #   warning(glue::glue(
+  #     "x is {class(x)}, expect 'enrichResult'"
+  #   ))
+  #   return(NULL)
+  # }
   #----------------------------------------------------------------------------#
   if(is(x, "list") & all(purrr::map_lgl(x, is_go_result))) {
     message("Generating wego plot")
@@ -476,10 +471,10 @@ go_wego_plot <- function(x, ...) {
       message("to-do: wego plot for GSEA result, not available now, skipped")
     }
   } else {
-    on.exit("`x` expect, list of GO Result")
+    message(glue::glue("x is {class(x)}, expect list of GO Result"))
     return(NULL)
   }
-  # prepare data
+  # add ont to results
   x_list <- lapply(x, function(d){
     if(is_go_result(d)) {
       d@result %>%

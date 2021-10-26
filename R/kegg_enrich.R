@@ -65,9 +65,7 @@ kegg_enrich <- function(gene_list, organism, ...) {
     return(NULL)
   }
   # warning(glue::glue("<<< 2. kegg_gene: {dots$kegg_gene}"))
-  if(is_valid_kegg_input(!!!dots)
-     && inherits(kegg_gene, "character")
-     && length(kegg_gene) > 1) {
+  if(is_valid_kegg_input(!!!dots) & inherits(kegg_gene, "character") & length(kegg_gene) > 1) {
     message("kegg_gene is valid")
   } else {
     message("kegg_enrich() skipped, invalid arguments, check above message")
@@ -80,45 +78,46 @@ kegg_enrich <- function(gene_list, organism, ...) {
   #-- run kegg
   kegg_data_rds <- file.path(outdir, glue::glue("kegg_enrich.data.rds"))
   kegg_plot_rds <- file.path(outdir,glue::glue("kegg_enrich.plot.rds"))
-  if(file.exists(kegg_data_rds) & !overwrite) {
+  if(!file.exists(kegg_data_rds) | !overwrite) {
+      tmp <- tryCatch(
+        {
+          kk <- clusterProfiler::enrichKEGG(
+            gene          = kegg_gene,
+            organism      = kegg_code,
+            keyType       = kegg_keyType,
+            pAdjustMethod = "BH",
+            pvalueCutoff  = pval_cutoff,
+            qvalueCutoff  = qval_cutoff
+          )
+          # readable
+          if(inherits(kk, "enrichResult") & inherits(orgdb, "OrgDb")) {
+            kk <- clusterProfiler::setReadable(
+              x       = kk,
+              OrgDb   = orgdb,
+              keyType = kegg_keytype
+            )
+          }
+          saveRDS(kk, file = kegg_data_rds)
+        },
+        error=function(cond) {
+          warning("enrich_kegg() failed")
+          return(NULL)
+        }
+      )
+  }
+  if(file.exists(kegg_data_rds)) {
     kegg_data <- readRDS(kegg_data_rds)
   } else {
-    kegg_data <- tryCatch(
-      {
-        kegg_data <- clusterProfiler::enrichKEGG(
-          gene          = kegg_gene,
-          organism      = kegg_code,
-          keyType       = kegg_keyType,
-          pAdjustMethod = "BH",
-          pvalueCutoff  = pval_cutoff,
-          qvalueCutoff  = qval_cutoff
-        )
-        # readable
-        if(inherits(kegg_data, "enrichResult") & inherits(orgdb, "OrgDb")) {
-          kegg_data <- clusterProfiler::setReadable(
-            x       = kegg_data,
-            OrgDb   = orgdb,
-            keyType = kegg_keytype
-          )
-        }
-        saveRDS(kegg_data, file = kegg_data_rds)
-        return(kegg_data)
-      },
-      error=function(cond) {
-        warning("enrich_kegg() failed")
-        return(NULL)
-      }
-    )
+    kegg_data <- NULL
   }
-  if(file.exists(kegg_plot_rds) & !overwrite) {
+  if(!file.exists(kegg_plot_rds) | overwrite) {
+    kegg_plot <- go_enrich_plot(kegg_data, !!!dots) # go plots
+    saveRDS(kegg_plot, file = kegg_plot_rds)
+  }
+  if(file.exists(kegg_plot_rds)) {
     kegg_plot <- readRDS(kegg_plot_rds)
   } else {
-    if(inherits(kegg_data, "enrichResult")) {
-      kegg_plot <- go_enrich_plot(kegg_data, !!!dots) # go plots
-      saveRDS(kegg_plot, file = kegg_plot_rds)
-    } else {
-      kegg_plot <- NULL
-    }
+    kegg_plot <- NULL
   }
   #-- run: save to png files
   prefix <- gsub(".rds$", "", basename(kegg_plot_rds))

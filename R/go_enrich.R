@@ -57,19 +57,19 @@ go_enrich <- function(gene_list, organism, ...) {
   #----------------------------------------------------------------------------#
   #-- Check: args
   dots <- rlang::list2(...)
-  dots <- purrr::list_modify(
-    dots,
-    gene_list = gene_list,
-    organism  = organism
-  )
-  dots <- prep_go(gene_list, organism, !!!dots) # update arguments
+  # dots <- purrr::list_modify(
+  #   dots,
+  #   gene_list = gene_list,
+  #   organism  = organism
+  # )
+  args <- prep_go(gene_list, organism, !!!dots) # update arguments
   #-- to env
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  for(name in names(args)) {
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   #-- Check: valid args
-  if(is.null(dots) || !is_valid_go_input(!!!dots)) {
+  if(is.null(args) || !is_valid_go_input(!!!args)) {
     message("go_group() skipped, invalid arguments, check above message")
     return(NULL)
   }
@@ -77,24 +77,19 @@ go_enrich <- function(gene_list, organism, ...) {
   outdir <- file.path(outdir, "go_enrich") # update: outdir
   check_path(outdir)
   #----------------------------------------------------------------------------#
-  onts <- c("BP", "CC", "MF")
+  onts <- c("BP", "CC", "MF", "ALL")
   #--GO analysis
   go_data <- sapply(onts, function(ont) {
     message(glue::glue(">>> run enrichGO() for {ont}"))
-    go_ont_data_rds <- file.path(
-      outdir,
-      glue::glue("go_enrich.data.{ont}.rds")
-    )
-    go_ont_plot_rds <- file.path(
-      outdir,
-      glue::glue("go_enrich.plot.{ont}.rds")
-    )
+    go_ont_data_rds <- file.path(outdir, glue::glue("go_enrich.data.{ont}.rds"))
+    go_ont_plot_rds <- file.path(outdir, glue::glue("go_enrich.plot.{ont}.rds"))
+    #-- ont_data
     if(file.exists(go_ont_data_rds) & !overwrite) {
       go_ont_data <- readRDS(go_ont_data_rds)
     } else {
-      go_ont_data <- tryCatch(
+      tmp <- tryCatch(
         {
-          go_ont_data <- clusterProfiler::enrichGO(
+          ego <- clusterProfiler::enrichGO(
             gene          = gene_list,
             OrgDb         = orgdb,
             ont           = ont,
@@ -102,46 +97,59 @@ go_enrich <- function(gene_list, organism, ...) {
             pvalueCutoff  = pval_cutoff,
             qvalueCutoff  = qval_cutoff,
             pAdjustMethod = "BH",
-            readable      = readable)
+            readable      = readable
+          )
           #-------------------------------------------#
+          # strip down to sig only
+          ego@result <- ego@result[ego@result$qvalue <= ego@qvalueCutoff, ]
           # simplify results, redundant
-          if(class(go_ont_data) == "enrichResult") {
-            go_ont_data <- clusterProfiler::simplify(
-              x = go_ont_data,
+          if(is_go_result(ego) & ! ont == "ALL") {
+            ego2 <- clusterProfiler::simplify(
+              ego,
               cutoff = 0.7,
               by = "p.adjust",
-              select_fun = min
+              select_fun = min,
+              measure = "Wang"
             ) # redundant
-            #--Save to rds
-            saveRDS(go_ont_data, file = go_ont_data_rds)
+          } else {
+            ego2 <- ego
           }
-          return(go_ont_data)
+          #--Save to rds
+          saveRDS(ego2, file = go_ont_data_rds)
         },
         error=function(cond) {
           warning("enrichGO() failed")
           return(NULL)
         }
       )
+      #------------------------------------------------------------------------#
+      if(file.exists(go_ont_data_rds)) {
+        go_ont_data <- readRDS(go_ont_data_rds)
+      } else {
+        go_ont_data <- NULL
+      }
     }
     #--------------------------------------------------------------------------#
     #-- run: go plots
     if(file.exists(go_ont_plot_rds) & !overwrite) {
       go_ont_plot <- readRDS(go_ont_plot_rds)
-    } else if(inherits(go_ont_data, "enrichResult")) {
-      go_ont_plot <- tryCatch(
+    } else {
+      tmp <- tryCatch(
         {
-          go_enrich_plot(go_ont_data, !!!dots)# !!!! go_group_plot
+          go_ont_plot <- go_enrich_plot(go_ont_data, !!!dots)# !!!! go_group_plot
+          saveRDS(go_ont_plot, file = go_ont_plot_rds)
         },
         error = function(cond) {
           warning("!!! go_enrich_plot() failed")
           return(NULL)
         }
       )
-      # go_ont_plot <- go_enrich_plot(go_ont_data, !!!dots)# !!!! go_group_plot
-      saveRDS(go_ont_plot, file = go_ont_plot_rds)
-    } else {
-      warning("go_group() failed")
-      go_ont_plot <- NULL
+      #-- load data
+      if(file.exists(go_ont_plot_rds)) {
+        go_ont_plot <- readRDS(go_ont_plot_rds)
+      } else {
+        go_ont_plot <- NULL
+      }
     }
     #--------------------------------------------------------------------------#
     #-- run: save to png files

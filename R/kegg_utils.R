@@ -44,7 +44,7 @@
 #'
 #' @export
 to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
-                            simplify = TRUE, rm_na = TRUE,
+                            simplified = TRUE, rm_na = TRUE,
                             return_table = FALSE) {
   #--Check: arg
   if(! is(gene_list, "character")) {
@@ -65,7 +65,7 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
   if(!is(keytype, "character")) {
     keytype <- guess_keytype(x, organism)
   }
-  if(!is_valid_keytype(keytype)) {
+  if(!is_valid_keytype(keytype, organism = organism)) {
     g_str <- paste(gene_list[1:3], collapse = ",")
     message(glue::glue(
       "failed to guess keytype for gene_list: {g_str}"
@@ -79,7 +79,8 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
     message("`gene_list` is KEGG keyType, no need to convert")
     return(gene_list)
   }
-  df <- convert_id(gene_list, keytype, kegg_keytype, organism, rm_na = rm_na)
+  df <- convert_id(gene_list, keytype, kegg_keytype, organism, rm_na = rm_na,
+                   simplified = FALSE)
   #-- return data.frame
   # fix Dmel_
   fix1 <- function(x) {
@@ -101,19 +102,19 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
     dplyr::mutate(across(all_of("gene_list"), fix2, .names = "kegg_gene"))
   #--Output
   if(return_table) {
-    if(simplify) {
+    if(simplified) {
       out <- dplyr::select(df2, keytype, gene_list)
       if(rm_na) {
         out <- dplyr::filter(out, ! is.na(gene_list))
       }
     } else {
-      out <- dplyr::select(df2, keytype, kegg_gene)
+      out <- dplyr::select(df2, all_of(c(keytype, kegg_gene)))
       if(rm_na) {
         out <- dplyr::filter(out, ! is.na(kegg_gene))
       }
     }
   } else {
-    if(simplify) {
+    if(simplified) {
       out <- df2$gene_list
       if(rm_na) {
         out <- purrr::discard(out, is.na)

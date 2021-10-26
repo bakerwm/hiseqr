@@ -68,16 +68,11 @@ deseq_qc <- function(x, ...) {
     # .col_label = "gene_id",
     shrink_method = "standard" # apeglm, ashr, normal
   )
-  #-- update dots, for child functions
-  dots_args <- lapply(names(args), function(i) {
-    if(!i %in% names(dots)) {
-      args[i]
-    }
-  })
-  dots <- c(dots, unlist(dots_args, recursive = FALSE, use.names = TRUE))
-  #-- update global
-  for(name in names(dots)) {
-    assign(name, dots[[name]])
+  #-- update, for child functions
+  args <- purrr::list_modify(args, !!!dots)
+  for(name in names(args)) {
+    if(rlang::is_empty(name)) next
+    assign(name, args[[name]])
   }
   #----------------------------------------------------------------------------#
   if(!is_hiseq_dir(x, "deseq_deseq2")) {
@@ -93,51 +88,51 @@ deseq_qc <- function(x, ...) {
     res_lfc   <- deseq_qc_dds(dds, outdir = x, return_data = "res_lfc")
     # 1. counts
     png1 <- file.path(x, "deseq_qc_counts.png")
-    p1 <- deseq_qc_counts(dds, x, !!!dots)
+    p1 <- deseq_qc_counts(dds, !!!args)
     ggsave(png1, p1, width = 6, height = 6)
     # 2. mean sd; transformd
     tmp <- lapply(names(dds_trans), function(s) {
       png2 <- file.path(x, paste0("deseq_qc_mean_sd.", s, ".png"))
-      p2 <- deseq_qc_mean_sd(dds, outdir = x, transform_method = s, !!!dots)
+      p2 <- deseq_qc_mean_sd(dds, transform_method = s, outdir = x, !!!args)
       ggsave(png2, p2, width = 4, height = 3)
     })
     # 3. top genes
     tmp <- lapply(names(dds_trans), function(s) {
       png3 <- file.path(x, paste0("deseq_qc_top_gene.", s, ".png"))
-      p3 <- deseq_qc_top_gene(dds, outdir = x, transform_method = s, !!!dots)
+      p3 <- deseq_qc_top_gene(dds, transform_method = s, outdir = x, !!!args)
       ggsave(png3, p3, width = 3, height = 5)
     })
     # 4. dist
     tmp <- lapply(names(dds_trans), function(s) {
       png4 <- file.path(x, paste0("deseq_qc_dist.", s, ".png"))
-      p4 <- deseq_qc_dist(dds, outdir = x, transform_method = s, !!!dots)
+      p4 <- deseq_qc_dist(dds, transform_method = s, outdir = x, !!!args)
       ggsave(png4, p4, width = 5, height = 4.5)
     })
     # 5. pca
     tmp <- lapply(names(dds_trans), function(s) {
       png5 <- file.path(x, paste0("deseq_qc_pca.", s, ".png"))
-      p5 <- deseq_qc_pca(dds, outdir = x, transform_method = s, !!!dots)
+      p5 <- deseq_qc_pca(dds, transform_method = s, outdir = x, !!!args)
       ggsave(png5, p5, width = 6, height = 4)
     })
     # for sig plots
     # 6. ma
     tmp <- lapply(names(res_lfc), function(s) {
       png6 <- file.path(x, paste0("deseq_qc_ma.", s, ".png"))
-      p6 <- deseq_qc_ma(x, shrink_method = s, !!!dots)
+      p6 <- deseq_qc_ma(x, !!!args, shrink_method = s)
       p6 <- deseq_qc_add_sig_label(p6)
       ggsave(png6, p6, width = 5, height = 4)
     })
     # 7. volcano
     tmp <- lapply(names(res_lfc), function(s) {
       png7 <- file.path(x, paste0("deseq_qc_volcano.", s, ".png"))
-      p7 <- deseq_qc_volcano(x, shrink_method = s, !!!dots)
+      p7 <- deseq_qc_volcano(x, !!!args, shrink_method = s)
       p7 <- deseq_qc_add_sig_label(p7)
       ggsave(png7, p7, width = 5, height = 5)
     })
     # 8. ma
     tmp <- lapply(names(res_lfc), function(s) {
       png8 <- file.path(x, paste0("deseq_qc_scatter.", s, ".png"))
-      p8 <- deseq_qc_scatter(x, shrink_method = s, !!!dots)
+      p8 <- deseq_qc_scatter(x, !!!args, shrink_method = s)
       p8 <- deseq_qc_add_sig_label(p8)
       ggsave(png8, p8, width = 5, height = 4)
     })

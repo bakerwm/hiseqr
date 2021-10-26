@@ -50,7 +50,6 @@ library(patchwork)
 
 ```{r init, eval = T}
 input_dir  <- params$input_dir
-# input_dir <- "~/work/devel_pipeline/hiseq/rnaseq/output/dm6_te_piRC/pe_control.vs.pe_treatment/"
 input_dir  <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rnaseq_rx")) {
   stop(paste0("Not a RNAseq directory, rnaseq_rx: ", input_dir))
@@ -82,86 +81,103 @@ msg <- glue::glue(
 print(msg)
 ```
 
-
 ```{r plot_data}
 df_trim_stat  <- read_hiseq_trim_stat(input_dir)
 df_align_stat <- read_hiseq_align_stat(input_dir)
 ```
 
+
+```{r loading data}
+pd <- summary_hiseq(input_dir, "rx")
+
+# plot data
+df_trim    <- pd$trim
+df_align   <- pd$align
+df_peak    <- pd$peak
+df_frip    <- pd$frip
+df_lendist <- pd$lendist
+
+# summary
+n_smp      <- length(list_hiseq_file(input_dir, "rep_list", "_rn"))
+total      <- df_trim %>% pull(input) %>% sum()
+map        <- df_align %>% pull(map) %>% sum()
+map_pct    <- round(map / total * 100, 2) %>% sum()
+unique_m   <- df_align %>% pull(unique) %>% sum()
+unique_pct <- round(unique_m / total * 100, 1)
+total      <- round(total / 1e6, 2)
+map        <- round(map / 1e6, 2)
+unique_m   <- round(unique_m / 1e6, 1) # Million
+```
+
 ## 1 Summary
 
 ```{r summary, results="asis"}
-if(is(df_align_stat, "data.frame")) {
-  total      <- df_align_stat %>% pull(total) %>% mean()
-  map        <- df_align_stat %>% pull(map) %>% mean()
-  map_pct    <- round(map / total * 100, 1) %>% mean()
-  unique_m   <- df_align_stat %>% pull(unique) %>% mean()
-  unique_pct <- round(unique_m / total * 100, 1) %>% mean()
-  total    <- round(total / 1e6, 1) # Million
-  map      <- round(map / 1e6, 1) # Million
-  unique_m <- round(unique_m / 1e6, 1) # Million
-  sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
-                         "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
-                         "{unique_m}M ({unique_pct}%) unique mapped.")
-  
-  print(sum_text)
-}
+# if(is(df_align_stat, "data.frame")) {
+#   total      <- df_align_stat %>% pull(total) %>% mean()
+#   map        <- df_align_stat %>% pull(map) %>% mean()
+#   map_pct    <- round(map / total * 100, 1) %>% mean()
+#   unique_m   <- df_align_stat %>% pull(unique) %>% mean()
+#   unique_pct <- round(unique_m / total * 100, 1) %>% mean()
+#   total    <- round(total / 1e6, 1) # Million
+#   map      <- round(map / 1e6, 1) # Million
+#   unique_m <- round(unique_m / 1e6, 1) # Million
+#   sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
+#                          "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
+#                          "{unique_m}M ({unique_pct}%) unique mapped.")
+#   
+#   print(sum_text)
+# }
+sum_text <- glue::glue(
+  "A total of {n_samples} samples; {total}M sequencing depth; ",
+  "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
+  "{unique_m}M ({unique_pct}%) unique mapped."
+)
+print(sum_text)
 ```
 
 ## 2 Results
 
 
-### 2.1 Table1. number of reads
+### 2.1 Table 1. Trimming reads
 
-```{r table1_mito_pct}
-if(is(df_align_stat, "data.frame")) {
-  hiseqr::to_DT(df_align_stat)
-}
+```{r}
+pd$trim %>%
+  dplyr::select(name, input, output, out_pct, rm_pct) %>%
+  dplyr::rename(clean = output, 
+                clean_pct = out_pct,
+                short_pct = rm_pct) %>%
+  hiseqr::to_DT()
+```
+
+```{r figure1_trim_reads, fig.height=3, fig.width=6}
+plot_hiseq_trim(input_dir)
 ```
 
 
-### 2.2 Figure 1. Number of mapped reads
+### 2.2 Table 2. Mapping reads
 
-+ Clean data percentage
-
-```{r figure1_trim_reads, out.width = "100%", fig.height = 3}
-p2_2 <- tryCatch(
-  {
-    plot_hiseq_trim(input_dir)
-  },
-  error=function(cond) {
-    message("Failed plotting: 2.2.number_of_mapped_reads")
-  }
-)
-print(p2_2)
+```{r}
+pd$align %>%
+  dplyr::select(name, total, map, unmap) %>%
+  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
+  hiseqr::to_DT()
 ```
 
-+ Map percentage
-
-```{r figure1_align_reads, fig.height = 3}
-p2_3 <- tryCatch(
-  {
-    plot_hiseq_align(input_dir, columns = c("map", "rRNA", "spikein", "unmap"))
-  },
-  error=function(cond) {
-    message("Failed plotting: 2.3.map_percentage")
-  }
-)
-print(p2_3)
+```{r figure1_align_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(input_dir, columns = c("map", "rRNA", "unmap"))
 ```
 
-+ Unique percentage
++ unique and multiple mapping reads
 
-```{r figure1_unique_reads, fig.height = 3}
-p2_4 <- tryCatch(
-  {
-    plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
-  },
-  error=function(cond) {
-    message("Failed plotting: 2.4.unique_map")
-  }
-)
-print(p2_4)
+```{r}
+pd$align %>%
+  dplyr::select(name, total, unique, multi, unmap) %>%
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
+  hiseqr::to_DT()
+```
+
+```{r unique_multi_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 
 
@@ -181,7 +197,7 @@ For strand-specific library
 
 ```{r lib type, results="asis"}
 lib1 = "read1: ++ -- / read2: -- ++"
-lib2 = "read1: +- ++ / read2: +- -+"
+lib2 = "read1: +- -+ / read2: +- -+"
 lib3 = "read1, read2, non-strand-specific"
 
 f <- list_hiseq_file(input_dir, "strandness_json", "rnaseq_rn")
@@ -229,7 +245,7 @@ if(is(p4, "ggplot")) {
 
 
 **na**, indicate the `Not Assigned reads`.
-```{r count strand, fig.height=3}
+```{r count strand, fig.height=3, fig.width=6}
 print(p4)
 ```
 
@@ -283,15 +299,52 @@ res_lfc   <- deseq_qc_dds(deseq_dir, return_data = "res_lfc")
 # all data.frame
 df_list   <- sapply(names(res_lfc), function(i) {
   deseq_qc_res(deseq_dir, shrink_method = i)
-  # read_rnaseq_deseq2(input_dir, shrink_method = i)
 }, simplify = FALSE, USE.NAMES = TRUE)
 
-# sig table
-df_sig <- lapply(names(df_list), function(i) {
-  as.data.frame(table(df_list[[i]][["sig"]])) %>%
-    dplyr::mutate(shrink = i)
-}) %>%
-  dplyr::bind_rows()
+
+get_deseq_sig_table <- function(x, ...) {
+  if(!inherits(x, "list")) {
+    return(NULL)
+  }
+  #for(name in names(x)) {
+  lapply(names(x), function(name) {
+    df <- x[[name]]
+    if(inherits(df, "data.frame")) {
+      if("sig" %in% names(df)) {
+        as.data.frame(table(df[["sig"]])) %>%
+          dplyr::mutate(sample = name)
+      }
+    }
+  })%>%
+    dplyr::bind_rows()
+}
+
+# function-3: get sig plot, by rnaseq_rx path
+#' @param x list of data.frame, res table
+get_deseq_sig_plot <- function(x, ...) {
+  df <- get_deseq_sig_table(x, ...)
+  if(inherits(df, "data.frame")) {
+    df %>%
+      dplyr::rename(sig = Var1) %>%
+      dplyr::filter(!sig == "not") %>%
+      ggplot(aes(sig, Freq, group = sample, fill = sample, label = Freq)) +
+      geom_col(position = position_dodge()) +
+      geom_text(position = position_dodge(.9), vjust = -.5) +
+      fishualize::scale_fill_fish(discrete = TRUE, option = "Trimma_lantana") +
+      xlab(NULL) +
+      ylab("Number of genes") +
+      ggtitle("Number of DE genes") +
+      ggplot2::theme_bw()
+  }
+}
+
+
+# # sig table
+# df_sig <- lapply(names(df_list), function(i) {
+#   as.data.frame(table(df_list[[i]][["sig"]])) %>%
+#     dplyr::mutate(shrink = i)
+# }) %>%
+#   dplyr::bind_rows()
 # df_deseq <- read_rnaseq_deseq2(input_dir)
 # # add link to database: ENSEMBL, FlyBase
 # df_deseq$link <- gene_to_link(df_deseq$Gene, organism, style = "html",
@@ -316,22 +369,12 @@ hiseqr::to_DT(tb)
 Here are the numbers of significant changed genes, criteria: `foldChange >= 2, pvalue < 0.05`
 
 ```{r parsing de table}
-df_sig %>%
-  tidyr::pivot_wider(names_from = "Var1", values_from = "Freq") %>%
+get_deseq_sig_table(df_list) %>%
   hiseqr::to_DT()
 ```
 
 ```{r, fig.width = 7, fig.height = 5}
-df_sig %>%
-  dplyr::filter(!Var1 == "not") %>%
-  ggplot(aes(Var1, Freq, group = shrink, fill = shrink, label = Freq)) + 
-  geom_col(position = position_dodge()) + 
-  geom_text(position = position_dodge(.9), vjust = -.5) +
-  fishualize::scale_fill_fish(discrete = TRUE, option = "Trimma_lantana") +
-  xlab(NULL) +
-  ylab("Number of genes") +
-  ggtitle("Number of DE genes") +
-  ggplot2::theme_bw()
+get_deseq_sig_plot(df_list)
 ```
 
 
