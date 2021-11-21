@@ -49,8 +49,9 @@ library(patchwork)
 
 
 ```{r init, eval = T}
-input_dir  <- params$input_dir
-input_dir  <- normalizePath(input_dir)
+input_dir <- params$input_dir
+# input_dir <- "../"
+input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rnaseq_rx")) {
   stop(paste0("Not a RNAseq directory, rnaseq_rx: ", input_dir))
 }
@@ -88,25 +89,23 @@ df_align_stat <- read_hiseq_align_stat(input_dir)
 
 
 ```{r loading data}
-pd <- summary_hiseq(input_dir, "rx")
-
-# plot data
-df_trim    <- pd$trim
-df_align   <- pd$align
-df_peak    <- pd$peak
-df_frip    <- pd$frip
-df_lendist <- pd$lendist
+pd <- hiseq_summary(input_dir, "auto")
 
 # summary
-n_smp      <- length(list_hiseq_file(input_dir, "rep_list", "_rn"))
-total      <- df_trim %>% pull(input) %>% sum()
-map        <- df_align %>% pull(map) %>% sum()
-map_pct    <- round(map / total * 100, 2) %>% sum()
-unique_m   <- df_align %>% pull(unique) %>% sum()
-unique_pct <- round(unique_m / total * 100, 1)
-total      <- round(total / 1e6, 2)
-map        <- round(map / 1e6, 2)
-unique_m   <- round(unique_m / 1e6, 1) # Million
+n_smp      <- length(list_hiseq_file(input_dir, "rep_list", "auto"))
+if(inherits(pd$align, "data.frame") & inherits(pd$align, "data.frame")) {
+  total      <- df_trim %>% pull(input) %>% sum()
+  map        <- df_align %>% pull(map) %>% sum()
+  map_pct    <- round(map / total * 100, 2) %>% sum()
+  unique_m   <- df_align %>% pull(unique) %>% sum()
+  unique_pct <- round(unique_m / total * 100, 1)
+  total      <- round(total / 1e6, 2)
+  map        <- round(map / 1e6, 2)
+  unique_m   <- round(unique_m / 1e6, 1) # Million
+} else {
+  total <- map <- unique_m <- 1
+  unique_pct <- map_pct <- 100
+}
 ```
 
 ## 1 Summary
@@ -141,43 +140,55 @@ print(sum_text)
 ### 2.1 Table 1. Trimming reads
 
 ```{r}
-pd$trim %>%
-  dplyr::select(name, input, output, out_pct, rm_pct) %>%
-  dplyr::rename(clean = output, 
-                clean_pct = out_pct,
-                short_pct = rm_pct) %>%
-  hiseqr::to_DT()
+if(inherits(pd$trim, "data.frame")) {
+  pd$trim %>%
+    dplyr::select(name, input, output, out_pct, rm_pct) %>%
+    dplyr::rename(clean = output, 
+                  clean_pct = out_pct,
+                  short_pct = rm_pct) %>%
+    hiseqr::to_DT()
+}
 ```
 
 ```{r figure1_trim_reads, fig.height=3, fig.width=6}
-plot_hiseq_trim(input_dir)
+if(inherits(pd$trim, "data.frame")) {
+  plot_hiseq_trim(pd$trim)
+}
 ```
 
 
 ### 2.2 Table 2. Mapping reads
 
 ```{r}
-pd$align %>%
-  dplyr::select(name, total, map, unmap) %>%
-  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
-  hiseqr::to_DT()
+if(inherits(pd$align, "data.frame")) {
+  pd$align %>%
+    dplyr::select(name, total, map, unmap) %>%
+    dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
+    hiseqr::to_DT()
+}
 ```
 
 ```{r figure1_align_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("map", "rRNA", "unmap"))
+if(inherits(pd$align, "data.frame")) {
+  plot_hiseq_align(pd$align, columns = c("map", "rRNA", "unmap"))
+}
 ```
 
 + unique and multiple mapping reads
 
 ```{r}
+if(inherits(pd$align, "data.frame")) {
 pd$align %>%
   dplyr::select(name, total, unique, multi, unmap) %>%
   dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
   hiseqr::to_DT()
+}
 ```
 
 ```{r unique_multi_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+if(inherits(pd$align, "data.frame")) {
+plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
+}
 ```
 
 
@@ -355,7 +366,7 @@ get_deseq_sig_plot <- function(x, ...) {
 **sample names table**
 
 ```{r}
-smp_csv <- list_hiseq_file(deseq_dir, "smp_name_csv", T)
+smp_csv <- list_hiseq_file(deseq_dir, "smp_name_csv", "auto")
 if(file.exists(smp_csv)) {
   tb <- read.csv(smp_csv)
 } else {
@@ -476,31 +487,32 @@ patchwork::wrap_plots(p_list, ncol = 2, guides = "collect")
 
 ```{r, report_list}
 data_dir <- "data"
-dir.create(data_dir, showWarnings = FALSE)
-rpt_html <- list_hiseq_file(input_dir, "report_html", hiseq_type = TRUE)
-rpt_html <- purrr::keep(rpt_html, file.exists)
-
-if(length(rpt_html) > 0) {
-  local_html <- sapply(rpt_html, function(f) {
-    f_prefix <- basename(dirname(dirname(f)))
-    f_html   <- file.path(data_dir, paste0(f_prefix, ".rnaseq_report.html"))
-    if(! file.exists(f_html)) {
-      file.copy(f, f_html)
-    }
-    f_html
-  })
-} else {
-  local_html = NULL
+check_path(data_dir)
+# copy files
+dirs <- list_hiseq_file(input_dir, "report_dir", hiseq_type = TRUE)
+report_list <- c()
+for(i in dirs) {
+  src_html <- list_hiseq_file(dirname(i), "report_html", hiseq_type = "auto")
+  smp_name <- list_hiseq_file(dirname(i), "smp_name", hiseq_type = "auto")
+  dest_html <- file.path(data_dir, paste0(smp_name, ".report.html"))
+  file.copy(src_html, dest_html, overwrite = TRUE, copy.date = TRUE)
+  m <- list(html = dest_html)
+  names(m) <- smp_name
+  report_list <- c(report_list, m)
 }
-# show in table
-if(length(local_html) > 0) {
-  data.frame(id = basename(dirname(dirname(rpt_html))),
-             url = local_html
+
+# to data.frame
+if(length(report_list) > 0) {
+  df_report <- data.frame(
+    name = names(report_list),
+    file = unlist(report_list)
   ) %>%
-    dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-    dplyr::select(link) %>% 
-    tibble::remove_rownames() %>%
-    to_DT(mode = 3)
+    dplyr::mutate(
+      link = paste0("<a href=", file, " target='_blank'>", name, "</a>")) %>%
+  dplyr::select(link) %>%
+    tibble::remove_rownames()
+  # to table
+  hiseqr::to_DT(df_report, mode = 3)
 }
 ```
 

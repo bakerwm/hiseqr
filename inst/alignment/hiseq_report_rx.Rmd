@@ -71,6 +71,9 @@ map      <- df_align %>% pull(map) %>% mean() %>% round(digits = 1)
 map_pct  <- round(map / total * 100, 2)
 total    <- round(total / 1e6, 2)
 map      <- round(map / 1e6, 2)
+
+# define the plot height
+plot_height <- floor((n_smp - 4) / 3) + 3
 ```
 
 
@@ -87,7 +90,7 @@ print(sum_text)
 
 ## 2 Results
 
-### 2.1 Table1. Mito Percentage
+### 2.1 Table1. Mapping stat
 
 ```{r}
 df_align %>% 
@@ -98,13 +101,13 @@ df_align %>%
 
 + Map percentage
 
-```{r figure1_align_reads, fig.width=6, fig.height=6}
+```{r figure1_align_reads, fig.width=6, fig.height=plot_height}
 plot_hiseq_align(input_dir, columns = c("map", "unmap"))
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, fig.width=6, fig.height=6}
+```{r figure1_unique_reads, fig.width=6, fig.height=plot_height}
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 

@@ -64,7 +64,8 @@ read_peak_annotation <- function(x, genome = NULL, tss_region = 3000,
 #'
 #' @export
 plot_peak_annotation <- function(x, genome = NULL, tss_region = 3000,
-                                 plot_type = "bar", ...) {
+                                 plot_type = "bar", fish = "Trimma_lantana",
+                                 ...) {
   message("plot peak annotation ...")
   # run annotate
   if(inherits(x, "csAnno") | all(sapply(x, function(i) inherits(i, "csAnno")))) {
@@ -165,10 +166,10 @@ read_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
                            downstream = flanking)
   if(isTRUE(on_summit) & inherits(summit, "character")) {
     region_bed <- summit
-    gr <- read_bed(summit, upstream = flanking, downstream = flanking)
+    gr <- read_peak(summit, upstream = flanking, downstream = flanking)
   } else if(inherits(bed, "character")) {
     region_bed <- bed
-    gr <- read_bed(bed, upstream = flanking, downstream = flanking)
+    gr <- read_peak(bed, upstream = flanking, downstream = flanking)
   } else {
     region_bed <- NULL # skipped
     gr <- promoter
@@ -186,7 +187,7 @@ read_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
     tag_list <- lapply(peak, getTagMatrix, windows = promoter)
   } else if(inherits(gr, "list")) {
     tag_list <- lapply(seq_len(length(peak)), function(i) {
-      getTagMatrix(peak[i], windows = gr[[i]])
+      getTagMatrix(peak[[i]], windows = gr[[i]])
     })
   } else {
     message("read_peak_profile() failed, illegal bed file")
@@ -248,7 +249,7 @@ plot_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
 }
 
 
-read_bed <- function(x, upstream = 2000, downstream = 20000) {
+read_peak <- function(x, upstream = 2000, downstream = 20000) {
   if(inherits(x, "character")) {
     gr_list <- lapply(x, function(i) {
       gr <- rtracklayer::import(i)

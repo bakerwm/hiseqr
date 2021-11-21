@@ -90,6 +90,7 @@ plot_hiseq_trim2 <- function(x, fish = "Trimma_lantana",
     return(NULL)
   }
   df %>%
+    dplyr::mutate(percent = output / input) %>%
     tidyr::pivot_longer(-c(name, input, percent),
                         names_to  = "group",
                         values_to = "count") %>%

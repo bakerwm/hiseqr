@@ -159,7 +159,7 @@ hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
 #'
 #' using DESeqDataSetFromMatrix()
 #'
-#' @param x data.frame require "files", "names", "condition" columns
+#' @param x data.frame require "files", "smp_name", "condition" columns
 #'
 #' @return `DESeqDataSet`
 #'

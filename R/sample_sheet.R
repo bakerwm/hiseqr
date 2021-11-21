@@ -27,6 +27,44 @@
 # writexl::write_xlsx(df3, s, col_names = TRUE)
 
 
+#' load hiseq sample sheet files
+#'
+#'
+load_hiseq_sheet_dir <- function(x) {
+  if(inherits(x, "character")) {
+    message(glue::glue("loading hiseq sample_sheet from dir: {x}"))
+    f_list <- list.files(x[1], "*.xlsx", full.names = TRUE)
+    if(length(f_list) == 0) {
+      message(paste0("No *.xlsx files found in : ", x[1]))
+      return(NULL)
+    }
+    df <- lapply(f_list, read_hiseq_sheet) %>%
+      dplyr::bind_rows() %>%
+      dplyr::mutate(sampleid = fix_hiseq_sampleid(sampleid))
+    # fix user
+    df1 <- df %>%
+      dplyr::mutate(tmp_user = gsub("\\d+", "", lib_user)) %>%
+      tidyr::unite(sp, c(lib_number, tmp_user), sep = "-", remove = FALSE)
+    # fix lib_user
+    df2 <-  dplyr::select(df, lib_number, lib_user) %>%
+        dplyr::mutate(lib_user = gsub("\\d+", "", lib_user)) %>%
+        unique() %>%
+        dplyr::group_by(lib_user) %>%
+        dplyr::mutate(num = stringr::str_pad(row_number(), 2, pad = 0)) %>%
+        tidyr::unite(sp, c(lib_number, lib_user), sep = "-")
+    # combine
+    df3 <- merge(df1, df2, by = "sp") %>%
+      dplyr::mutate(lib_user = gsub("\\d+", "", lib_user),
+                    lib_user = paste0(lib_user, num)) %>%
+      dplyr::select(-c(sp, num, tmp_user))
+    # show
+    message(glue::glue(
+      "{length(f_list)} files found, including {nrow(df3)} samples."
+    ))
+    df3
+  }
+}
+
 
 #' read sample info from Excel.xlsx
 #'
@@ -35,7 +73,7 @@
 #' @fix bool auto fix the samplename, etc, default: TRUE
 #'
 #' @export
-read_hiseq_sheet <- function(x, n_max=10000, fix = TRUE,
+read_hiseq_sheet <- function(x, n_max = 10000, fix = TRUE,
                              sampleid_start = 1) {
   df <- tryCatch(
     {
@@ -392,7 +430,7 @@ is_valid_index <- function(x, hiseq_type = "p7", skip_null = TRUE) {
 #' #' @param x string path to the index file, could be *.rds, *.txt, *.csv
 #' #'
 #' #' @export
-#' sheet_read_index <- function(x) {
+#' read_sheet_index <- function(x) {
 #'   # check index
 #'   if(is.null(x)) {
 #'     return(NULL)

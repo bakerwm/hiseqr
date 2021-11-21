@@ -81,11 +81,17 @@ list_hiseq_dir <- function(x, hiseq_type = "auto"){
       hiseq_type = pd$hiseq_type #
     }
     # check
-    if(pd$is_hiseq_r1 | pd$is_hiseq_rp | pd$is_hiseq_merge | pd$is_hiseq_deseq2 | is_hiseq_dir(f, "alignment")) {
+    # for alignment
+    if(is_hiseq_dir(f, "alignment")) {
+      if(pd$is_hiseq_rx | pd$is_hiseq_rn) {
+        out <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir)
+      } else {
+        out <- f
+      }
+    } else if(pd$is_hiseq_r1 | pd$is_hiseq_rp | pd$is_hiseq_merge | pd$is_hiseq_deseq2) {
       out <- f
     } else if(pd$is_hiseq_rn) {
-      dirs <- c(f, pd$args$rep_list) # r1 + rn
-      out  <- purrr::keep(unique(dirs), is_hiseq_dir)
+      out  <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir) # r1+rn
     } else if(pd$is_hiseq_rx) {
       # report: r1+rn+rx
       if(is_hiseq_dir(f, "atac_")) {
@@ -100,7 +106,7 @@ list_hiseq_dir <- function(x, hiseq_type = "auto"){
           rn_dirs <- c()
         }
         # for r1
-        r1_dirs <- lapply(rn_dirs, list_hiseq_dir, hiseq_type = "r1") %>% unlist()
+        r1_dirs <- unlist(lapply(rn_dirs, list_hiseq_dir, hiseq_type = "r1"))
         # output
         out <- purrr::keep(unique(c(r1_dirs, rn_dirs, f)), is_hiseq_dir)
       }

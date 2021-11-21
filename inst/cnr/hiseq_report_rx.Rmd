@@ -358,38 +358,6 @@ if(length(report_list) > 0) {
   # to table
   hiseqr::to_DT(df_report, mode = 3)
 }
-
-# data_dir <- "data"
-# dir.create(data_dir, showWarnings = FALSE)
-# 
-# # from html
-# report_dirs <- list_hiseq_file(input_dir, "report_dir", TRUE)
-# report_html_list <- file.path(report_dirs, "HiSeq_report.html")
-# 
-# # to html
-# if(length(report_html_list)) {
-#   local_html <- sapply(report_html_list, function(f) {
-#     f_prefix <- basename(dirname(dirname(f)))
-#     f_html   <- file.path(data_dir, paste0(f_prefix, ".atac_report.html"))
-#     if(! file.exists(f_html)) {
-#       file.copy(f, f_html)
-#     }
-#     f_html
-#   })
-# } else {
-#   local_html <- NULL
-# }
-# 
-# # show in table
-# if(length(local_html)) {
-#   data.frame(id = basename(dirname(dirname(report_html_list))),
-#              url = local_html
-#   ) %>%
-#     dplyr::mutate(link = paste0("<a href='", url, "' target='_blank'>", id, "</a>")) %>%
-#     dplyr::select(link) %>%
-#     tibble::remove_rownames() %>% 
-#     to_DT(mode = 3)
-# }
 ```
 
 
