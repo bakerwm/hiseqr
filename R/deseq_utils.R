@@ -123,7 +123,7 @@ hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
                         rep(condition[2], length(mut_suffix)))
   fcdata$names <- paste0(fcdata$condition, ".", c(wt_suffix, mut_suffix))
   fcdata$condition <- factor(fcdata$condition, levels = condition)
-  if(isTRUE(fix_batch)) {
+  if(isTRUE(fix_batch) & nrow(wt_data) == nrow(mut_data)) {
     fcdata$batch <- as.factor(
       c(LETTERS[seq_len(nrow(wt_data))], LETTERS[seq_len(nrow(mut_data))])
     )
@@ -211,14 +211,21 @@ import_featurecounts <- function(x) {
     message("run DESeq2 design: `~ condition`")
     fo <- formula(~ condition)
   }
+  #-- run: add gene length, for FPKM
+  df_len    <- read_fc(x$files[1], get_gene_length = TRUE)
+  mcols_len <- data.frame(basepairs = df_len$Length)
   #-- run: import data
   tryCatch(
     {
-      DESeq2::DESeqDataSetFromMatrix(
+      dds <- DESeq2::DESeqDataSetFromMatrix(
         countData = ma,
         colData   = coldata,
         design    = fo
       )
+      S4Vectors::mcols(dds) <- S4Vectors::DataFrame(
+        S4Vectors::mcols(dds), mcols_len)
+      # output
+      dds
     },
     error = function(cond) {
       warning("failed to import featureCounts")
@@ -226,6 +233,8 @@ import_featurecounts <- function(x) {
     }
   )
 }
+
+
 
 #' @describeIn import_samlmon
 #' Construct dds for DESeq2 analysis using salmon output
@@ -277,7 +286,7 @@ import_salmon <- function(x, tx2gene) {
   #-- run: to DESeq2
   tryCatch(
     {
-      DESeqDataSetFromTximport(txi, colData = coldata, design  = fo)
+      DESeqDataSetFromTximport(txi, colData = coldata, design = fo)
     },
     error = function(cond) {
       warning("failed to import salmon")

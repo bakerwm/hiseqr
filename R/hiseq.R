@@ -8,6 +8,72 @@
 #' @name hiseq
 
 
+#' list_hiseq_dir:
+#'
+#' @param x path to the input directories
+#' @param log boolen, whether print the log status, default: FALSE
+#'
+#' Fix: support x (multiple items)
+#'
+#' @export
+list_hiseq_dir <- function(x, hiseq_type = "auto"){
+  if(!inherits(x, "character")) {
+    warning(glue::glue("x is {(class)}, expect character"))
+    return(NULL)
+  }
+  d_out <- sapply(x, function(f) {
+    pd <- read_hiseq(f)
+    if(!isTRUE(pd$is_hiseq)) {
+      return(NULL)
+    }
+    if(hiseq_type == "auto") {
+      hiseq_type = pd$hiseq_type #
+    }
+    # check
+    # for alignment
+    if(is_hiseq_dir(f, "alignment")) {
+      if(pd$is_hiseq_rx | pd$is_hiseq_rn) {
+        out <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir)
+      } else {
+        out <- f
+      }
+    } else if(pd$is_hiseq_r1 | pd$is_hiseq_rp | pd$is_hiseq_merge | pd$is_hiseq_deseq2) {
+      out <- f
+    } else if(pd$is_hiseq_rn) {
+      out  <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir) # r1+rn
+    } else if(pd$is_hiseq_rx) {
+      # report: r1+rn+rx
+      if(is_hiseq_dir(f, "atac")) {
+        dirs <- list.dirs(f, recursive = FALSE)
+        out  <- purrr::keep(unique(c(f, dirs)), is_hiseq_dir)
+      } else {
+        if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {
+          rn_dirs <- c(pd$args$ip_dir, pd$args$input_dir) # chip/cnr
+        } else if(is_hiseq_dir(f, "rnaseq_rx")) {
+          rn_dirs <- c(pd$args$mut_dir, pd$args$wt_dir) # RNAseq
+        } else {
+          rn_dirs <- c()
+        }
+        # for r1
+        r1_dirs <- unlist(lapply(rn_dirs, list_hiseq_dir, hiseq_type = "r1"))
+        # output
+        out <- purrr::keep(unique(c(r1_dirs, rn_dirs, f)), is_hiseq_dir)
+      }
+    } else {
+      out <- f
+    }
+    # filter
+    purrr::keep(unique(out), function(i) is_hiseq_dir(i, hiseq_type))
+  }, USE.NAMES = TRUE, simplify = FALSE)
+  # single
+  if(length(x) == 1) {
+    d_out <- d_out[[1]]
+  }
+  # return
+  d_out
+}
+
+
 #' list_hiseq_file
 #'
 #' @param x path to the input directories
@@ -57,72 +123,6 @@ list_hiseq_file <- function(x, keys = "bam", hiseq_type = "auto") {
   d_out
 }
 
-
-
-#' list_hiseq_dir:
-#'
-#' @param x path to the input directories
-#' @param log boolen, whether print the log status, default: FALSE
-#'
-#' Fix: support x (multiple items)
-#'
-#' @export
-list_hiseq_dir <- function(x, hiseq_type = "auto"){
-  if(!inherits(x, "character")) {
-    warning(glue::glue("x is {(class)}, expect character"))
-    return(NULL)
-  }
-  d_out <- sapply(x, function(f) {
-    pd <- read_hiseq(f)
-    if(!isTRUE(pd$is_hiseq)) {
-      return(NULL)
-    }
-    if(hiseq_type == "auto") {
-      hiseq_type = pd$hiseq_type #
-    }
-    # check
-    # for alignment
-    if(is_hiseq_dir(f, "alignment")) {
-      if(pd$is_hiseq_rx | pd$is_hiseq_rn) {
-        out <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir)
-      } else {
-        out <- f
-      }
-    } else if(pd$is_hiseq_r1 | pd$is_hiseq_rp | pd$is_hiseq_merge | pd$is_hiseq_deseq2) {
-      out <- f
-    } else if(pd$is_hiseq_rn) {
-      out  <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir) # r1+rn
-    } else if(pd$is_hiseq_rx) {
-      # report: r1+rn+rx
-      if(is_hiseq_dir(f, "atac_")) {
-        dirs <- list.dirs(f, recursive = FALSE)
-        out  <- purrr::keep(unique(c(f, dirs)), is_hiseq_dir)
-      } else {
-        if(grepl("^chip|^cnt|^cnr", pd$hiseq_type, ignore.case = TRUE)) {
-          rn_dirs <- c(pd$args$ip_dir, pd$args$input_dir) # chip/cnr
-        } else if(is_hiseq_dir(f, "rnaseq_rx")) {
-          rn_dirs <- c(pd$args$mut_dir, pd$args$wt_dir) # RNAseq
-        } else {
-          rn_dirs <- c()
-        }
-        # for r1
-        r1_dirs <- unlist(lapply(rn_dirs, list_hiseq_dir, hiseq_type = "r1"))
-        # output
-        out <- purrr::keep(unique(c(r1_dirs, rn_dirs, f)), is_hiseq_dir)
-      }
-    } else {
-      out <- f
-    }
-    # filter
-    purrr::keep(unique(out), function(i) is_hiseq_dir(i, hiseq_type))
-  }, USE.NAMES = TRUE, simplify = FALSE)
-  # single
-  if(length(x) == 1) {
-    d_out <- d_out[[1]]
-  }
-  # return
-  d_out
-}
 
 
 #' #' list_hiseq_dir:

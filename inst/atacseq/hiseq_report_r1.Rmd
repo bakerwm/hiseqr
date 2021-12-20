@@ -60,25 +60,41 @@ if(! is_hiseq_dir(input_dir, "r1")) {
 
 
 ```{r loading data}
-pd <- summary_hiseq(input_dir, "r1")
-
-# plot data
-df_trim    <- pd$trim
-df_align   <- pd$align
-df_peak    <- pd$peak
-df_frip    <- pd$frip
-df_lendist <- pd$lendist
+pd <- hiseq_summary(input_dir, hiseq_type = TRUE)
 
 # summary
-n_smp    <- 1
-total    <- df_trim %>% pull(input)
-mito     <- df_align %>% pull(chrM)
-map      <- df_align %>% pull(map)
+n_smp    <- length(list_hiseq_dir(input_dir, "r1"))
+total    <- pd$align %>% pull(total) %>% sum()
+mito     <- pd$align %>% pull(chrM) %>% sum()
+map      <- pd$align %>% pull(map) %>% sum()
+dup      <- pd$align %>% pull(dup) %>% sum()
+nodup    <- pd$align %>% pull(nodup) %>% sum()
 mito_pct <- round(mito / total * 100, 2)
 map_pct  <- round(map / total * 100, 2)
-total <- round(total / 1e6, 2)
-map   <- round(map / 1e6, 2)
-mito  <- round(mito / 1e6, 2)
+dup_pct  <- round(dup / total * 100, 2)
+total <- round(total / 1e6, 4)
+map   <- round(map / 1e6, 4)
+mito  <- round(mito / 1e6, 4)
+dup   <- round(dup / 1e6, 4)
+ 
+
+# # plot data
+# df_trim    <- pd$trim
+# df_align   <- pd$align
+# df_peak    <- pd$peak
+# df_frip    <- pd$frip
+# df_lendist <- pd$lendist
+# 
+# # summary
+# n_smp    <- 1
+# total    <- df_trim %>% pull(input)
+# mito     <- df_align %>% pull(chrM)
+# map      <- df_align %>% pull(map)
+# mito_pct <- round(mito / total * 100, 2)
+# map_pct  <- round(map / total * 100, 2)
+# total <- round(total / 1e6, 2)
+# map   <- round(map / 1e6, 2)
+# mito  <- round(mito / 1e6, 2)
 ```
 
 
@@ -96,45 +112,85 @@ print(sum_text)
 
 ## 2 Results
 
-### 2.1 Table1. Mito Percentage
+
+## 2 Results
+
+### 2.1 Table 1. Trimming reads
 
 ```{r}
-pd$align %>% 
-  hiseqr::to_DT()
+df_trim <- pd$trim %>%
+  dplyr::select(name, input, output, out_pct, rm_pct) %>%
+  dplyr::rename(clean = output, 
+                clean_pct = out_pct,
+                short_pct = rm_pct)
+hiseqr::to_DT(df_trim)
 ```
 
-### 2.2 Figure 1. Number of mapped reads
-
-+ Clean data percentage
-
-```{r figure1_trim_reads, fig.height=2, fig.width=6}
-plot_hiseq_trim(input_dir)
+```{r figure1_trim_reads, fig.height=3}
+plot_hiseq_trim(pd$trim)
 ```
 
-+ Map percentage
 
-```{r figure1_align_reads,  fig.height=2, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("map", "chrM", "spikein", "unmap"))
+### 2.2 Table 2. Mapping reads
+
+```{r}
+df_align1 <- pd$align %>%
+  dplyr::select(name, total, map, unmap) %>%
+  dplyr::mutate(map_pct = round(map / total * 100, 2))
+hiseqr::to_DT(df_align1)
+```
+
+```{r figure1_align_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("map", "chrM", "spikein", "unmap"))
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, fig.height=2, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```{r}
+df_align2 <- pd$align %>%
+  dplyr::select(name, total, unique, multi, unmap) %>%
+  dplyr::mutate(unique_pct = round(unique / total * 100, 2))
+hiseqr::to_DT(df_align2)
 ```
+
+```{r figure1_unique_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
+```
+
++ PCR-Duplication reads
+
+```{r}
+if(all(c("dup", "nodup") %in% colnames(pd$align))) {
+  df_dup <- pd$align %>%
+    dplyr::select(name, total, map, dup, nodup) %>%
+    dplyr::mutate(dup_pct = round(dup / map * 100, 2))
+} else {
+  df_dup <- pd$align %>%
+    dplyr::select(name, total, map)
+}
+hiseqr::to_DT(df_dup)
+```
+
+```{r pcr_dup_reads, fig.height=3, fig.width=6}
+plot_hiseq_align(pd$align, columns = c("nodup", "dup", "unmap"))
+```
+
 
 ### 2.3 Figure2. Number of peaks
 
-```{r figure2_peaks, fig.height=3, fig.width=6}
-p1 <- plot_hiseq_align(input_dir, 
-                       columns = "unique", 
+```{r figure2_peaks, fig.height=5, fig.width=8}
+p1 <- plot_hiseq_align(pd$align, 
+                       columns = "nodup", 
                        position = "identity", 
-                       add_label = FALSE)
-
-p2 <- plot_hiseq_peak(input_dir, hiseq_type = "r1")
-
-patchwork::wrap_plots(p1, p2, ncol = 1)
+                       add_label = TRUE) + 
+  theme(legend.position = "none")
+# print(p1)
+p2 <- plot_hiseq_peak(pd$peak, hiseq_type = TRUE)
+# print(p2)
+patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)) + 
+  patchwork::plot_layout(guides = "collect")
 ```
+
 
 ### 2.4 FRiP
 
@@ -153,14 +209,17 @@ if(nrow(pd$frip) > 0) {
 }
 ```
 
+```{r frip_plot, fig.height=3.5, fig.width=6}
+plot_hiseq_frip(pd$frip)
+```
+
 
 ### 2.5 Figure3. Fragment length
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height=2, fig.width=4}
-plot_hiseq_lendist(input_dir, "r1") +
-  theme(legend.position = "none")
+```{r figure3_fragment_length, fig.height=4, fig.width=8}
+plot_hiseq_lendist(pd$lendist, hiseq_type = TRUE)
 ```
 
 ### 2.6 TSS enrichment
@@ -169,16 +228,42 @@ plot_hiseq_lendist(input_dir, "r1") +
 >
 > source: https://www.encodeproject.org/data-standards/terms/
 
+#### TSS
+
 ```{r figure4_tss_enrich, eval = T, fig.height = 4}
-# TSS
-ph <- pd$enrich[[1]]
+tss_list <- lapply(pd$enrich, function(i) {
+  s    <- i$tss
+  sdir <- dirname(dirname(s))
+  si   <- is_hiseq_dir(sdir)
+  if(isTRUE(si)) {
+    s
+  }
+}) %>% unlist()
+tss_list <- purrr::keep(tss_list, file.exists)
 
 # TSS
-if(length(ph$tss) > 0) {
-  knitr::include_graphics(ph$tss)
+if(length(tss_list) > 0) {
+  knitr::include_graphics(tss_list)
 }
-if(length(ph$genebody) > 0) {
-  knitr::include_graphics(ph$genebody)
+
+```
+
+
+#### Genebody
+
+```{r figure4_genebody_enrich, eval = T, fig.height = 4}
+gb_list <-  lapply(pd$enrich, function(i) {
+  s    <- i$genebody
+  sdir <- dirname(dirname(s))
+  si   <- is_hiseq_dir(sdir)
+  if(isTRUE(si)) {
+    s
+  }
+}) %>% unlist()
+gb_list <- purrr::keep(gb_list, file.exists)
+
+if(length(gb_list) > 0) {
+  knitr::include_graphics(gb_list)
 }
 ```
 

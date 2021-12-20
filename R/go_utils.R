@@ -424,7 +424,7 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
     }
     #-- simplified
     if(simplified & length(to_keytype) == 1) {
-      out <- setNames(out[[to_keytype]], nm = out[[keytype]])
+      out <- setNames(out[[to_keytype]], nm = out[[from_keytype]])
     }
   }
   out
