@@ -44,29 +44,69 @@ read_narrowpeak <- function(x) {
 }
 
 
+
+#' guess bed format
+#' bed3, bed6, bed10
+#'
+guess_bed <- function(x) {
+  df <- readr::read_delim(x, "\t", show_col_types = F, col_names = F,
+                          n_max = 100)
+  # class
+  df_cols <- unlist(map(df, class))
+  # for bed6+
+  if(ncol(df) >= 6) {
+    if(all(df_cols[1:6] == c("character", "numeric", "numeric",
+                             "character", "numeric", "character"))) {
+      if(ncol(df) == 6) {
+        # BED6
+        out <- rtracklayer::import(x, format = "BED")
+      } else {
+        # extra cols
+        extra_cols <- df_cols[-c(1:6)]
+        out <- import(x, format = "BED", extraCols = extra_cols)
+      }
+    }
+  }
+  out
+}
+
+
 #' intersect_bed2
 #'
 #' @param blist list, bed files
 #' @import GenomicRanges
 #' @export
-intersect_bed2 <- function(blist){
+intersect_bed2 <- function(blist, return_numbers = FALSE){
   stopifnot(length(blist) >= 2)
   bed1 <- blist[[1]]
   bed2 <- blist[[2]]
   # bed 2 gr
-  gr1 <- read_narrowpeak(bed1)
-  gr2 <- read_narrowpeak(bed2)
+  # gr1 <- read_narrowpeak(bed1)
+  # gr2 <- read_narrowpeak(bed2)
+  gr1  <- guess_bed(bed1)
+  gr2  <- guess_bed(bed2)
   gr12 <- GenomicRanges::findOverlaps(gr1, gr2)
-
+  # numbers
+  n1   <- length(gr1)
+  n2   <- length(gr2)
+  n12  <- length(gr12)
+  # numbers
+  out <- c(n1, n2, n12)
+  names(out) <- c("n1", "n2", "n12")
+  if(isTRUE(return_numbers)) {
+    return(out)
+  }
   # intersect
-  n1 <- paste("a", seq_len(length(gr1) - length(gr12)), sep = "")
-  n2 <- paste("b", seq_len(length(gr12)), sep = "")
-  n3 <- paste("c", seq_len(length(gr2) - length(gr12)), sep = "")
-
+  a <- paste("a", seq_len(n1 - n12), sep = "")
+  b <- paste("b", seq_len(n2 - n12), sep = "")
+  c <- paste("c", seq_len(n12), sep = "")
   ## list
-  x <- list(rep1 = c(n1, n2), rep2 = c(n2, n3))
-  # out
-  return(x)
+  out <- list(rep1 = c(a, c), rep2 = c(b, c))
+  # add names
+  if(inherits(names(blist), "character")) {
+    names(out) <- names(blist)
+  }
+  out
 }
 
 
@@ -75,22 +115,25 @@ intersect_bed2 <- function(blist){
 #' @param blist list, intersect 3 bed files
 #' @import GenomicRanges
 #' @export
-intersect_bed3 <- function(blist){
+intersect_bed3 <- function(blist, return_numbers = FALSE){
   stopifnot(length(blist) >= 3)
   bed1  <- blist[[1]]
   bed2  <- blist[[2]]
   bed3  <- blist[[3]]
   # bed to gr
-  gr1   <- read_narrowpeak(bed1)
-  gr2   <- read_narrowpeak(bed2)
-  gr3   <- read_narrowpeak(bed3)
+  # gr1   <- read_narrowpeak(bed1)
+  # gr2   <- read_narrowpeak(bed2)
+  # gr3   <- read_narrowpeak(bed3)
+  gr1 <- guess_bed(bed1)
+  gr2 <- guess_bed(bed2)
+  gr3 <- guess_bed(bed3)
   # intersect
   gr12  <- findOverlaps(gr1, gr2, ignore.strand = TRUE)
   gr13  <- findOverlaps(gr1, gr3, ignore.strand = TRUE)
   gr23  <- findOverlaps(gr2, gr3, ignore.strand = TRUE)
-  gr123 <- GenomicRanges::findOverlapsfindOverlaps(gr1[gr12@from],
-                                                   gr3,
-                                                   ignore.strand = TRUE)
+  gr123 <- GenomicRanges::findOverlaps(gr1[gr12@from],
+                                       gr3,
+                                       ignore.strand = TRUE)
   # numbers
   n12   <- length(gr12)
   n13   <- length(gr13)
@@ -106,17 +149,24 @@ intersect_bed3 <- function(blist){
   # overlap
   out <- c(n1, n2, n3, n12, n13, n23, n123)
   names(out) <- c("n1", "n2", "n3", "n12", "n13", "n23", "n123")
+  if(isTRUE(return_numbers)) {
+    return(out)
+  }
   # out list
   p <- lapply(seq_len(7), function(i){
     paste(letters[i], seq_len(out[i]), sep = "")
   })
   names(p) <- names(out)
   # combine
-  x <- list(
+  out <- list(
     rep1 = c(p$n1, p$n12, p$n13, p$n123),
     rep2 = c(p$n2, p$n12, p$n23, p$n123),
     rep3 = c(p$n3, p$n13, p$n23, p$n123))
-  return(x)
+  # add names
+  if(inherits(names(blist), "character")) {
+    names(out) <- names(blist)
+  }
+  out
 }
 
 
@@ -147,19 +197,21 @@ intersect_bed4 <- function(blist){
 bed_venn <- function(blist, names = NULL){
   if(length(blist) == 2){
     # x <- bedIntersect2(blist)
-    x <- intersect_bed2(blist)
+    x <- intersect_bed2(blist, names)
   } else if(length(blist) == 3) {
     # x <- bedIntersect3(blist)
-    x <- intersect_bed3(blist)
+    x <- intersect_bed3(blist, names)
   } else if(length(blist) == 4) {
     # x <- bedIntersect4(blist)
     x <- intersect_bed4(blist)
   } else {
     stop("only accept narrowpeaks: 2-4 files")
   }
-
-  p <- vennplot(x, names)
-
-  return(p)
+  # names
+  if(inherits(names(blist), "character") & is.null(names)) {
+    names <- names(x)
+  }
+  # plot
+  venn_plot(x, names)
 }
 

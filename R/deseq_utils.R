@@ -101,8 +101,9 @@ hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
     }, USE.NAMES = FALSE)
   )
   #-- run: sanitize, suffix
-  wt_suffix <- deseq_sanitize_str(wt_data$names, 10, fix_prefix = FALSE)
-  wt_suffix <- paste0("rep", wt_suffix) # rep1, rep2
+  # wt_suffix <- deseq_sanitize_str(wt_data$names, 10, fix_prefix = FALSE)
+  # wt_suffix <- paste0("rep", wt_suffix) # rep1, rep2
+  wt_suffix <- stringr::str_extract(wt_data$names, "r(ep)?(\\d+)$")
   #-- Check: required data : mut
   mut_name  <- list_hiseq_file(x, "mut_name", "_rx")
   mut_dir   <- list_hiseq_file(x, "mut_dirs", "_rx")
@@ -112,8 +113,10 @@ hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
       list_hiseq_file(i, "smp_name", TRUE)
     }, USE.NAMES = FALSE)
   )
-  mut_suffix <- deseq_sanitize_str(mut_data$names, 10, fix_prefix = FALSE)
-  mut_suffix <- paste0("rep", mut_suffix) # rep1, rep2
+  #-- retrieve replicates
+  # mut_suffix <- deseq_sanitize_str(mut_data$names, 10, fix_prefix = FALSE)
+  # mut_suffix <- paste0("rep", mut_suffix) # rep1, rep2
+  mut_suffix <- stringr::str_extract(mut_data$names, "r(ep)?(\\d+)$")
   #-- prepare
   condition  <- deseq_sanitize_str(c(wt_name, mut_name), 10, fix_prefix = TRUE)
   #-- Check: condition, batch

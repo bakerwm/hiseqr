@@ -74,10 +74,10 @@ rnaseq_hub <- function(x, ...) {
               organism = list_hiseq_file(x, "genome", "_rx"))
   # Publish quality figures: scatter, MA, volcano
   make_publish_plots(x)
-  # fix_xls <- get_fix_xls(x)
-  # if(file.exists(fix_xls)) {
+  # fix_csv <- get_fix_csv(x)
+  # if(file.exists(fix_csv)) {
   #   message("Generating publish quality plots")
-  #   message(paste0("found DESeq2 ouptut: ", fix_xls))
+  #   message(paste0("found DESeq2 ouptut: ", fix_csv))
   #   make_publish_plots(x)
   # }
   # #-- Done in python code, pipeline
@@ -179,7 +179,7 @@ deseq2_main <- function(dds,
   dds_rds   <- file.path(outdir, "DESeq2_dds.rds")
   de_fpkm   <- file.path(outdir, "gene_fpkm.csv")
   de_count  <- file.path(outdir, "transcripts_deseq2.csv")
-  de_xls    <- file.path(outdir, "transcripts_deseq2.fix.xls")
+  de_csv    <- file.path(outdir, "transcripts_deseq2.fix.csv")
   plot_name <- setNames(c(
     "figure1_MA_plot.png",
     "figure2_MA_plot_LFC.png",
@@ -250,11 +250,12 @@ deseq2_main <- function(dds,
   names(resdata)[1] <- "Gene"
   # Save results to file, csv
   # resdata2 <- read_deseq_csv(resdata, fc_cutoff, pval_cutoff)
-  write.csv(resdata, de_count, quote = TRUE, row.names = TRUE)
+  write.csv(resdata, de_count, quote = TRUE, row.names = FALSE)
   # Save results to file, xls
   df_csv <- read_deseq_csv(de_count, fc_cutoff, pval_cutoff, readable = TRUE,
                            organism = organism)
-  readr::write_delim(df_csv, de_xls, delim = "\t", col_names = TRUE)
+  # readr::write_delim(df_csv, de_csv, delim = "\t", col_names = TRUE)
+  readr::write_csv(df_csv, de_csv, col_names = TRUE)
   # Save FPKM to file, xls
   df_fpkm <- DESeq2::fpkm(dds) %>%
     as.data.frame.matrix() %>%
@@ -310,7 +311,7 @@ deseq2_main <- function(dds,
   )
   dev.off()
   # output
-  de_xls
+  de_csv
 }
 
 
@@ -443,9 +444,9 @@ prep_rnaseq_enrich <- function(x) {
   # enrich_dir <- px$args$enrich_dir
   enrich_dir <- file.path(x, "enrich")
   report_dir <- file.path(enrich_dir, "report")
-  fix_xls    <- get_fix_xls(x)
-  if(is(fix_xls, "character") & file.exists(fix_xls)) {
-    df <- read_text(fix_xls)
+  fix_csv    <- get_fix_csv(x)
+  if(is(fix_csv, "character") & file.exists(fix_csv)) {
+    df <- read_text(fix_csv)
   } else {
     msg <- paste0("`transcripts_deseq2.fix.xls` not found in `x`, ", x)
     warning(msg)
@@ -511,13 +512,13 @@ read_deseq_csv <- function(x, fc_cutoff = 2, pval_cutoff = 0.05,
     warning("'x' required data.frame")
     return(NULL)
   }
-  data <- readr::read_csv(x) %>%
+  data <- readr::read_csv(x, show_col_types = F) %>%
     deseq_csv_mean %>%
     get_sig_gene(fc_cutoff = fc_cutoff, pval_cutoff = pval_cutoff)
   # Add symbol, entrezid
   if(is.character(organism) && isTRUE(readable)) {
-    keytype <- guess_keytype(data$Gene, organism = organism)
-    df_gene <- convert_id(data$Gene,
+    keytype <- guess_keytype(as.character(data$Gene), organism = organism)
+    df_gene <- convert_id(as.character(data$Gene),
                           from_keytype = keytype,
                           to_keytype   = c("ENTREZID", "SYMBOL"),
                           organism     = organism)
@@ -655,12 +656,13 @@ get_sig_gene <- function(data, fc_cutoff = 2, pval_cutoff = 0.05,
 #'
 #' @export
 make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
-  fix_xls <- get_fix_xls(x)
-  if(is.null(fix_xls)) {
+  fix_csv <- get_fix_csv(x)
+  if(is.null(fix_csv)) {
     on.exit(paste0("not a a.vs.b directory: ", x))
   }
   # prepare data
-  df <- readr::read_delim(fix_xls, "\t", col_types = readr::cols())
+  # df <- readr::read_delim(fix_csv, "\t", col_types = readr::cols())
+  df <- readr::read_csv(fix_csv)
   if("symbol" %in% names(df)) {
     df$label <- df$symbol
   } else if("SYMBOL" %in% names(df)) {
@@ -800,11 +802,11 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
 
 
 
-#' #' @describeIn get_fix_xls Parsing the fix.xls file from DESeq2
+#' #' @describeIn get_fix_csv Parsing the fix.xls file from DESeq2
 #' #'
 #' #'
 #' #' @export
-#' get_fix_xls <- function(x) {
+#' get_fix_csv <- function(x) {
 #'   if(is.character(x)) {
 #'     x <- x[1]
 #'   } else {
@@ -826,31 +828,31 @@ make_publish_plots <- function(x, outdir = NULL, to_pdf = TRUE) {
 #'   pd        <- read_hiseq(x)
 #'   organism  <- pd$args$genome
 #'   deseq_dir <- pd$args$deseq_dir
-#'   fix_xls   <- file.path(deseq_dir, "transcripts_deseq2.fix.xls")
+#'   fix_csv   <- file.path(deseq_dir, "transcripts_deseq2.fix.xls")
 #'   de_csv    <- file.path(deseq_dir, "transcripts_deseq2.csv")
 #'   # convert csv to xls
-#'   if(! file.exists(fix_xls)) {
+#'   if(! file.exists(fix_csv)) {
 #'     message("Fix deseq csv: add mean, symbol, sig")
 #'     fix_df <- read_deseq_csv(de_csv, fc_cutoff = 2, pval_cutoff = 0.05,
 #'                              readable = TRUE, organism = organism)
-#'     readr::write_delim(fix_df, fix_xls, delim = "\t", col_names = TRUE)
+#'     readr::write_delim(fix_df, fix_csv, delim = "\t", col_names = TRUE)
 #'   }
 #'   # output
-#'   if(file.exists(fix_xls)) {
-#'     fix_xls
+#'   if(file.exists(fix_csv)) {
+#'     fix_csv
 #'   } else {
-#'     stop(paste0("fix_xls file not found: ", x))
+#'     stop(paste0("fix_csv file not found: ", x))
 #'   }
 #' }
 
 
 
-#' @describeIn get_fix_xls Parsing the fix.xls file from DESeq2
+#' @describeIn get_fix_csv Parsing the fix.xls file from DESeq2
 #'
 #' @param x character, path to the a.vs.b, rnaseq_rx directory
 #'
 #' @export
-get_fix_xls <- function(x) {
+get_fix_csv <- function(x) {
   if(! is_hiseq_dir(x, "rnaseq_rx")) {
     stop(glue::glue("rnaseq_rx dir expected, failed: {x}"))
   }
@@ -858,19 +860,19 @@ get_fix_xls <- function(x) {
   if(is_hiseq_dir(x[1], "rnaseq_rx")) {
     organism  <- list_hiseq_file(x, "genome", "rnaseq_rx")
     deseq_dir <- list_hiseq_file(x, "deseq_dir", "rnaseq_rx")
-    fix_xls   <- file.path(deseq_dir, "transcripts_deseq2.fix.xls")
+    fix_csv   <- file.path(deseq_dir, "transcripts_deseq2.fix.csv")
     de_csv    <- file.path(deseq_dir, "transcripts_deseq2.csv")
-    # convert csv to fix_xls
-    if(! file.exists(fix_xls)) {
+    # convert csv to fix_csv
+    if(! file.exists(fix_csv)) {
       if(file.exists(de_csv)) {
         message("Fix deseq csv: add mean, symbol, sig")
         fix_df <- read_deseq_csv(de_csv, fc_cutoff = 2, pval_cutoff = 0.05,
                                  readable = TRUE, organism = organism)
-        readr::write_delim(fix_df, fix_xls, delim = "\t", col_names = TRUE)
+        readr::write_delim(fix_df, fix_csv, delim = "\t", col_names = TRUE)
       }
     }
-    if(file.exists(fix_xls)) {
-      fix_xls
+    if(file.exists(fix_csv)) {
+      fix_csv
     } else {
       warning("`x` transcript_deseq2.fix.xls file not exists")
     }

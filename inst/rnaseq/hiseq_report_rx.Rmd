@@ -59,7 +59,7 @@ if(! is_hiseq_dir(input_dir, "rnaseq_rx")) {
 
 ## Config data
 
-```{r config, eval = T, results = "asis"}
+```{r config}
 # check paired
 is_paired <- all(list_hiseq_file(input_dir, "is_paired", "r1"))
 n_samples <- length(list_hiseq_file(input_dir, "smp_name", "_r1"))
@@ -69,32 +69,35 @@ gtf       <- list_hiseq_file(input_dir, "gene_gtf", "_rx")
 wt_name   <- list_hiseq_file(input_dir, "wt_name", "_rx")
 mut_name  <- list_hiseq_file(input_dir, "mut_name", "_rx")
 project_name <- list_hiseq_file(input_dir, "project_name", "_rx")
+aligner   <- list_hiseq_file(input_dir, "aligner")
+is_star   <- aligner %in% c("STAR", "hisat2")
 
 msg <- glue::glue(
-  "Configuration:",
-  "   wildtype: {wt_name}",
-  "     mutant: {mut_name}",
-  "     genome: {genome}",
-  " paired-end: {is_paired}",
+  "Configuration: ",
+  "   wildtype: {wt_name} ",
+  "     mutant: {mut_name} ",
+  "     genome: {genome} ",
+  " paired-end: {is_paired} ",
+  "    aligner: {aligner} ",
   "project_dir: {project_name}",
   .sep = "\n"
 )
 print(msg)
 ```
 
-```{r plot_data}
-df_trim_stat  <- read_hiseq_trim_stat(input_dir)
-df_align_stat <- read_hiseq_align_stat(input_dir)
+```{r plot_data, eval = is_star}
+df_trim  <- read_hiseq_trim_stat(input_dir)
+df_align <- read_hiseq_align_stat(input_dir)
 ```
 
 
-```{r loading data}
-pd <- hiseq_summary(input_dir, "auto")
+```{r loading data, eval = is_star}
+pd <- hiseq_summary(input_dir, TRUE)
 
 # summary
 n_smp      <- length(list_hiseq_file(input_dir, "rep_list", "auto"))
 if(inherits(pd$align, "data.frame") & inherits(pd$align, "data.frame")) {
-  total      <- df_trim %>% pull(input) %>% sum()
+  total      <- df_align %>% pull(total) %>% sum()
   map        <- df_align %>% pull(map) %>% sum()
   map_pct    <- round(map / total * 100, 2) %>% sum()
   unique_m   <- df_align %>% pull(unique) %>% sum()
@@ -110,22 +113,7 @@ if(inherits(pd$align, "data.frame") & inherits(pd$align, "data.frame")) {
 
 ## 1 Summary
 
-```{r summary, results="asis"}
-# if(is(df_align_stat, "data.frame")) {
-#   total      <- df_align_stat %>% pull(total) %>% mean()
-#   map        <- df_align_stat %>% pull(map) %>% mean()
-#   map_pct    <- round(map / total * 100, 1) %>% mean()
-#   unique_m   <- df_align_stat %>% pull(unique) %>% mean()
-#   unique_pct <- round(unique_m / total * 100, 1) %>% mean()
-#   total    <- round(total / 1e6, 1) # Million
-#   map      <- round(map / 1e6, 1) # Million
-#   unique_m <- round(unique_m / 1e6, 1) # Million
-#   sum_text <- glue::glue("A total of {n_samples} samples; {total}M sequencing depth; ",
-#                          "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
-#                          "{unique_m}M ({unique_pct}%) unique mapped.")
-#   
-#   print(sum_text)
-# }
+```{r summary, results="asis", eval = is_star}
 sum_text <- glue::glue(
   "A total of {n_samples} samples; {total}M sequencing depth; ",
   "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
@@ -139,7 +127,7 @@ print(sum_text)
 
 ### 2.1 Table 1. Trimming reads
 
-```{r}
+```{r, eval = is_star}
 if(inherits(pd$trim, "data.frame")) {
   pd$trim %>%
     dplyr::select(name, input, output, out_pct, rm_pct) %>%
@@ -150,7 +138,7 @@ if(inherits(pd$trim, "data.frame")) {
 }
 ```
 
-```{r figure1_trim_reads, fig.height=3, fig.width=6}
+```{r figure1_trim_reads, fig.height=3, fig.width=6, eval = is_star}
 if(inherits(pd$trim, "data.frame")) {
   plot_hiseq_trim(pd$trim)
 }
@@ -159,7 +147,7 @@ if(inherits(pd$trim, "data.frame")) {
 
 ### 2.2 Table 2. Mapping reads
 
-```{r}
+```{r, eval = is_star}
 if(inherits(pd$align, "data.frame")) {
   pd$align %>%
     dplyr::select(name, total, map, unmap) %>%
@@ -168,7 +156,7 @@ if(inherits(pd$align, "data.frame")) {
 }
 ```
 
-```{r figure1_align_reads, fig.height=3, fig.width=6}
+```{r figure1_align_reads, fig.height=3, fig.width=6, eval = is_star}
 if(inherits(pd$align, "data.frame")) {
   plot_hiseq_align(pd$align, columns = c("map", "rRNA", "unmap"))
 }
@@ -176,7 +164,7 @@ if(inherits(pd$align, "data.frame")) {
 
 + unique and multiple mapping reads
 
-```{r}
+```{r, eval = is_star}
 if(inherits(pd$align, "data.frame")) {
 pd$align %>%
   dplyr::select(name, total, unique, multi, unmap) %>%
@@ -185,7 +173,7 @@ pd$align %>%
 }
 ```
 
-```{r unique_multi_reads, fig.height=3, fig.width=6}
+```{r unique_multi_reads, fig.height=3, fig.width=6, eval = is_star}
 if(inherits(pd$align, "data.frame")) {
 plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
 }
@@ -203,10 +191,10 @@ For strand-specific library
 | sens | anti | library | example | 
 | -- | -- | -- | -- |
 | -s 1 | -s 2 | `read1: ++ -- / read2: -- ++` | - | 
-| -s 2 | -s 1 | `read1: +- ++ / read2: +- -+` | dUTP library, NSR library |
+| -s 2 | -s 1 | `read1: +- -+ / read2: +- -+` | dUTP library, NSR library |
 
 
-```{r lib type, results="asis"}
+```{r lib type, results="asis", eval = is_star}
 lib1 = "read1: ++ -- / read2: -- ++"
 lib2 = "read1: +- -+ / read2: +- -+"
 lib3 = "read1, read2, non-strand-specific"
@@ -224,7 +212,7 @@ if(length(f) > 0) {
 
 ### 2.4 Quantification
 
-```{r, results="asis"}
+```{r, results="asis", eval = is_star}
 msg <- tryCatch(
   {
     glue::glue(
@@ -242,7 +230,7 @@ print(msg)
 ```
 **na**, indicate the `Not Assigned reads`.
 
-```{r table2_sens_summary}
+```{r table2_sens_summary, eval = is_star}
 p4 <- plot_rnaseq_featureCounts(input_dir)
 if(is(p4, "ggplot")) {
   # show table
@@ -256,7 +244,7 @@ if(is(p4, "ggplot")) {
 
 
 **na**, indicate the `Not Assigned reads`.
-```{r count strand, fig.height=3, fig.width=6}
+```{r count strand, fig.height=3, fig.width=6, eval = is_star}
 print(p4)
 ```
 
@@ -269,7 +257,7 @@ print(p4)
 
 #### 3 Correlation - heatmap
 
-```{r}
+```{r, eval = is_star}
 g1 <- list_hiseq_file(input_dir, "genebody_enrich_png", "_rx")
 g2 <- list_hiseq_file(input_dir, "bam_cor_pca_png", "_rn")
 g3 <- list_hiseq_file(input_dir, "bam_cor_heatmap_png", "_rn")
@@ -286,7 +274,7 @@ if(length(g) > 0) {
 
 ### 3.1 Info
 
-```{r , results="asis"}
+```{r}
 msg <- glue::glue(
   "Configuration:",
   " Compare: log2( {mut_name} / {wt_name} )",
@@ -296,7 +284,7 @@ msg <- glue::glue(
   "  mutant: {mut_name}",
   "quantification: featureCounts (v2.0.0)",
   "DE analysis: DESeq2 (v1.30.1)",
-  "cutoff: pajd < 0.05 and |log2fc| >= 1",
+  "cutoff: padj < 0.05 and |log2fc| >= 1",
   .sep = "\n")
 print(msg)
 ```
@@ -381,11 +369,12 @@ Here are the numbers of significant changed genes, criteria: `foldChange >= 2, p
 
 ```{r parsing de table}
 get_deseq_sig_table(df_list) %>%
+  filter(sample == "apeglm") %>%
   hiseqr::to_DT()
 ```
 
-```{r, fig.width = 7, fig.height = 5}
-get_deseq_sig_plot(df_list)
+```{r, fig.width = 4, fig.height = 4}
+get_deseq_sig_plot(df_list['apeglm'])
 ```
 
 
@@ -409,14 +398,19 @@ sig_gene_list <- function(sig_type = "up") {
 }
 
 ## shrink
-hiseqr::to_DT(sig_gene_list("up"), 4)
+sig_gene_list("up") %>%
+  filter(shrink == "apeglm") %>%
+  hiseqr::to_DT(4)
 ```
 
 
 ### 3.4 Down-regulated genes
 
 ```{r}
-hiseqr::to_DT(sig_gene_list("down"), 4)
+## shrink
+sig_gene_list("down") %>%
+  filter(shrink == "apeglm") %>%
+  hiseqr::to_DT(4)
 ```
 
 
@@ -451,8 +445,9 @@ patchwork::wrap_plots(p_list, nrow = 1, guides = "collect")
 
 ### 4.4 MA plot
 
-```{r, fig.width = 7, fig.height = 7}
-p_list <- lapply(names(res_lfc), function(i) {
+```{r, fig.width = 8, fig.height = 4}
+# p_list <- lapply(names(res_lfc), function(i) {
+p_list <- lapply("apeglm", function(i) {
   p <- deseq_qc_ma(deseq_dir, outdir = deseq_dir, shrink_method = i) +
     ggtitle(glue::glue("shrink: {i}"))
   deseq_qc_add_sig_label(p)
@@ -462,8 +457,9 @@ patchwork::wrap_plots(p_list, ncol = 2, guides = "collect")
 
 ### 4.5 Volcano plot
 
-```{r, fig.width = 7, fig.height = 7}
-p_list <- lapply(names(res_lfc), function(i) {
+```{r, fig.width = 8, fig.height = 4}
+# p_list <- lapply(names(res_lfc), function(i) {
+p_list <- lapply("apeglm", function(i) {
   p <- deseq_qc_volcano(deseq_dir, outdir = deseq_dir, shrink_method = i) +
     ggtitle(glue::glue("shrink: {i}"))
   deseq_qc_add_sig_label(p)
@@ -473,8 +469,9 @@ patchwork::wrap_plots(p_list, ncol = 2, guides = "collect")
 
 ### 4.6 Scatter plot
 
-```{r, fig.width = 8, fig.height = 7}
-p_list <- lapply(names(res_lfc), function(i) {
+```{r, fig.width = 8, fig.height = 4}
+# p_list <- lapply(names(res_lfc), function(i) {
+p_list <- lapply("apeglm", function(i) {
   p <- deseq_qc_scatter(deseq_dir, outdir = deseq_dir, shrink_method = i) +
     ggtitle(glue::glue("shrink: {i}"))
   deseq_qc_add_sig_label(p)

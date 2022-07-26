@@ -57,7 +57,7 @@ rnaseq_salmon_hub <- function(x, ...) {
   mut_name  <- list_hiseq_file(x, "mut_name", "rx") # pd$args$mut_name
   deseq_dir <- list_hiseq_file(x, "deseq_dir", "rx")
   genome    <- list_hiseq_file(x, "genome", "rx")
-  fix_xls   <- list_hiseq_file(x, "deseq_fix_xls", "rx")
+  fix_csv   <- list_hiseq_file(x, "deseq_fix_csv", "rx")
   # check tx2gene
   salmon_index <- list_hiseq_file(x, "salmon_index", "rx")
   if(is(salmon_index, "character")) {

@@ -385,7 +385,8 @@ load_config <- function(x) {
         pd <- reticulate::import("pandas")
         pd$read_pickle(x)
       } else if(endsWith(x, ".yaml")) {
-        yaml::read_yaml(x, )
+        # yaml::read_yaml(x, )
+        yaml::read_yaml(x, handlers = list(int = function(x) bit64::as.integer64(x))) # support large INT
       } else if(endsWith(x, ".json")) {
         jsonlite::read_json(x)
       } else {

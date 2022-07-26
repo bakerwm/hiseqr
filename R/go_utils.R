@@ -117,14 +117,17 @@ get_organism_name <- function(x, group = "organism") {
                "homo_sapiens", "homo sapiens")
   mm_name <- c("mm", "mm9", "mm10", "GRCm38", "mouse", "mus_musculus",
                "mus musculus")
+  pig_name <- c("pig", "susScr11", "Sus scrofa")
   sup_org1 <- data.frame(
     organism = c(rep("Drosophila melanogaster",
                      times = length(dm_name)),
                  rep("Homo sapiens",
                      times = length(hs_name)),
                  rep("Mus musculus",
-                     times = length(mm_name))),
-    name     = c(dm_name, hs_name, mm_name))
+                     times = length(mm_name)),
+                 rep("Sus scrofa",
+                     times = length(pig_name))),
+    name     = c(dm_name, hs_name, mm_name, pig_name))
   # AnnotationDbi supported organism
   sup_org2 <- Organism.dplyr::supportedOrganisms()
   # Convert to scientific name

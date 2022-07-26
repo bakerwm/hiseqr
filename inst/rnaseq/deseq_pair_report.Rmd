@@ -14,8 +14,9 @@ output:
   pdf_document:
     toc: yes
 params:
-  dirA: ""
-  dirB: ""
+  x: ""
+  y: ""
+  shrink_method: "apeglm"
 ---
 
 ```{r setup, include=FALSE}
@@ -38,6 +39,7 @@ knitr::opts_chunk$set(fig.width  = 12,
 
 
 ```{r load pkg}
+library(DESeq2)
 library(hiseqr)
 library(knitr)
 library(ggplot2)
@@ -49,6 +51,7 @@ library(ggvenn)
 library(RColorBrewer)
 library(ggalluvial)
 library(patchwork)
+library(ggthemes)
 ```
 
 
@@ -57,206 +60,219 @@ library(patchwork)
 # feature <- "gene"
 # dirA    <- "../data/rnaseq_0310/shWhite_6h.vs.shAub-shAgo3_6h/"
 # dirB    <- "../data/rnaseq_0310/shWhite_6h.vs.shPiwi-1_6h/"
-dirA <- params$dirA
-dirB <- params$dirB
+x <- params$x
+y <- params$y
+shrink_method <- params$shrink_method
 
+# x <- "/data/yulab/wangming/work/yu_2021/piwi_lxh/results/hiseq/RNAseq/Da/salmon/RNAseq_Da_shWhite_12h.vs.RNAseq_Da_shCG3893_12h"
+# y <- "/data/yulab/wangming/work/yu_2021/piwi_lxh/results/hiseq/RNAseq/Da/salmon/RNAseq_Da_shWhite_12h.vs.RNAseq_Da_shPiwi_12h"
+# shrink_method <- "apeglm"
 ## check
-if(hiseqr::is_deseq_single_dir(dirA) & hiseqr::is_deseq_single_dir(dirB)) {
-  message("Compare deseq_dir")
-} else {
-  stop("deseq_singl expected, failed")
+if(!all(is_hiseq_dir(c(x, y), "rnaseq_rx"))) {
+  stop("not rnaseq_rx dir")
 }
 ```
 
 
 ```{r}
-pd <- hiseqr::read_deseq_pair(dirA, dirB, "gene")
-# save to file
-rds_gene <- "deseq_pair.gene.rds"
-saveRDS(pd, rds_gene)
+pd_rds <- "Figures/deseq_pair.rds"
+if(file.exists(pd_rds)) {
+  pd <- readRDS(pd_rds)
+} else {
+  pd <- read_deseq_pair(x, y, shrink_method = shrink_method)
+  if(! dir.exists(dirname(pd_rds))) {
+    dir.create(dirname(pd_rds))
+  }
+  saveRDS(pd, pd_rds)
+}
 ```
 
 ## Note
 
-```{r}
-msg <- glue::glue("Sample info:
-                  GroupA: {basename(pd$dirA)}
-                  GroupB: {basename(pd$dirB)}")
+```{r, results='asis'}
+msg <- glue::glue("Sample info",
+                  "GroupA: {pd$x_smpname}",
+                  "GroupB: {pd$y_smpname}",
+                  "shrink_method: {shrink_method}")
 print(msg)
 ```
 
-## 1 Gene
-
-## 1.1 Number of significant changed genes
+## 1. Overall
 
 ```{r}
-ps <- hiseqr::deseq_pair_stat(.pd_rds = rds_gene, feature = "gene")
-hiseqr::get_DT_table(ps$sig_count_table, 1)
+px <- stat_deseq_pair(x, y, .pd_rds = pd_rds, keep_not_sig = FALSE,
+                      shrink_method = shrink_method, group = "all")
+```
+
+## 2.1 Number of significant changed genes
+
+```{r}
+hiseqr::to_DT(px$df1)
 ```
 
 ## 1.2 Overlap between groups
 
 ```{r, fig.width = 10, fig.height = 4}
-po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_gene) # 
-po$merge
+p1 <- plot_overlap_deseq_pair(.pd_rds = pd_rds, group = "all")
+p1$merge
 ```
 
-## 1.3 Overlap between sig genes
 
-```{r, fig.width = 10, fig.height = 6}
-po$up_down
-```
-
-## 1.4 Heatmap - sig genes
-
-```{r, fig.width = 5, fig.height = 8}
-hiseqr::deseq_pair_heatmap(.pd_rds = rds_gene)
-```
-
-## 1.5 Alluvial - sig genes
-
-```{r, fig.width = 6, fig.height = 4}
-hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_gene)
-```
-
-## 1.6 Sig gene patterns
+## 2 Gene
 
 ```{r}
-df2 <- ps$sig_list %>%
-  dplyr::group_by(trend) %>%
-  dplyr::summarise(count = n())
-
-hiseqr::get_DT_table(df2, 1)
+px <- stat_deseq_pair(x, y, .pd_rds = pd_rds, keep_not_sig = FALSE,
+                      shrink_method = shrink_method, group = "gene")
 ```
 
-## 1.7 Sig gene list
+
+## 2.1 Number of significant changed genes
 
 ```{r}
-df3 <- ps$sig_list %>%
-  dplyr::mutate(symbol = hiseqr::gene_to_symbol(Gene, "dm3", "SYMBOL"))
-
-hiseqr::get_DT_table(df3, 1, pageLength = 20)
+hiseqr::to_DT(px$df1)
 ```
 
-
-## 2 TE
-
-## 2.1 Number of significant changed TEs
-
-```{r}
-pd     <- hiseqr::read_deseq_pair(dirA, dirB, "te")
-rds_te <- "deseq_pair.te.rds"
-saveRDS(pd, rds_te)
-ps     <- hiseqr::deseq_pair_stat(.pd_rds = rds_te)
-hiseqr::get_DT_table(ps$sig_count_table, 1)
-```
-
-## 2.2 Compare TE expression
-
-GroupB_exp was normalized by GroupA_ctl.
-
-```{r, fig.width = 5, fig.height = 10}
-hiseqr::deseq_pair_heatmap_te(dirA, dirB)
-```
-
-## 2.3 Overlap between groups
+## 2.2 Overlap between groups
 
 ```{r, fig.width = 10, fig.height = 4}
-po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_te) # 
-po$merge
+p1 <- plot_overlap_deseq_pair(.pd_rds = pd_rds, group = "gene")
+p1$merge
 ```
 
-## 2.4 Overlap between sig TEs
-
-```{r, fig.width = 10, fig.height = 6}
-po$up_down
-```
-
-## 2.5 Heatmap - sig TEs
+## 2.3 Heatmap - sig genes
 
 ```{r, fig.width = 5, fig.height = 8}
-hiseqr::deseq_pair_heatmap(.pd_rds = rds_te)
+plot_heatmap_deseq_pair(.pd_rds = pd_rds, group = "gene")
 ```
 
-## 2.6 Alluvial - sig TEs
+## 2.4 Alluvial - sig genes
 
 ```{r, fig.width = 6, fig.height = 4}
-hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_te)
+plot_alluvial_deseq_pair(.pd_rds = pd_rds, group = "gene")
 ```
 
-## 2.7 Sig gene patterns
+## 2.5 Sig gene patterns
 
 ```{r}
-df2 <- ps$sig_list %>%
+df2 <- px$df3 %>%
   dplyr::group_by(trend) %>%
   dplyr::summarise(count = n())
-
-hiseqr::get_DT_table(df2, 1)
+hiseqr::to_DT(df2)
 ```
 
-## 2.8 Sig gene list
+## 2.6 Sig gene list
 
 ```{r}
-df3 <- ps$sig_list 
-hiseqr::get_DT_table(df3, 1, pageLength = 20)
+df3a <- px$pd$x_res %>%
+  dplyr::select(gene_id, SYMBOL) %>%
+  dplyr::mutate(across(everything(), as.character))
+df3  <- dplyr::left_join(df3a, px$df2, by = "gene_id")
+hiseqr::to_DT(df3, 1, pageLength = 20)
 ```
 
 
-## 3 piRNA cluster
-
-## 3.1 Number of significant changed piRNA cluster
+## 3 TE
 
 ```{r}
-pd     <- hiseqr::read_deseq_pair(dirA, dirB, "piRNA_cluster")
-rds_pi <- "deseq_pair.te.rds"
-saveRDS(pd, rds_pi)
-ps     <- hiseqr::deseq_pair_stat(.pd_rds = rds_pi)
-hiseqr::get_DT_table(ps$sig_count_table, 1)
+px <- stat_deseq_pair(x, y, .pd_rds = pd_rds, keep_not_sig = FALSE,
+                      shrink_method = shrink_method, group = "te")
+```
+
+## 3.1 Number of significant changed genes
+
+```{r}
+hiseqr::to_DT(px$df1)
 ```
 
 ## 3.2 Overlap between groups
 
 ```{r, fig.width = 10, fig.height = 4}
-po <- hiseqr::deseq_pair_overlap_plot(.pd_rds = rds_pi) # 
-po$merge
+p1 <- plot_overlap_deseq_pair(.pd_rds = pd_rds, group = "te")
+p1$merge
 ```
 
-## 3.3 Overlap between sig piRNA cluster
-
-```{r, fig.width = 10, fig.height = 6}
-po$up_down
-```
-
-## 3.4 Heatmap - sig piRNA cluster
+## 3.3 Heatmap - sig genes
 
 ```{r, fig.width = 5, fig.height = 8}
-hiseqr::deseq_pair_heatmap(.pd_rds = rds_pi)
+plot_heatmap_deseq_pair(.pd_rds = pd_rds)
 ```
 
-## 3.5 Alluvial - sig piRNA cluster
+## 3.4 Alluvial - sig genes
 
 ```{r, fig.width = 6, fig.height = 4}
-hiseqr::deseq_pair_alluvial_plot(.pd_rds = rds_pi)
+plot_alluvial_deseq_pair(.pd_rds = pd_rds, group = "te")
 ```
 
-## 3.6 Sig gene patterns
+## 3.5 Sig gene patterns
 
 ```{r}
-df2 <- ps$sig_list %>%
+df2 <- px$df3 %>%
   dplyr::group_by(trend) %>%
   dplyr::summarise(count = n())
-
-hiseqr::get_DT_table(df2, 1)
+hiseqr::to_DT(df2)
 ```
 
-## 3.7 Sig gene list
+## 3.6 Sig gene list
 
 ```{r}
-df3 <- ps$sig_list 
-hiseqr::get_DT_table(df3, 1, pageLength = 20)
+df3a <-  px$pd$x_res %>%
+  dplyr::select(gene_id, SYMBOL) %>%
+  dplyr::mutate(across(everything(), as.character))
+df3  <- dplyr::left_join(df3a, px$df2, by = "gene_id")
+hiseqr::to_DT(df3, 1, pageLength = 20)
 ```
 
 
+## 4 piRNA clusters
+
+```{r}
+px <- stat_deseq_pair(x, y, .pd_rds = pd_rds, keep_not_sig = FALSE,
+                      shrink_method = shrink_method, group = "cluster")
+```
+
+## 4.1 Number of significant changed genes
+
+```{r}
+hiseqr::to_DT(px$df1)
+```
+
+## 4.2 Overlap between groups
+
+```{r, fig.width = 10, fig.height = 4}
+p1 <- plot_overlap_deseq_pair(.pd_rds = pd_rds, group = "cluster")
+p1$merge
+```
+
+## 4.3 Heatmap - sig genes
+
+```{r, fig.width = 5, fig.height = 8}
+plot_heatmap_deseq_pair(.pd_rds = pd_rds)
+```
+
+## 4.4 Alluvial - sig genes
+
+```{r, fig.width = 6, fig.height = 4}
+plot_alluvial_deseq_pair(.pd_rds = pd_rds, group = "cluster")
+```
+
+## 4.5 Sig gene patterns
+
+```{r}
+df2 <- px$df3 %>%
+  dplyr::group_by(trend) %>%
+  dplyr::summarise(count = n())
+hiseqr::to_DT(df2)
+```
+
+## 4.6 Sig gene list
+
+```{r}
+df3a <-  px$pd$x_res %>%
+  dplyr::select(gene_id, SYMBOL) %>%
+  dplyr::mutate(across(everything(), as.character))
+df3  <- dplyr::left_join(df3a, px$df2, by = "gene_id")
+hiseqr::to_DT(df3, 1, pageLength = 20)
+```
 
 
 **END**

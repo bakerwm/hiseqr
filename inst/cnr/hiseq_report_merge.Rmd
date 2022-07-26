@@ -165,7 +165,7 @@ p1 <- plot_hiseq_align(pd$align,
                        add_label = TRUE) + 
   theme(legend.position = "none")
 p2 <- plot_hiseq_peak(pd$peak, hiseq_type = TRUE)
-patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 2)) + 
+patchwork::wrap_plots(p1, p2, ncol = 1, heights = c(1, 1)) + 
   patchwork::plot_layout(guides = "collect")
 ```
 
@@ -197,7 +197,7 @@ plot_hiseq_frip(pd$frip)
 
 The insert size distribution of sequenced fragments from human chromatin had clear periodicity of approximately 200 bp, suggesting many fragments are protected by integer multiples of nucleosomes.
 
-```{r figure3_fragment_length, fig.height=plot_height, fig.width=8}
+```{r figure3_fragment_length, fig.height=plot_height*1.5, fig.width=8}
 plot_hiseq_lendist(pd$lendist, hiseq_type = TRUE)
 ```
 

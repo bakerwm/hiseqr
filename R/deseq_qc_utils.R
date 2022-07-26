@@ -59,6 +59,7 @@ deseq_qc_dds <- function(x = NULL, ...) {
       return_data <- "dds"
     }
   }
+  #----------------------------------------------------------------------------#
   #-- Check: x, DESeqDataSeq
   res <- NULL
   if(is_hiseq_dir(x, "deseq_deseq2")) {
@@ -71,12 +72,19 @@ deseq_qc_dds <- function(x = NULL, ...) {
   } else if(inherits(x, "DESeqDataSet")) {
     # message("run `vst()` and `rlog()` might takes too long, \n",
     #         "set `outdir` to deseq_deseq2 directory, will speed up")
-    res <- run_deseq_res(x, outdir = outdir, shrink = FALSE) #
+    res <- run_deseq_res(x, outdir = outdir, shrink = TRUE) #
+  } else if(dir.exists(x)) {
+    dds_rds <- file.path(x, "DESeq2_dds.rds")
+    if(file.exists(dds_rds)) {
+      dds <- readRDS(dds_rds)
+      res <- run_deseq_res(dds, outdir = outdir, shrink = TRUE)
+    }
   } else {
     warning(glue::glue(
       "x is '{class(x)}, expect 'DESeqDataSet', deseq_deseq2 dir"
     ))
   }
+  #----------------------------------------------------------------------------#
   #-- output
   if(inherits(res, "list")) {
     res[[return_data]]
@@ -247,7 +255,29 @@ deseq_qc_res <- function(x, ...) {
       "ignore 'shrink_method={shrink_method}'"
     ))
     df <- x
-  } else if(is_hiseq_dir(x, hiseq_type = "deseq_deseq2")) {
+  # } else if(dir.exists(x)) {
+  #   # 1. dds trans; log2, normalized
+  #   dt_list <- deseq_qc_dds(x, return_data = "dds_trans") #log2
+  #   dt <- dt_list[[transform_method]] # dds_trans
+  #   if(is.null(dt)) {
+  #     warning("unknown x, `deseq_qc_res()` failed; `dds_trans` not found")
+  #     return(NULL)
+  #   }
+  #   # 2. results table, fc, pvalue
+  #   res <- deseq_qc_dds(x, return_data = "res_lfc")
+  #   dr <- res[[shrink_method]] # dds_res
+  #   if(is.null(dr)) {
+  #     warning("unknown x, `deseq_qc_res()` failed; `res_lfc` not found")
+  #     return(NULL)
+  #   }
+  #   # 3. combine tables
+  #   dt_count <- 2^assay(dt)
+  #   dr <- as.data.frame(dr)
+  #   df <- merge(dt_count, dr, by = "row.names" )
+  #   colnames(df)[1] <- "gene_id"
+  #   # 4. mean
+  #   df <- deseq_mean(df) # add mean
+  } else if(dir.exists(x) || is_hiseq_dir(x, hiseq_type = "deseq_deseq2")) {
     # re-create table; see `run_deseq_res()`
     # 1. dds trans; log2, normalized
     dt_list <- deseq_qc_dds(x, return_data = "dds_trans") #log2
@@ -271,10 +301,12 @@ deseq_qc_res <- function(x, ...) {
     # 4. mean
     df <- deseq_mean(df) # add mean
   } else if(inherits(x, "character")) {
-    if(file.exists(x) & endsWith(x, ".fix.csv")) {
-      message(glue::glue(
-        "ignore 'shrink_method={shrink_method}'"
-      ))
+    message(glue::glue(
+      "ignore 'shrink_method={shrink_method}'"
+    ))
+    if(file.exists(file.path(x, "transcripts_deseq2.fix.csv"))) {
+      df <- read.csv(file.path(x, "transcripts_deseq2.fix.csv"))
+    } else if(file.exists(x) & endsWith(x, ".fix.csv")) {
       df <- read.csv(x) # for norm_table.fix.csv
     }
   } else {

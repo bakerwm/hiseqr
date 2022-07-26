@@ -40,6 +40,8 @@ load_hiseq_sheet_dir <- function(x) {
     }
     df <- lapply(f_list, read_hiseq_sheet) %>%
       dplyr::bind_rows() %>%
+      dplyr::mutate(lib_number = fix_hiseq_lib_number(lib_number)) %>%
+      dplyr::arrange(lib_number) %>%
       dplyr::mutate(sampleid = fix_hiseq_sampleid(sampleid))
     # fix user
     df1 <- df %>%
@@ -258,7 +260,11 @@ fix_hiseq_sampleid <- function(x, start = 1) {
 #' @export
 fix_hiseq_lib_number <- function(x) {
   j <- toupper(x)
-  gsub("([A-Z]{2,4})([\\W])?(\\d+)", "\\1\\3", j)
+  num <- stringr::str_extract(j, "\\d+$")
+  num <- stringr::str_pad(num, 4, pad = "0")
+  prefix <- stringr::str_extract(j, "^[A-Z]{2,4}")
+  paste0(prefix, num)
+  # gsub("([A-Z]{2,4})([\\W])?(\\d+)", "\\1\\3", j)
 }
 
 

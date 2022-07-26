@@ -60,7 +60,57 @@ if(! is_hiseq_dir(input_dir, "_rn")) {
 ```
 
 
-```{r loading data}
+```{r}
+# all hiseq dirs
+read_hiseq_align2 <- function(x, raw = FALSE) {
+  b <- list.dirs(x, recursive = FALSE)
+  b <- purrr::keep(b, function(i) is_hiseq_dir(i) & ! is_hiseq_dir(i, "alignment_"))
+  df1 <- lapply(b, read_hiseq_align) %>%
+    dplyr::bind_rows() %>%
+    dplyr::arrange(index)
+  # fix unique/map
+  unique_only <- list_hiseq_file(input_dir, "unique_only")
+  map_col <- ifelse(unique_only, "unique", "map")
+  df2 <- df1 %>%
+    dplyr::select(all_of(c("name", "index", map_col)))
+  names(df2) <- c("name", "index", "count")
+  # fix total, unmap
+  df3 <- data.frame(
+    name = df1[["name"]][1],
+    index = c("total", "unmap"),
+    count = c(dplyr::pull(df1, "total")[1], # first
+              rev(dplyr::pull(df1, "unmap"))[1])
+  )
+  # combine
+  df4 <- dplyr::bind_rows(df2, df3)
+  # output
+  if(isTRUE(raw)) {
+    df1
+  } else {
+    df4
+  }
+}
+
+df1 <- read_hiseq_align2(x, raw = TRUE)
+df4 <- read_hiseq_align2(x, raw = FALSE)
+# %>%
+#   tidyr::pivot_wider(names_from = "index", values_from = "count")
+
+```
+
+```{r}
+n_smp <- 1 # rn
+n_index <- nrow(df1)
+total <- dplyr::pull(df1, "total")[1]
+map   <- dplyr::pull(df1, all_of(map_col)) %>% sum()
+map_pct  <- round(map / total * 100, 2)
+total    <- round(total / 1e6, 2)
+map      <- round(map / 1e6, 2)
+```
+
+
+
+```{r loading data, eval = F}
 pd <- read_hiseq(input_dir)
 df_align <- read_hiseq_align(input_dir)
 
@@ -78,8 +128,8 @@ map      <- round(map / 1e6, 2)
 
 ```{r summary, results="asis"}
 sum_text <- glue::glue(
-  "A total of {n_smp} samples; {total}M sequencing depth ",
-  "with {map}M ({map_pct}%) reads mapped to reference genome; "
+  "A total of {n_smp} samples, to {n_index} indexes; {total}M sequencing depth ",
+  "with {map}M ({map_pct}%) reads mapped to index; "
 )
 print(sum_text)
 ```
@@ -87,10 +137,10 @@ print(sum_text)
 
 ## 2 Results
 
-### 2.1 Table1. Mito Percentage
+### 2.1 Table1. all index
 
 ```{r}
-df_align %>% 
+df4 %>% 
   hiseqr::to_DT()
 ```
 
@@ -99,12 +149,19 @@ df_align %>%
 + Map percentage
 
 ```{r figure1_align_reads, out.width = "100%", fig.height=3}
-plot_hiseq_align(input_dir, columns = c("map", "unmap"))
+# plot_hiseq_align(input_dir, columns = c("map", "unmap"))
+df4 %>%
+  dplyr::filter(! index == "total") %>%
+  bar_plot(x = "count", y = "name", direction = "horizontal", label = NA, 
+           fill = "index", position = "fill") + 
+    fishualize::scale_fill_fish(discrete = TRUE, option = "Trimma_lantana")
+  
+
 ```
 
 + Unique percentage
 
-```{r figure1_unique_reads, out.width = "100%", fig.height=3}
+```{r figure1_unique_reads, out.width = "100%", fig.height=3, eval = F}
 plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
 ```
 

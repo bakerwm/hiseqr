@@ -45,8 +45,9 @@ library(glue)
 ```
 
 ```{r init start, eval = T}
-input_dir  <- params$input_dir
-input_dir  <- normalizePath(input_dir)
+input_dir <- params$input_dir
+# input_dir <- ".."
+input_dir <- normalizePath(input_dir)
 if(! is_hiseq_dir(input_dir, "rnaseq_r1")) {
   stop(paste0("Not a RNAseq single directory, _r1: ", input_dir))
 }
@@ -63,6 +64,8 @@ gtf       <- list_hiseq_file(input_dir, "gene_gtf", "_r1")
 smp_name  <- list_hiseq_file(input_dir, "smp_name", "_r1")
 is_mut    <- list_hiseq_file(input_dir, "is_mut", "_r1")
 project_name <- list_hiseq_file(input_dir, "project_name", "_r1")
+aligner   <- list_hiseq_file(input_dir, "aligner")
+is_star   <- aligner %in% c("STAR", "hisat2")
 
 msg <- glue::glue(
   "   smp_name: {smp_name}; ",
@@ -75,43 +78,38 @@ msg <- glue::glue(
 print(msg)
 ```
 
-
-```{r loading data}
-pd <- summary_hiseq(input_dir, "r1")
-
-# plot data
-df_trim    <- pd$trim
-df_align   <- pd$align
-df_peak    <- pd$peak
-df_frip    <- pd$frip
-df_lendist <- pd$lendist
-
-# summary
-n_smp      <- 1
-total      <- df_trim %>% pull(input)
-map        <- df_align %>% pull(map)
-map_pct    <- round(map / total * 100, 2)
-unique_m   <- df_align %>% pull(unique) %>% mean()
-unique_pct <- round(unique_m / total * 100, 1) %>% mean()
-total      <- round(total / 1e6, 4)
-map        <- round(map / 1e6, 4)
-unique_m   <- round(unique_m / 1e6, 1) # Million
+```{r plot_data, eval = is_star}
+df_trim  <- read_hiseq_trim_stat(input_dir)
+df_align <- read_hiseq_align_stat(input_dir)
 ```
 
 
-```{r plot_data}
-df_trim_stat <- read_hiseq_trim_stat(input_dir)
-df_align_stat <- read_hiseq_align_stat(input_dir)
+```{r loading data, eval = is_star}
+pd <- hiseq_summary(input_dir, TRUE)
+
+# summary
+n_smp      <- length(list_hiseq_file(input_dir, "rep_list", "auto"))
+if(inherits(pd$align, "data.frame") & inherits(pd$align, "data.frame")) {
+  total      <- df_align %>% pull(total) %>% sum()
+  map        <- df_align %>% pull(map) %>% sum()
+  map_pct    <- round(map / total * 100, 2) %>% sum()
+  unique_m   <- df_align %>% pull(unique) %>% sum()
+  unique_pct <- round(unique_m / total * 100, 1)
+  total      <- round(total / 1e6, 2)
+  map        <- round(map / 1e6, 2)
+  unique_m   <- round(unique_m / 1e6, 1) # Million
+} else {
+  total <- map <- unique_m <- 1
+  unique_pct <- map_pct <- 100
+}
 ```
 
 ## 1 Summary
 
-```{r summary, results="asis"}
-sum_text   <- glue::glue(
-  "A total of {n_smp} samples; {total}M sequencing depth; ",
-  "with {map}M ({map_pct}%) reads mapped to reference genome, including",
-  "{unique_m}M ({unique_pct}%) unique mapped."
-)
+```{r summary, results="asis", eval = is_star}
+sum_text <- glue::glue("A total of {n_smp} samples; {total}M sequencing depth; ",
+    "with {map}M ({map_pct}%) reads mapped to reference genome, including ",
+    "{unique_m}M ({unique_pct}%) unique mapped.")
 
 print(sum_text)
 ```
@@ -121,7 +119,7 @@ print(sum_text)
 
 ### 2.1 Table 1. Trimming reads
 
-```{r}
+```{r, eval = is_star}
 pd$trim %>%
   dplyr::select(name, input, output, out_pct, rm_pct) %>%
   dplyr::rename(clean = output, 
@@ -130,35 +128,45 @@ pd$trim %>%
   hiseqr::to_DT()
 ```
 
-```{r figure1_trim_reads, fig.height=3, fig.width=6}
-plot_hiseq_trim(input_dir)
+```{r figure1_trim_reads, fig.height=3, fig.width=6, eval = is_star}
+if(inherits(pd$trim, "data.frame")) {
+  plot_hiseq_trim(pd$trim)
+}
 ```
 
 
 ### 2.2 Table 2. Mapping reads
 
-```{r}
-pd$align %>%
-  dplyr::select(name, total, map, unmap) %>%
-  dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
-  hiseqr::to_DT()
+```{r, eval = is_star}
+if(inherits(pd$align, "data.frame")) {
+  pd$align %>%
+    dplyr::select(name, total, map, unmap) %>%
+    dplyr::mutate(map_pct = round(map / total * 100, 2)) %>%
+    hiseqr::to_DT()
+}
 ```
 
-```{r figure1_align_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("map", "rRNA", "unmap"))
+```{r figure1_align_reads, fig.height=3, fig.width=6, eval = is_star}
+if(inherits(pd$align, "data.frame")) {
+  plot_hiseq_align(pd$align, columns = c("map", "rRNA", "unmap"))
+}
 ```
 
 + unique and multiple mapping reads
 
-```{r}
+```{r, eval = is_star}
+if(inherits(pd$align, "data.frame")) {
 pd$align %>%
   dplyr::select(name, total, unique, multi, unmap) %>%
   dplyr::mutate(unique_pct = round(unique / total * 100, 2)) %>%
   hiseqr::to_DT()
+}
 ```
 
-```{r unique_multi_reads, fig.height=3, fig.width=6}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
+```{r unique_multi_reads, fig.height=3, fig.width=6, eval = is_star}
+if(inherits(pd$align, "data.frame")) {
+plot_hiseq_align(pd$align, columns = c("unique", "multi", "unmap"))
+}
 ```
 
 
@@ -175,32 +183,32 @@ For strand-specific library
 | -s 1 | -s 2 | `read1: ++ -- / read2: -- ++` | - | 
 | -s 2 | -s 1 | `read1: +- -+ / read2: +- -+` | dUTP library, NSR library |
 
-
-```{r lib type, out.width = "100%"}
+```{r lib type, results="asis", eval = is_star}
 lib1 = "read1: ++ -- / read2: -- ++"
 lib2 = "read1: +- -+ / read2: +- -+"
 lib3 = "read1, read2, non-strand-specific"
 
-f <- list_hiseq_file(input_dir, "strandness_json", "_r1")
+f <- list_hiseq_file(input_dir, "strandness_json", "_rn")
 s <- jsonlite::read_json(f)
 a = switch(as.character(s$sense),
-           "0" = {print(lib3)},
-           "1" = {print(lib1)},
-           "2" = {print(lib2)})
+        "0" = {print(lib3)},
+        "1" = {print(lib1)},
+        "2" = {print(lib2)})
 # print(a)
 ```
 
 
 ### 4. Quantification
 
-```{r}
+```{r, eval = is_star}
 log2 <- glue::glue("Count reads on features:
                    Genome: {genome}
                       GTF: {basename(gtf)}")
 print(log2)
 ```
+**na**, indicate the `Not Assigned reads`.
 
-```{r table2_sens_summary}
+```{r table2_sens_summary, eval = is_star}
 p4 <- plot_rnaseq_featureCounts(input_dir)
 # show table
 df4 <- p4$data %>%
@@ -209,10 +217,10 @@ df4 <- p4$data %>%
   dplyr::mutate(sens_pct = round(sense / total * 100, 1),
                 anti_pct = round(anti / total * 100, 1),
                 na_pct   = round(na / total * 100, 1))
-# show table
 hiseqr::to_DT(df4)
 ```
 
+**na**, indicate the `Not Assigned reads`.
 ```{r count strand, fig.height=3, fig.width=6}
 print(p4)
 ```

@@ -209,7 +209,7 @@ fragsize_plot <- function(data, xmin = 0, xmax = 500,
 
 
 
-
+#' deprecated
 #' @describeIn venn_plot Create venn plot using ggVennDiagram
 #'
 #' @param ... list, unique ids for groups
@@ -580,7 +580,19 @@ scatter_plot <- function(data, x, y, labels = NULL, add_label_point = TRUE,
 #'
 #' @export
 scatter_plot2 <- function(data, x, y, ...) {
-  args <- rlang::list2(...)
+  # default values
+  args <- list(
+    highlight_column = "sig",
+    highlight_values = c("up", "down"),
+    label_column     = "label",
+    label_values     = NA, # labels,
+    point_color      = "grey60")
+  dots <- rlang::list2(...)
+  args <- purrr::list_modify(args, !!!dots)
+  #-- update global
+  for(name in names(args)) {
+    assign(name, args[[name]])
+  }
   # density_point <- TRUE
   # point_size  <- 0.3
   # point_color <- "grey30"
@@ -598,7 +610,7 @@ scatter_plot2 <- function(data, x, y, ...) {
   point_size    <- ifelse(rlang::has_name(args, "point_size"),
                           args$point_size, 0.5)
   point_size_highlight <- ifelse(rlang::has_name(args, "point_size_highlight"),
-                          args$point_size_highlight, 2)
+                                 args$point_size_highlight, 2)
   point_color   <- ifelse(rlang::has_name(args, "point_color"),
                           args$point_color, "grey50")
   trans_axis    <- ifelse(rlang::has_name(args, "trans_axis"),
@@ -613,10 +625,10 @@ scatter_plot2 <- function(data, x, y, ...) {
   ymax  <- ifelse(rlang::has_name(args, "ymax"), args$ymax, xmax)
   title <- ifelse(rlang::has_name(args, "title"), args$title, "Scatter")
   # --plot data: pd
-  pd <- prep_scatter_data(data, x, y, ...) # conversion
+  pd <- prep_scatter_data(data, x, y, !!!args) # conversion
   # --main: p0
   p0 <- pd$df_point %>%
-    ggplot(aes_string(as.name(x), as.name(y), label = "is_label"))
+    ggplot(aes_string(as.name(x), as.name(y), label = "SYMBOL"))  # !!! is_label
   # --points to density
   if(isTRUE(density_point)) {
     out <- p0 +
@@ -646,7 +658,7 @@ scatter_plot2 <- function(data, x, y, ...) {
         data = pd$df_label, shape = 16, size = point_size_highlight, # !!!! tmp
         color = "grey30") +
       ggrepel::geom_text_repel(
-        aes_string(as.name(pd$x), as.name(pd$y), label = "is_label"),
+        aes_string(as.name(pd$x), as.name(pd$y), label = "SYMBOL"), # !!! is_label
         data = pd$df_label, inherit.aes = FALSE,
         color              = "black",
         # size               = 3,
@@ -685,7 +697,7 @@ scatter_plot2 <- function(data, x, y, ...) {
     )
   # --theme:
   out <- out +
-    guides(fill = FALSE) + # remove density
+    guides(fill = "none") + # remove density
     ggtitle(title) +
     xlab(pd$xtitle) +
     ylab(pd$ytitle) +
@@ -706,25 +718,35 @@ scatter_plot2 <- function(data, x, y, ...) {
 }
 
 
-
-
 ## helper functions
 prep_scatter_data <- function(data, x, y, ...) {
   # --default args:
-  args <- rlang::list2(...)
+  args <- list(
+    highlight_column = "sig",
+    highlight_values = c("up", "down"),
+    label_column     = "label",
+    label_values     = NA, #labels,
+    point_color      = "grey60")
+  dots <- rlang::list2(...)
+  args <- purrr::list_modify(args, !!!dots)
+  #-- update global
+  for(name in names(args)) {
+    assign(name, args[[name]])
+  }
+  # args <- rlang::list2(...)
   if("trans_axis" %in% names(args)) {
     trans_axis <- args$trans_axis
   } else {
     trans_axis <- "log10"
   }
   highlight_column <- ifelse(
-    "highlight_column" %in% names(args), args$highlight_column, NA)
+    "highlight_column" %in% names(args), args$highlight_column, "sig") #!!! highligth_column
   label_column <- ifelse(
-    "label_column" %in% names(args), args$label_column, NA)
+    "label_column" %in% names(args), args$label_column, "label")
   if("highlight_values" %in% names(args)) {
     highlight_values <- args$highlight_values
   } else {
-    highlight_values <- NA
+    highlight_values <- c("up", "down")
   }
   if("label_values" %in% names(args)) {
     label_values <- args$label_values
@@ -775,9 +797,10 @@ prep_scatter_data <- function(data, x, y, ...) {
   if(highlight_column %in% names(df)) {
     h1 <- df %>%
       dplyr::pull(highlight_column)
-    if(! all(highlight_values %in% h1)) {
-      highlight_values <- NA
-    }
+    highlight_values <- highlight_values[highlight_values %in% h1]
+    # if(! all(highlight_values %in% h1)) {
+    #   highlight_values <- NA
+    # }
   } else {
     highlight_values <- NA
     highlight_column <- NA
@@ -816,9 +839,11 @@ prep_scatter_data <- function(data, x, y, ...) {
     df_label <- NA
   } else {
     df_label <- df %>%
-      dplyr::filter(label %in% label_values)
+      dplyr::filter(label %in% label_values) %>%
+      dplyr::filter(! is.na(!! as.symbol(label_column))) # NA values
   }
   # --update: highlight, remove highlight data
+  df1 <- df
   if(! is.na(highlight_column)) {
     df1 <- df %>%
       dplyr::filter(! (!!as.symbol(highlight_column)) %in% highlight_values)

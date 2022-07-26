@@ -109,10 +109,11 @@ read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
 read_hiseq_trim_stat <- function(x) {
   p_out <- lapply(x, function(i) {
     if(is_hiseq_dir(i)) {
-      j <- list_hiseq_file(i, "trim_summary_json")
+      j <- list_hiseq_file(i, "trim_summary_json", hiseq_type = TRUE)
       tryCatch(
         {
-          as.data.frame(jsonlite::read_json(j))
+          # as.data.frame(jsonlite::read_json(j))
+          read_hiseq_trim_json(j)
         },
         error = function(cond) {
           return(NULL)
@@ -150,7 +151,7 @@ read_hiseq_trim_stat <- function(x) {
 read_hiseq_align_stat <- function(x) {
   p_out <- lapply(x, function(i) {
     if(is_hiseq_dir(i)) {
-      j <- list_hiseq_file(i, "align_summary_json")
+      j <- list_hiseq_file(i, "align_summary_json", hiseq_type = TRUE)
       tryCatch(
         {
           read_hiseq_align_json(j)
@@ -170,6 +171,44 @@ read_hiseq_align_stat <- function(x) {
   # return
   p_out
 }
+
+
+
+#' @describeIn  read_hiseq_trim_json
+#'
+#' Only for r1 directory (atac, ... )
+#' or trim dir
+#' parsing the alignment status
+#'
+#' input: trim_json/trim_stat_json
+#' output: name, total, clean, too_short, too_short2, ...
+#'
+#'
+#' @param x json file
+#'
+#' @import dplyr
+#' @import readr
+#'
+#' @export
+read_hiseq_trim_json <- function(x) {
+  # filtering, only .json file
+  x <- purrr::keep(x, function(i) {
+    file.exists(i) & endsWith(i, ".json")
+  })
+  if(length(x) < 1) {
+    message("failed reading align_json")
+    return(NULL)
+  }
+  lapply(x, function(f) {
+    df <- lapply(f, function(i) {
+      jsonlite::read_json(i) %>%
+        as.data.frame()
+    }) %>%
+      dplyr::bind_rows()
+  }) %>%
+    dplyr::bind_rows()
+}
+
 
 
 #' @describeIn  read_hiseq_align_json

@@ -60,6 +60,59 @@ if(! is_hiseq_dir(input_dir, "_rx")) {
 ```
 
 
+
+```{r}
+# all hiseq dirs
+read_hiseq_align2 <- function(x, raw = FALSE) {
+  b <- list.dirs(x, recursive = FALSE)
+  b <- purrr::keep(b, function(i) is_hiseq_dir(i) & ! is_hiseq_dir(i, "alignment_"))
+  df1 <- lapply(b, read_hiseq_align) %>%
+    dplyr::bind_rows() %>%
+    dplyr::arrange(index)
+  # fix unique/map
+  unique_only <- list_hiseq_file(input_dir, "unique_only")
+  map_col <- ifelse(unique_only, "unique", "map")
+  df2 <- df1 %>%
+    dplyr::select(all_of(c("name", "index", map_col)))
+  names(df2) <- c("name", "index", "count")
+  # fix total, unmap
+  df3 <- data.frame(
+    name = df1[["name"]][1],
+    index = c("total", "unmap"),
+    count = c(dplyr::pull(df1, "total")[1], # first
+              rev(dplyr::pull(df1, "unmap"))[1])
+  )
+  # combine
+  df4 <- dplyr::bind_rows(df2, df3)
+  # output
+  if(isTRUE(raw)) {
+    df1
+  } else {
+    df4
+  }
+}
+
+## rep list
+rep_list <- list_hiseq_file(input_dir, "rep_list")
+df1 <- lapply(rep_list, read_hiseq_align2, raw = TRUE) %>% dplyr::bind_rows()
+df4 <- lapply(rep_list, read_hiseq_align2, raw = FALSE) %>% dplyr::bind_rows()
+df4x <- df4 %>%
+  tidyr::pivot_wider(names_from = "index", values_from = "count")
+
+```
+
+```{r}
+n_smp   <- nrow(df4x) # rn
+n_index <- length(unique(df1$index))
+total   <- dplyr::pull(df4x, "total") %>% sum() %>% round(digits = 1)
+unmap   <- dplyr::pull(df4x, "unmap") %>% sum() %>% round(digits = 1)
+map     <- total - unmap
+map_pct <- round(map / total * 100, 2)
+total   <- round(total / 1e6, 2)
+map     <- round(map / 1e6, 2)
+```
+
+
 ```{r loading data}
 pd <- read_hiseq(input_dir)
 df_align <- read_hiseq_align(input_dir)
@@ -87,13 +140,12 @@ sum_text <- glue::glue(
 print(sum_text)
 ```
 
-
 ## 2 Results
 
-### 2.1 Table1. Mapping stat
+### 2.1 Table1. all index
 
 ```{r}
-df_align %>% 
+df4x %>% 
   hiseqr::to_DT()
 ```
 
@@ -101,13 +153,35 @@ df_align %>%
 
 + Map percentage
 
-```{r figure1_align_reads, fig.width=6, fig.height=plot_height}
-plot_hiseq_align(input_dir, columns = c("map", "unmap"))
+```{r figure1_align_reads, out.width = "100%", fig.height=3}
+# fix sample names
+# plot_hiseq_align(input_dir, columns = c("map", "unmap"))
+df4 %>%
+  dplyr::filter(! index == "total") %>%
+  bar_plot(x = "count", y = "name", direction = "horizontal", label = NA, 
+           fill = "index", position = "fill") + 
+    fishualize::scale_fill_fish(discrete = TRUE, option = "Trimma_lantana")
 ```
 
-+ Unique percentage
 
-```{r figure1_unique_reads, fig.width=6, fig.height=plot_height}
-plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap"))
-```
+<!-- ### 2.1 Table1. Mapping stat -->
+
+<!-- ```{r} -->
+<!-- df_align %>%  -->
+<!--   hiseqr::to_DT() -->
+<!-- ``` -->
+
+<!-- ### 2.2 Figure 1. Number of mapped reads -->
+
+<!-- + Map percentage -->
+
+<!-- ```{r figure1_align_reads, fig.width=6, fig.height=plot_height} -->
+<!-- plot_hiseq_align(input_dir, columns = c("map", "unmap")) -->
+<!-- ``` -->
+
+<!-- + Unique percentage -->
+
+<!-- ```{r figure1_unique_reads, fig.width=6, fig.height=plot_height} -->
+<!-- plot_hiseq_align(input_dir, columns = c("unique", "multi", "unmap")) -->
+<!-- ``` -->
 
