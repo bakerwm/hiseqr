@@ -67,7 +67,7 @@ rnaseq_hub <- function(x, ...) {
   df      <- read_fc(r1_list[1], get_gene_length = TRUE)
   m_data  <- data.frame(basepairs = df$Length)
   S4Vectors::mcols(dds) <- S4Vectors::DataFrame(S4Vectors::mcols(dds), m_data)
-  # Run standard DEseq2
+  # Run standard DESeq2
   # Add extra arguments: fc_cutoff, pval_cutoff, readable
   deseq2_main(dds,
               outdir = list_hiseq_file(x, "deseq_dir", "_rx"),

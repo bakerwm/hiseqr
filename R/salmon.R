@@ -10,7 +10,7 @@
 #' @import readr
 #' @import tibble
 #' @import patchwork
-#' @import DEseq2
+#' @import DESeq2
 #'
 #'
 #' @name salmon
@@ -83,7 +83,7 @@ rnaseq_salmon_hub <- function(x, ...) {
   tx2gene <- read.csv(tx2gene_csv)
   # load data
   txi <- tximport::tximport(sf_list, type = "salmon", tx2gene = tx2gene)
-  # DEseq2 analysis
+  # DESeq2 analysis
   dds_txi <- DESeq2::DESeqDataSetFromTximport(
     txi, colData = samples, design = ~condition
   )

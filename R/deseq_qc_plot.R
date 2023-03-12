@@ -206,7 +206,7 @@ deseq_qc_mean_sd <- function(x, ...) {
 #' @describeIn deseq_qc_top_gene
 #' Check values for top genes
 #'
-#' @param x `DEseqDataSet`, see `deseq_qc_dds(x=)`
+#' @param x `DESeqDataSet`, see `deseq_qc_dds(x=)`
 #' @param outdir character saving the results
 #' @param transform_method bool compute tranformed data, `vst()`, `rlog()`
 #' default: standard
@@ -366,7 +366,7 @@ deseq_qc_dist <- function(x, ...) {
 #' @describeIn deseq_qc_pca
 #' check PCA plot for dds
 #'
-#' @param x `DEseqDataSet`, see `deseq_qc_dds(x=)`
+#' @param x `DESeqDataSet`, see `deseq_qc_dds(x=)`
 #' @param outdir character saving the results
 #' @param transform bool compute tranformed data, `vst()`, `rlog()`
 #' default: FALSE
@@ -494,7 +494,7 @@ deseq_qc_ma <- function(x, ...) {
   }
   #----------------------------------------------------------------------------#
   #-- run: load data.frame
-  df <- deseq_qc_res(x, log2fc_limits = ylim, !!!args)
+  df <- deseq_qc_res(x, !!!args)
   #-- Check columns
   rc <- c("log10basemean", "log2fc", "ext", "gene_id", "log2FoldChange")
   if(inherits(df, "data.frame")) {
@@ -710,6 +710,7 @@ deseq_qc_scatter <- function(x, ...) {
     readable   = TRUE,
     density_point = FALSE,
     # .col_label = "gene_id",
+    color_by   = "sig", # sig, tissue
     add_sig    = FALSE,
     shrink_method = "standard"
   )
@@ -771,22 +772,33 @@ deseq_qc_scatter <- function(x, ...) {
   #-- run: plot
   if(isTRUE(density_point)) {
     p1 <- df %>%
-      ggplot(aes(wt, mut, color = sig)) +
+      # # ggplot(aes(wt, mut, color = sig)) +
+      # ggplot(aes_string("wt", "mut", color = color_by)) +
+      ggplot(aes(wt, mut, color = !!color_by)) +
       stat_density_2d(
         aes(fill = ..density..),
         data = dplyr::filter(df, sig == "not"),
         geom = "raster", contour = FALSE)
   } else {
     p1 <- df %>%
-      ggplot(aes(wt, mut, color = sig)) +
+      # ggplot(aes(wt, mut, color = sig)) +
+      # ggplot(aes_string("wt", "mut", color = color_by)) +
+      ggplot(aes(wt, mut, color = !!color_by)) +
       geom_point(size = .4, alpha = .5)
   }
   #----------------------------------------------------------------------------#
   #-- plot
+  # add colors
+  cc <- list(
+    sig = c("up"   = "red", "not"  = "grey60", "down" = "blue"),
+    tissue = c("germline" = "#ff2e16", "intermediate" = "#ffeb3d",
+               "other" = "#85878b", "soma"  = "#2ca748")
+  )
   p1 <- p1 +
     scale_color_manual(values = c("up"   = "red",
                                   "not"  = "grey60",
                                   "down" = "blue")) +
+    # scale_color_manual(values = cc[[color_by]]) +
     scale_fill_gradient(low = "white", high = "black") +
     geom_abline(intercept = 0, slope = 1, linetype = 1, color = "grey30") +
     geom_abline(intercept = c(log10(2), -log10(2)), slope = 1, linetype = 2,
@@ -807,6 +819,152 @@ deseq_qc_scatter <- function(x, ...) {
   #-- return
   p1
 }
+
+
+#' @describeIn deseq_qc_scatter2
+#' for scatter plot, colored by specific column
+#' x: log10(wt + 1)
+#' y: log10(mut + 1)
+#'
+#' @param x see `deseq_qc_res(x=)`
+#' @param outdir character saving the results
+#' @param fc numeric cutoff for foldchange, default: 1, ignore foldchange
+#' @param pvalue numeric cutoff for padj, default: 0.1, the main criteria
+#' @param p_adjust bool use p-adjust value instead
+#' @param density_points bool use `stat_density_2d()`, for
+#'  large number dots
+#' @param overwrite bool overwrite exists file, default: FALSE
+#'
+#' @improt ggplot2
+#' @importFrom ggrepel geom_text_repel
+#' @importFrom patchwork wrap_plots plot_annotation
+#'
+#' @return ggplot
+#'
+#' @export
+deseq_qc_scatter2 <- function(x, ...) {
+  message("run 'deseq_qc_scatter2()' ...")
+  #----------------------------------------------------------------------------#
+  #-- Check: default values
+  args <- rlang::list2(
+    outdir = NULL,
+    fc = 2,
+    pvalue     = 0.05,
+    p_adjust   = TRUE,
+    label_list = NULL,
+    label_max  = 8,
+    overwrite  = FALSE,
+    readable   = TRUE,
+    density_point = FALSE,
+    # .col_label = "gene_id",
+    color_by   = "sig", # sig, tissue
+    add_sig    = FALSE,
+    shrink_method = "standard"
+  )
+  args <- purrr::list_modify(args, ...)
+  #-- update global
+  for(name in names(args)) {
+    if(rlang::is_empty(name)) next
+    assign(name, args[[name]])
+  }
+  #----------------------------------------------------------------------------#
+  #-- Check: arguments: update log2fc
+  df <- deseq_qc_res(x, !!!args) # loading data
+  #-- Check columns
+  rc <- c("gene_id", "log2FoldChange", "log2fc", "ext")
+  if(inherits(df, "data.frame")) {
+    if(!all(rc %in% names(df))) {
+      rc_str <- paste(rc, collapse = ", ")
+      warning(glue::glue(
+        "missing columns: [{rc_str}], check argument; 'x'={x}"
+      ))
+      return(NULL)
+    }
+  } else {
+    warning(glue::glue(
+      "could not find `norm_table.fix.csv` file, check 'x'"
+    ))
+    return(NULL)
+  }
+  if(! color_by %in% names(df)) {
+    color_by <- "sig"
+    message(glue::glue(
+      "column [{color_by}] not found, use [sig] instead"
+    ))
+  }
+  #----------------------------------------------------------------------------#
+  #-- convert log10 scale
+  wt  <- names(df)[2]
+  mut <- names(df)[3]
+  df <- df %>%
+    dplyr::mutate(wt  = log10(!!as.name(wt) + 1),
+                  mut = log10(!!as.name(mut) + 1))
+  #-- run: determine limits, breaks
+  breaks  <- scales::breaks_extended(n = 5)(c(df$wt, df$mut))
+  xlimits <- c(min(c(df$wt, df$mut)), max(c(df$wt, df$mut)))
+  ylimits <- xlimits
+  #-- y-limits;
+  fclim <- df$log2FoldChange
+  fclim <- fclim[!is.na(fclim)]
+  if(inherits(ylim, "numeric")) {
+    ylim <- c(max(min(ylim), min(fclim)),
+              min(max(ylim), max(fclim)))
+  } else {
+    ylim <- c(min(fclim), max(fclim))
+  }
+  # foldchange, at least [-2, 2]
+  if(min(ylim) > -2) ylim[1] = -2
+  if(max(ylim) < 2)  ylim[2] = 2
+  ylim <- ylim * 1.1 # extend ylim by 10%
+  breaks <- scales::breaks_extended(n = 5)(ylim)
+  #----------------------------------------------------------------------------#
+  #-- update 'sig', force, re-run
+  df <- get_sig_name(df, return_dataframe = TRUE, force = TRUE, !!!args)
+  title <- glue::glue("criteria: foldChange >= {fc}, pvalue < {pvalue}")
+  #-- run: plot
+  p1 <- df %>%
+    ggplot(aes(wt, mut, color = !!as.name(color_by)))
+  if(isTRUE(density_point)) {
+    p2 <- p1 +
+      stat_density_2d(
+        aes(fill = ..density..),
+        data = dplyr::filter(df, sig == "not"),
+        geom = "raster", contour = FALSE)
+  } else {
+    p2 <- p1 +
+      geom_point(size = 1, alpha = .8)
+  }
+  #----------------------------------------------------------------------------#
+  #-- plot
+  # add colors
+  cc <- list(
+    sig = c("up" = "red", "not" = "grey60", "down" = "blue"),
+    tissue = c("germline" = "#ff2e16", "intermediate" = "#ffeb3d",
+               "other" = "#85878b", "soma"  = "#2ca748")
+  )
+  p2 <- p2 +
+    scale_color_manual(values = cc[[color_by]]) +
+    scale_fill_gradient(low = "white", high = "black") +
+    geom_abline(intercept = 0, slope = 1, linetype = 1, color = "grey30") +
+    geom_abline(intercept = c(log10(2), -log10(2)), slope = 1, linetype = 2,
+                color = "grey50") +
+    geom_point(data = dplyr::filter(df, sig %in% c("up", "down")),
+               size = .6) +
+    scale_x_continuous(breaks = breaks, limits = xlimits,
+                       name = glue::glue("log10 count of {wt}")) +
+    scale_y_continuous(breaks = breaks, limits = ylimits,
+                       name = glue::glue("log10 count of {mut}")) +
+    ggtitle(title) +
+    theme_bw() +
+    theme(panel.grid = element_blank())
+  #-- add sig labels
+  if(add_sig) {
+    p2 <- deseq_qc_add_sig_label(p2)
+  }
+  #-- return
+  p2
+}
+
 
 
 #' @describeIn deseq_qc_add_sig_label

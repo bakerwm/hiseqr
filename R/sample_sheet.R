@@ -261,7 +261,7 @@ fix_hiseq_sampleid <- function(x, start = 1) {
 fix_hiseq_lib_number <- function(x) {
   j <- toupper(x)
   num <- stringr::str_extract(j, "\\d+$")
-  num <- stringr::str_pad(num, 4, pad = "0")
+  num <- stringr::str_pad(num, 3, pad = "0")
   prefix <- stringr::str_extract(j, "^[A-Z]{2,4}")
   paste0(prefix, num)
   # gsub("([A-Z]{2,4})([\\W])?(\\d+)", "\\1\\3", j)

@@ -31,7 +31,7 @@ list_hiseq_dir <- function(x, hiseq_type = "auto"){
     }
     # check
     # for alignment
-    if(is_hiseq_dir(f, "alignment")) {
+    if(is_hiseq_dir(f, "align")) {
       if(pd$is_hiseq_rx | pd$is_hiseq_rn) {
         out <- purrr::keep(unique(c(f, pd$args$rep_list)), is_hiseq_dir)
       } else {

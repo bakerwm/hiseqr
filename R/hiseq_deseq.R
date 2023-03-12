@@ -5,8 +5,6 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @import prep_hiseq_desqe deseq
-#'
 #' @name hiseq_deseq
 
 

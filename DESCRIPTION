@@ -25,3 +25,4 @@ Imports:
     rtracklayer,
     GenomicRanges,
     cowplot
+RoxygenNote: 7.2.3

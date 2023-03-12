@@ -8,7 +8,8 @@
 ## pairwise
 # a, b, ab
 overlap_p2 <- function(n1, n2, n12, name1 = "A", name2 = "B",
-                       png_file = NULL) {
+                       png_file = NULL, height = 5, width = 5, res = 200,
+                       title = "Overlap between groups") {
   # to-do: check input arguments
   # n1 = 40940
   # n2 = 38313
@@ -35,11 +36,12 @@ overlap_p2 <- function(n1, n2, n12, name1 = "A", name2 = "B",
     lwd  = 2,
     col  = c("red3", "blue3", "green3", "darkorange3", "darkorchid", "black"),
     quantities = list(type = c("counts")),
+    main = title,
     labels = list(font = 1, cex = 0.8))
   # save to file
   if(inherits(png_file, "character")) {
     if(dir.exists(normalizePath(dirname(png_file)))) {
-      png(png_file, width = 5, height = 5, res = 200, units = "in")
+      png(png_file, width = width, height = height, res = res, units = "in")
       print(p)
       dev.off()
     } else {
@@ -57,8 +59,8 @@ overlap_p2 <- function(n1, n2, n12, name1 = "A", name2 = "B",
 ## pairwise
 # a, b, ab
 overlap_p3 <- function(n1, n2, n3, n12, n13, n23, n123,
-                       group_name = NULL,
-                       png_file = NULL) {
+                       group_name = NULL, png_file = NULL,
+                       title = "Overlap between groups") {
   # to-do: check input arguments
   # out list
   nums <- setNames(c(n1, n2, n3, n12, n13, n23, n123),
@@ -98,6 +100,7 @@ overlap_p3 <- function(n1, n2, n3, n12, n13, n23, n123,
     lwd  = 2,
     col  = c("red3", "blue3", "green3", "darkorange3", "darkorchid", "black"),
     quantities = list(type = c("counts")),
+    main = title,
     labels = list(font = 1, cex = 0.8))
   # save to file
   if(inherits(png_file, "character")) {

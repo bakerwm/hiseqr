@@ -1,0 +1,173 @@
+---
+title: "Fastqc report"
+author: "Ming Wang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: tango
+    toc: yes
+    toc_float:
+      collapsed: no
+    keep_md: false
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  input_dir: ""
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(knitr))
+knitr::opts_chunk$set(fig.width  = 12, 
+                      fig.height = 8, 
+                      fig.path   = "Figures/",
+                      eval       = TRUE,
+                      echo       = FALSE,
+                      cache      = FALSE,
+                      prompt     = FALSE,
+                      tidy       = FALSE,
+                      comment    = NA,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      eval       = T,
+                      rownames.print = FALSE)
+```
+
+
+```{r load pkg}
+library(hiseqr)
+library(fastqcr)
+library(DT)
+library(knitr)
+library(ggplot2)
+library(fishualize)
+library(patchwork)
+library(dplyr)
+library(glue)
+```
+
+## 1. Summary
+
+```{r config, eval = T}
+input_dir <- params$input_dir
+# input_dir <- ".."
+input_dir <- normalizePath(input_dir)
+```
+
+
+```{r fig_qc, fig.align = "middle", fig.cap = "overview of analysis"}
+j <- list.files(input_dir, "*fastqc_data.json", all.files = TRUE, full.names = TRUE)
+j1 <- purrr::discard(j, grepl("_2_fastqc", j)) # read1, or SE
+
+# height for figures
+# 3 - 10
+fig_height <- floor(length(j1) / 4) + 3
+if(fig_height > 10)  fig_height <- 10 # max
+```
+
+
+## 2. Number of reads
+
+```{r num_reads, fig.width=6, fig.height=fig_height}
+df1 <- lapply(j1, function(i) {
+  hiseqr::qc_read(i, "Basic Statistics") %>%
+    dplyr::select(Filename, `Total Sequences`) %>%
+    dplyr::rename(name = Filename,
+                  count = `Total Sequences`) %>%
+    dplyr::mutate(name = hiseqr::fq_name(name, fix_pe = TRUE),
+                  million = round(as.numeric(count) / 1e6, 1))
+}) %>%
+  dplyr::bind_rows()
+# plot
+hiseqr::bar_plot(df1, x = "million", y = "name", label = "million",
+                 direction = "horizontal")
+```
+
+
+## 3. Distribution of Base Quality
+
+> From Illumina:
+
+Q scores are defined as a property that is logarithmically related to the base calling error probabilities (P)
+
+$$Q = - 10 log_{10} P $$  
+
+For example, if Phred assigns a Q score of 30 (Q30) to a base, this is equivalent to the probability of an incorrect base call 1 in 1000 times (Table 1). This means that the base call accuracy (i.e., the probability of a correct base call) is 99.9%. A lower base call accuracy of 99% (Q20) will have an incorrect base call probability of 1 in 100, meaning that every 100 bp sequencing read will likely contain an error. When sequencing quality reaches Q30, virtually all of the reads will be perfect, having zero errors and ambiguities. This is why Q30 is considered a benchmark for quality in next-generation sequencing. By comparison, Sanger sequencing systems generally produce base call accuracy of ~99.4%, or $Q20^{3}$. Low Q scores can increase false-positive variant calls, which can result in inaccurate conclusions and higher costs for validation experiments ^[Illumina, Inc, https://www.illumina.com/documents/products/technotes/technote_Q-Scores.pdf]. 
+
+
+```{r table_quality, }
+qual <- data.frame("Score" = as.character(c(10, 20, 30, 40, 50)),
+                   "Incorrect" = c("1 in 10", 
+                                   "1 in 100",
+                                   "1 in 1000", 
+                                   "1 in 10000",
+                                   "1 in 100000"),
+                   "Accuracy" = c("90%", "99%", "99.9%", "99.99%", "99.999%"),
+                   stringsAsFactors = FALSE)
+
+DT::datatable(qual, rownames = TRUE, filter = "none")
+```
+
+Score = "Phred Quality Score", Incorrect = "Probability of Incorrect Base Call", "Accuracy" = "Base Call Accuracy".
+
+## 4. Per base sequence quality
+
+```{r , fig.height = 4}
+for(r1 in j1) {
+  qc1 <- hiseqr::qc_read(r1)
+  r2 <- gsub("_1_fastqc", "_2_fastqc", r1)
+  if(r1 == r2) {
+    qc2 <- NULL
+  } else {
+    qc2 <- hiseqr::qc_read(r2)
+  }
+  name <- gsub("_fastqc_data.json", "", basename(r1))
+  # module
+  m <- "Per base sequence quality"
+  p <- plot_fastqc(qc1, qc2, module = m, title = name)
+  print(p)
+}
+```
+
+
+## 5. Per base sequence content
+
+```{r , fig.height = 4}
+for(r1 in j1) {
+  qc1 <- hiseqr::qc_read(r1)
+  r2 <- gsub("_1_fastqc", "_2_fastqc", r1)
+  if(r1 == r2) {
+    qc2 <- NULL
+  } else {
+    qc2 <- hiseqr::qc_read(r2)
+  }
+  name <- gsub("_fastqc_data.json", "", basename(r1))
+  # module
+  m <- "Per base sequence content"
+  p <- plot_fastqc(qc1, qc2, module = m, title = name)
+  print(p)
+}
+```
+
+## 6. Distribution of read length
+
+```{r , fig.height = 4}
+for(r1 in j1) {
+  qc1 <- hiseqr::qc_read(r1)
+  r2 <- gsub("_1_fastqc", "_2_fastqc", r1)
+  if(r1 == r2) {
+    qc2 <- NULL
+  } else {
+    qc2 <- hiseqr::qc_read(r2)
+  }
+  name <- gsub("_fastqc_data.json", "", basename(r1))
+  # module
+  m <- "Sequence Length Distribution"
+  p <- plot_fastqc(qc1, qc2, module = m, title = name)
+  print(p)
+}
+```
+
+
+**[#EOF]**
