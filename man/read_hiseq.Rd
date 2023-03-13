@@ -2,7 +2,7 @@
 % Please edit documentation in R/hiseq.R
 \name{read_hiseq}
 \alias{read_hiseq}
-\title{#' @describeIn check x is hiseq or not
+\title{#' check x is hiseq or not
 #' @param x string, path to dir
 #'
 #' @export

@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_treeplot}
 \alias{go_treeplot}
-\title{create plots}
+\title{go_treeplot}
 \usage{
 go_treeplot(x, ...)
 }
@@ -12,5 +12,5 @@ go_treeplot(x, ...)
 updated: 2020-12-15, pairwise_termsim(ego)}
 }
 \description{
-create plots
+go_treeplot
 }

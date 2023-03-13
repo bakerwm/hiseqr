@@ -2,18 +2,15 @@
 % Please edit documentation in R/go_group.R
 \name{go_group_plot}
 \alias{go_group_plot}
-\title{create plots}
+\title{go_group_plot}
 \usage{
 go_group_plot(x, ...)
 }
 \arguments{
 \item{x}{object of enrichGO}
 
-\item{...}{passing extra arguments
-parent function: get_go_plots(),
-
-text_width}
+\item{...}{passing extra arguments}
 }
 \description{
-create plots
+go_group_plot
 }

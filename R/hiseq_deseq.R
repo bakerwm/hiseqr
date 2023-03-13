@@ -5,10 +5,9 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name hiseq_deseq
 
 
-#' @describeIn hiseq_deseq
+#' hiseq_deseq
 #'
 #' @param x character path to the 'rnaseq_rx' directory
 #' @param outdir character saving the results
@@ -20,9 +19,6 @@
 #' @param cpu integer, number of CPU to run in parallel, default: 4
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @import DESeq2
-#' @import apeglm
-#' @import ggplot2
 #'
 #' @return DESeqResults, res (shrinked)
 #'

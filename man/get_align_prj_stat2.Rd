@@ -2,10 +2,13 @@
 % Please edit documentation in R/align.R
 \name{get_align_prj_stat2}
 \alias{get_align_prj_stat2}
-\title{return the align stat files, full version}
+\title{align stat}
 \usage{
 get_align_prj_stat2(x)
 }
+\arguments{
+\item{x}{string path to the dir}
+}
 \description{
-return the align stat files, full version
+align stat
 }

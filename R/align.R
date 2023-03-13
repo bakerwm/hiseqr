@@ -2,9 +2,8 @@
 ## Alignment
 
 
-#' @describeIn read_hiseq_align
-#' @description read alignment from alignment_r* directory
-#'
+#' read_hiseq_align
+#' 
 #' @param x character or json
 #'
 #' @export
@@ -43,7 +42,6 @@ read_hiseq_align <- function(x) {
   }
 }
 
-##-- old functions --##
 
 ##----------------------------------------------------------------------------##
 ## For hiseq package, parsing directory
@@ -66,7 +64,7 @@ read_align_prj <- function(x) {
 }
 
 
-#' load all pickles, sub-samples
+#' load all pickles
 read_align_prj2 <- function(x) {
   if(is_align_single_dir(x)) {
     read_align_prj(x)
@@ -86,8 +84,8 @@ read_align_prj2 <- function(x) {
 #' list_arguments_file
 #'
 #' @param x path to the directory.
-#' expect x/config/{feature}/config/arguments.pickle,
-#' x/{feature}/config/arguments.pickle
+#'   expect x/config/{feature}/config/arguments.pickle,
+#'   x/{feature}/config/arguments.pickle
 #'
 #' @export
 list_align_arguments_file <- function(x){
@@ -107,7 +105,8 @@ list_align_arguments_file <- function(x){
   }
 }
 
-
+#' Check if align dir
+#' 
 #' @param x string, path to dir
 #'
 #' @export
@@ -120,6 +119,8 @@ is_align_dir <- function(x) {
 }
 
 
+#' Check if align_r1
+#' 
 #' @param x string, path to dir
 #'
 #' @export
@@ -131,6 +132,8 @@ is_align_single_dir <- function(x) {
 }
 
 
+#' Check if align_rn
+#' 
 #' @param x string, path to dir
 #'
 #' @export
@@ -142,8 +145,10 @@ is_align_multiple_dir <- function(x) {
 }
 
 
-#' return the align stat files
+#' align stat
 #'
+#' @param x string path to the dir
+#' @export
 get_align_prj_stat <- function(x) {
   if(is_align_single_dir(x)) {
     p <- read_align_prj2(x)
@@ -159,8 +164,10 @@ get_align_prj_stat <- function(x) {
 
 
 
-#' return the align stat files, full version
+#' align stat
 #'
+#' @param x string path to the dir
+#' @export
 get_align_prj_stat2 <- function(x) {
   if(is_align_single_dir(x)) {
     p <- read_align_prj2(x)
@@ -173,14 +180,4 @@ get_align_prj_stat2 <- function(x) {
     warning(paste0("Not a align dir: ", x))
   }
 }
-
-
-
-
-
-
-
-
-
-
 

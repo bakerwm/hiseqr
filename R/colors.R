@@ -4,17 +4,21 @@
 #' RColorBrewer, fishualize
 #'
 #'
-#' @name colors
 
 
+#' colors
+#' 
+#' @description A tmp function for documentation
+#' 
+#' @return string
+colors <- function(x) {
+  x
+}
 
 
-#' @describeIn gg_color Pick ggplot2 default colors
-#' ggplot2_colors
-#'
+#' gg_color 
 #' @param n integer
 #'
-#' @import scales
 #'
 #' @export
 gg_color <- function(n = 3) {
@@ -48,17 +52,3 @@ gg_color <- function(n = 3) {
   hues = seq(15, 375, length = n + 1)
   hcl(h = hues, l = 65, c = 100)[1:n]
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -2,9 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{plot_heatmap_deseq_pair}
 \alias{plot_heatmap_deseq_pair}
-\title{to-do: hclust rows !!!!
-RNAseq cmp,
-number of sig genes}
+\title{plot_heatmap_deseq_pair}
 \usage{
 plot_heatmap_deseq_pair(x = NULL, y = NULL, .pd_rds = NULL, group = "all", ...)
 }
@@ -18,7 +16,5 @@ plot_heatmap_deseq_pair(x = NULL, y = NULL, .pd_rds = NULL, group = "all", ...)
 \item{feature}{string default: gene}
 }
 \description{
-to-do: hclust rows !!!!
-RNAseq cmp,
-number of sig genes
+plot_heatmap_deseq_pair
 }

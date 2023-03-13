@@ -55,9 +55,6 @@ atac_report <- function(input, output) {
 
 #' read atac directory
 #'
-#' input dir
-#' output files, config
-#'
 #' @param x string path
 #'
 #' @export
@@ -98,6 +95,7 @@ is_atac_dir <- function(x) {
 }
 
 
+#' check if atac_r1
 #' @param x string, path to dir
 #'
 #' @export
@@ -107,6 +105,7 @@ is_atac_single_dir <- function(x) {
 }
 
 
+#' check if atac_rm
 #' @param x string, path to dir
 #'
 #' @export
@@ -116,6 +115,7 @@ is_atac_merge_dir <- function(x) {
 }
 
 
+#' check if atac_rn
 #' @param x string, path to dir
 #'
 #' @export
@@ -185,7 +185,7 @@ list_atac_multiple_dirs <- function(x){
 }
 
 
-## read align from atacseq seq
+#' read align from atacseq seq
 #' @export
 get_atac_align_stat <- function(x) {
   # search for single dir
@@ -197,6 +197,7 @@ get_atac_align_stat <- function(x) {
 }
 
 
+#' return atac frip
 #' @export
 get_atac_frip_stat <- function(x) {
   # search for single dir
@@ -211,6 +212,7 @@ get_atac_frip_stat <- function(x) {
 }
 
 
+#' return length distribution
 #' @export
 get_atac_lendist_stat <- function(x) {
   # search for single dir
@@ -223,6 +225,7 @@ get_atac_lendist_stat <- function(x) {
 }
 
 
+#' return peak stat
 #' @export
 get_atac_peak_stat <- function(x) {
   # search for single dir
@@ -246,7 +249,7 @@ get_atac_peak_stat <- function(x) {
     dplyr::bind_rows()
 }
 
-
+#' return atact report
 #' @export
 get_atac_report <- function(x) {
   # search for single dir
@@ -266,13 +269,4 @@ get_atac_report <- function(x) {
 
   report_list <- unlist(report_list)
 }
-
-
-#' to-do
-#'
-#' TSS
-#' IDR
-#' cor: counts.tab
-#'
-
 

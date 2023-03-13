@@ -2,7 +2,7 @@
 
 
 
-#' @describeIn hiseq_prep_compare_go
+#' hiseq_prep_compare_go
 #' prepare data for `compareCluster()` function
 #'
 #' @param x character path to the rnaseq_rx, parsing the mut_name
@@ -87,7 +87,7 @@ hiseq_prep_compare_go <- function(x, ...) {
 }
 
 
-#' @describeIn hiseq_prep_compare_go
+#' hiseq_prep_compare_go
 #' prepare data for `compareCluster()` function
 #'
 #' @param x character path to the rnaseq_rx, parsing the mut_name

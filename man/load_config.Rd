@@ -38,7 +38,8 @@ is_hiseq_rp = endsWith(ht_type, "rp")
 }
 }
 }
-}}
+}
+load_config Parsing config files}
 \usage{
 load_config(x)
 }
@@ -46,50 +47,8 @@ load_config(x)
 \item{x}{path to pickle,}
 }
 \description{
-#' read HiSeq directory
-#'
-#' input dir
-#' output files: pickle, toml, json
-#'
-#' @param x string path
-#'
-#' @export
-read_hiseq <- function(x) {
-if(is(x, "character")) {
-# if(length(x) > 1) {
-#   warning("the x length > 1 and only the first element will be used")
-#   x  <- x\link{1}
-# }
-pk <- list_arguments_file(x)
-if(length(pk) > 0) {
-args <- load_config(pk\link{1})
-ht_list <- c("hiseq_type", "rnaseq_type", "atacseq_type", "align_type",
-"chipseq_type")
-ht_list <- ht_list\link{ht_list \%in\% names(args)}
-if(length(ht_list) > 0) {
-ht_list <- ht_list\link{1}
-ht_type <- args[\link{ht_list}]
-list(
-hiseq_type = ht_type,
-files      = path_to_list(x\link{1}, recursive = TRUE),
-args       = args,
-is_hiseq   = TRUE,
-is_hiseq_r1 = endsWith(ht_type, "r1"),
-is_hiseq_rn = endsWith(ht_type, "rn"),
-is_hiseq_rx = endsWith(ht_type, "rx"),
-is_hiseq_rp = endsWith(ht_type, "rp")
-)
-}
-}
-}
-}
-}
-\section{Functions}{
-\itemize{
-\item \code{load_config()}: Parsing config files
-
 Python version
-
+}
+\details{
 load pickle|toml file
-
-}}
+}

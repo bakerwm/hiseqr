@@ -2,15 +2,19 @@
 % Please edit documentation in R/colors.R
 \name{colors}
 \alias{colors}
-\alias{gg_color}
 \title{Functions for colors}
 \usage{
-gg_color(n = 3)
+colors(x)
 }
-\arguments{
-\item{n}{integer}
+\value{
+string
 }
 \description{
+A tmp function for documentation
+}
+\details{
 This is an implementation of pick_colors, from ggplot2 default, or
 RColorBrewer, fishualize
+
+colors
 }

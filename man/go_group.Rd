@@ -11,14 +11,9 @@ go_group(gene_list, organism, ...)
 
 \item{organism}{character Name of the organism, eg: dm3, fruitfly}
 
-\item{outdir}{string Path to the directory, saving go_group results
-..., pass the following arguments from parent function
+\item{...}{pass the following arguments from parent function}
 
-or else, set default values:
-orgdb    = NULL
-keytype  = NULL
-level    = 2
-readable = TRUE}
+\item{outdir}{string Path to the directory, saving go_group results}
 
 \item{orgdb}{OrgDb from AnnotationDbi, overwrite \code{organism}}
 
@@ -49,4 +44,6 @@ go_enrich
 \item netplot
 \item ...
 }
+
+go_group
 }

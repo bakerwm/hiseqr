@@ -5,19 +5,14 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name deseq_utils
 
 
-#' @describeIn hiseq_prep_deseq4fc
-#' Prepare data for DESeq analysis, for featureCounts output
-#'
+#' hiseq_prep_deseq4fc
+#' 
 #' @param x path to the directory of rnaseq_rx
 #' @param strandness character could be "sens", "anti", default "sens"
 #' @param fix_batch bool fix batch effect, default: TRUE
 #'
-#' @import readr
-#' @import configr
-#' @import dplyr
 #'
 #' @export
 hiseq_prep_deseq4fc <- function(x, strandness = "sens", fix_batch = TRUE) {
@@ -73,16 +68,13 @@ hiseq_prep_deseq4fc <- function(x, strandness = "sens", fix_batch = TRUE) {
 }
 
 
-#' @describeIn hiseq_prep_deseq4salmon
+#' hiseq_prep_deseq4salmon
 #' Prepare data for DESeq analysis, from salmon results; rnaseq_rx
 #'
 #' @param x path to the directory of rnaseq_rx
 #' @param strandness character could be "sens", "anti", default "sens"
 #' @param fix_batch bool fix batch effect, default: TRUE
 #'
-#' @import readr
-#' @import configr
-#' @import dplyr
 #'
 #' @export
 hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
@@ -158,7 +150,7 @@ hiseq_prep_deseq4salmon <- function(x, fix_batch = TRUE) {
 
 # --Utils: Prepare data -------------------------------------------------------#
 
-#' @describeIn import_featurecounts Construct dds for DESeq2 analysis using matrix
+#' import_featurecounts Construct dds for DESeq2 analysis using matrix
 #'
 #' using DESeqDataSetFromMatrix()
 #'
@@ -239,7 +231,7 @@ import_featurecounts <- function(x) {
 
 
 
-#' @describeIn import_samlmon
+#' import_samlmon
 #' Construct dds for DESeq2 analysis using salmon output
 #'
 #' using DESeqDataSetFromMatrix()
@@ -299,7 +291,7 @@ import_salmon <- function(x, tx2gene) {
 }
 
 
-#' @describeIn valid_featurecounts_input
+#' valid_featurecounts_input
 #' for function `import_featurecounts()`
 #'
 #' @param x data.frame
@@ -362,10 +354,8 @@ valid_featurecounts_input <- function(x) {
 }
 
 
-#' @describeIn filt_sig_gene
-#'
-#' filt sig genes by `sig` column
-#'
+#' filt_sig_gene
+#' 
 #' @param x data.frame, DESeqResults, matrix
 #' @param type character could be combination of
 #' ["all", "sig", "up", "down", "not"],
@@ -375,7 +365,6 @@ valid_featurecounts_input <- function(x) {
 #' @param p_adjust bool use p-adjust value instead
 #' @param force logical force calculate sig, default: FALSE
 #'
-#' @import dplyr
 #'
 #' @export
 filt_sig_gene <- function(x, type = "sig", ...) {
@@ -424,13 +413,7 @@ filt_sig_gene <- function(x, type = "sig", ...) {
 }
 
 
-#' @describeIn get_sig_name
-#'
-#' add sig name, based on fc:foldchange (not log2), pvalue
-#'
-#' x could be `data.frame`, `.csv`
-#' required columns: `log2FoldChange`, `pvlaue`, `padj`
-#'
+#' get_sig_name
 #'
 #' @param x data.frame, csv, xls output of `DESeq2::results(dds)`
 #' @param fc numeric, cutoff for foldchange, default: 2
@@ -446,7 +429,6 @@ filt_sig_gene <- function(x, type = "sig", ...) {
 #' @param .sig_down character assign name for down-regulated genes, default: "down"
 #' @param .sig_not character assign name for not changed genes, default: "not"
 #'
-#' @import dplyr
 #'
 #' @return vector, sig names
 #'
@@ -588,12 +570,7 @@ get_sig_name <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_mean
-#' calculate the mean values for each group
-#'
-#' get the following data from `colData(dds)`
-#' condition
-#' rownames
+#' deseq_mean
 #'
 #' @param x DESeqDataSet, or '.csv' parsing design from `colData(dds)`
 #' @param outdir for run_deseq_res()
@@ -683,9 +660,8 @@ deseq_mean <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_csv_mean
-#' calculate the mean values
-#' support old version: transcripts_deseq2.csv
+#' deseq_csv_mean
+#' 
 #' @param x data.frame
 deseq_csv_mean <- function(x) {
   #-- Check: arguments
@@ -747,9 +723,7 @@ deseq_csv_mean <- function(x) {
 }
 
 
-#' @describeIn set_readable
-#' add symbol to data.frame, by `gene_id` column
-#' or use `row.names` values
+#' set_readable
 #'
 #' @param x data.frame contains `gene_id`
 #' alternative,`Gene`, `id`, or `rown.names()`
@@ -895,25 +869,7 @@ set_readable <- function(x, ...) {
 }
 
 
-#' @describeIn sanitize_str
-#' for coef, only allow
-#' letters, numbers, '_' and '.'
-#' convert other characters to '.'
-#'
-#' fix the sample names by length
-#' trim to <= 20 characters
-#'
-#' 1. remove not supported characters
-#' - support: [\\w.] letters, numbers, _, .
-#'
-#' 2. remove common:
-#' - lcPrefix(), longest common prefix
-#' - lcSuffix(), longest common suffix
-#'
-#' 3. fix prefix
-#' - prefix start with "letters"
-#'
-#' 4. ignore, if all x are the same
+#' sanitize_str
 #'
 #' @param x character
 #'

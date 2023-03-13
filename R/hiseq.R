@@ -5,7 +5,6 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name hiseq
 
 
 #' list_hiseq_dir:
@@ -190,7 +189,7 @@ list_hiseq_file <- function(x, keys = "bam", hiseq_type = "auto") {
 #' }
 
 
-#' @describeIn check x is hiseq or not
+#' check x is hiseq or not
 #' @param x string, path to dir
 #'
 #' @export
@@ -237,7 +236,7 @@ is_hiseq_dir <- function(x, hiseq_type = TRUE) {
 }
 
 
-#' #' @describeIn check x is hiseq or not
+#' #' check x is hiseq or not
 #' #' @param x string, path to dir
 #' #'
 #' #' @export
@@ -364,7 +363,7 @@ read_hiseq <- function(x) {
 
 
 
-#' @describeIn load_config Parsing config files
+#' load_config Parsing config files
 #'
 #' Python version
 #'
@@ -372,7 +371,6 @@ read_hiseq <- function(x) {
 #'
 #' @param x path to pickle,
 #'
-#' @import reticulate
 #' @export
 #'
 load_config <- function(x) {
@@ -398,7 +396,7 @@ load_config <- function(x) {
 
 
 
-#' @describeIn list_arguments_file Search config files, .pickle, .toml
+#' list_arguments_file Search config files, .pickle, .toml
 #' list_arguments_file
 #'
 #' @param x path to the directory.
@@ -435,8 +433,6 @@ list_arguments_file <- function(x) {
 #' #' read_hiseq_align
 #' #'
 #' #' @param x path to hiseq, single
-#' #' @import readr
-#' #' @import dplyr
 #' #'
 #' #' @export
 #' read_hiseq_align_stat <- function(x){
@@ -516,14 +512,12 @@ list_arguments_file <- function(x) {
 
 
 #'
-#' #' @describeIn  read_hiseq_trim_stat
+#' #'  read_hiseq_trim_stat
 #' #'
 #' #' parsing the trimming status
 #' #'
 #' #' @param x path to hiseq, single
 #' #'
-#' #' @import dplyr
-#' #' @import readr
 #' #'
 #' #' @export
 #' read_hiseq_trim_stat <- function(x) {
@@ -554,12 +548,10 @@ list_arguments_file <- function(x) {
 #' #'
 #' #' @param x path to hiseq, single
 #' #'
-#' #' @description output columns
+#' #' output columns
 #' #' "fqname", "index_name", "total", "map", "unique", "multiple",
 #' #' "unmap", "nodup", "chrM", "spikein"
 #' #'
-#' #' @import readr
-#' #' @import dplyr
 #' #'
 #' #' @export
 #' read_hiseq_align_stat <- function(x){
@@ -645,7 +637,7 @@ list_arguments_file <- function(x) {
 #'
 #'
 #'
-#' #' @describeIn read_hiseq_lendist_stat
+#' #' read_hiseq_lendist_stat
 #' #'
 #' #' length distribution
 #' #'

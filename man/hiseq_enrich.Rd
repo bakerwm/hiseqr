@@ -33,4 +33,6 @@ including:
 Adapt the functions from clusterProfiler, enrichplot, ...
 
 \code{enrichGO()}, \code{enrichKEGG()}, \code{gseGO}, \code{gseKEGG}, \code{groupGO}, ...
+
+hiseq_enrich
 }

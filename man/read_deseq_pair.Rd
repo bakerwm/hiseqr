@@ -2,8 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{read_deseq_pair}
 \alias{read_deseq_pair}
-\title{RNAseq cmp, stat
-number of sig genes}
+\title{RNAseq cmp, stat}
 \usage{
 read_deseq_pair(x, y, ...)
 }
@@ -16,5 +15,4 @@ read_deseq_pair(x, y, ...)
 }
 \description{
 RNAseq cmp, stat
-number of sig genes
 }

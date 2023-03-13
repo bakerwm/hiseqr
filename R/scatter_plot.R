@@ -5,11 +5,9 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name scatter_plot
 
 
-#' @describeIn scatter_plot3 Create scatter plot, version3
-#'
+#' scatter_plot3 
 #' @param data A data frame for the full version of data, required
 #' @param x character Column name show on x-axis
 #' @param y character Column name chow on y-axis
@@ -42,8 +40,6 @@
 #' point_color = "grey50")
 #'
 #'
-#' @import ggplot2
-#' @import ggrepel
 #' @rlang
 #'
 #' @export

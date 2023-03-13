@@ -5,12 +5,11 @@
 #'
 #'
 #'
-#' @name plot
 
 
 #--Global: General functions ---------------------------------------------------
 
-#' @describeIn bar_plot Make barplot
+#' bar_plot Make barplot
 #'
 #' @param data data.frame require id, count column
 #' @param x character Column on x-axis
@@ -18,9 +17,6 @@
 #' @param direction character Options: vertical, horizontal, default: vertical
 #' @param ... extra arguments for plots
 #'
-#' @import readr
-#' @import dplyr
-#' @import ggplot2
 #'
 #' @export
 bar_plot <- function(data = NULL, x, y, label = y, group = NULL, fill = group,
@@ -84,7 +80,7 @@ bar_plot <- function(data = NULL, x, y, label = y, group = NULL, fill = group,
 
 #' length distribution
 #'
-#' @describeIn barplot for length distribution
+#' barplot for length distribution
 #'
 #' @param ... optional arguments
 #' range 18:40
@@ -135,7 +131,7 @@ bar_plot_lendist <- function(df, x = "length", y = "count", ...) {
 }
 
 
-#' @describeIn fragsize_plot line plot for fragment size
+#' fragsize_plot line plot for fragment size
 #' for x-range
 #'
 #' @param data data.frame for plotting
@@ -144,9 +140,6 @@ bar_plot_lendist <- function(df, x = "length", y = "count", ...) {
 #' @param log10_y bool Convert y-axis to log10 scale
 #' @param position character, fill percentage, others show the count
 #'
-#' @import readr
-#' @import dplyr
-#' @import ggplot2
 #'
 #' @param ... optional arguments
 #' log10_y = FALSE
@@ -210,13 +203,11 @@ fragsize_plot <- function(data, xmin = 0, xmax = 500,
 
 
 #' deprecated
-#' @describeIn venn_plot Create venn plot using ggVennDiagram
+#' venn_plot Create venn plot using ggVennDiagram
 #'
 #' @param ... list, unique ids for groups
 #' @param names character, the names for each group
 #'
-#' @import ggVennDiagram
-#' @import ggplot2
 #'
 #' @export
 venn_plot <- function(..., names = NULL){
@@ -247,7 +238,7 @@ venn_plot <- function(..., names = NULL){
 
 
 
-#' @describeIn volcano_plot Create volcano plot
+#' volcano_plot Create volcano plot
 #'
 #' @param data A data frame for the full version of data
 #' @param x character Name of the column, show on X-axis, eg: fold-change
@@ -258,8 +249,6 @@ venn_plot <- function(..., names = NULL){
 #' @param show_sig bool Show significant points
 #' @param title character Title, default: "Volcano plot"
 #'
-#' @import ggplot2
-#' @import ggrepel
 #'
 #' @export
 volcano_plot <- function(data, x, y,
@@ -301,7 +290,7 @@ volcano_plot <- function(data, x, y,
 
 
 
-#' @describeIn ma_plot Create MA plot for deseq output
+#' ma_plot Create MA plot for deseq output
 #'
 #' @param data A data frame for the full version of data, required
 #' @param x character Column name show on x-axis, eg: baseMean
@@ -343,7 +332,7 @@ ma_plot <- function(data, x = "baseMean", y = "log2FoldChange",
 
 
 
-#' @describeIn scatter_plot Create scatter plot
+#' scatter_plot Create scatter plot
 #'
 #' @param data A data frame for the full version of data, required
 #' @param x character Column name show on x-axis
@@ -359,8 +348,6 @@ ma_plot <- function(data, x = "baseMean", y = "log2FoldChange",
 #' @param ymax float Max y on y-axis
 #' @param title character Title, default: "Scatter plot"
 #'
-#' @import ggplot2
-#' @import ggrepel
 #'
 #' @export
 scatter_plot <- function(data, x, y, labels = NULL, add_label_point = TRUE,
@@ -540,7 +527,7 @@ scatter_plot <- function(data, x, y, labels = NULL, add_label_point = TRUE,
 #   point_color = "grey50")
 
 
-#' @describeIn scatter_plot2 Create scatter plot, version2
+#' scatter_plot2 Create scatter plot, version2
 #'
 #' @param data A data frame for the full version of data, required
 #' @param x character Column name show on x-axis
@@ -574,8 +561,6 @@ scatter_plot <- function(data, x, y, labels = NULL, add_label_point = TRUE,
 #' point_color = "grey50")
 #'
 #'
-#' @import ggplot2
-#' @import ggrepel
 #' @rlang
 #'
 #' @export
@@ -881,7 +866,7 @@ prep_scatter_data <- function(data, x, y, ...) {
 
 
 
-#' @describeIn rnaseq_sig_stat_plot Create bar_plot for sig count
+#' rnaseq_sig_stat_plot Create bar_plot for sig count
 #'
 #' @param data data.frame From deseq_dir, fix.xls
 #'
@@ -908,7 +893,7 @@ rnaseq_sig_stat_plot <- function(data, fish = "Trimma_lantana") {
 
 
 
-#' @describeIn rnaseq_count_summary
+#' rnaseq_count_summary
 #'
 #' @param
 #'
@@ -953,9 +938,6 @@ rnaseq_count_summary_plot <- function(data, fish = "Trimma_lantana") {
 #' corPlot
 #'
 #' @param x path to file, count matrix
-#' @import readr
-#' @import dplyr
-#' @import RColorBrewer
 #'
 #' @export
 cor_plot <- function(df){

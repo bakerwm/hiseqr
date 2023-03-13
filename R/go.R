@@ -16,13 +16,10 @@
 #' 5. netplot
 #' 6. ...
 #'
-#' @name go
 
 
 
-#' @describeIn go
-#' Main GO analysis function for gene list
-#'
+#' go
 #' @param gene_list character Genes for GO analysis
 #' @param organism character Name of the organism, eg: dm3, fruitfly
 #' @param outdir string Path to the directory, saving go_group results
@@ -96,21 +93,7 @@ go <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn prep_go
-#' Prepare data for GO analysis
-#'
-#' 1. Guess the keytype of the gene
-#' 2. Convert gene to entrezid
-#' 3. add fold_change to gene
-#' 4. extract orgdb
-#'
-#' !important: skip orgdb in arg_vars
-#' use saveDb() and loadDb() to save/read OrgDb from file
-#' Because the object is a reference to a sqlite data base.
-#'
-#' genes, orgsnism, orgdb, keytype, gsea_gene
-#'
-#' genes with fold_change, or other ranking
+#' prep_go
 #' @param gene_list gene names
 #' @param organism string, eg: Homo sapiens
 #' @param ... extra argument
@@ -197,16 +180,18 @@ prep_go <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn check_go_input Check the input for GO analysis
+#' is_valid_go_input
+#' @description 
+#'    check_go_input Check the input for GO analysis
 #'
-#' Required:
-#' - gene_list, chr, characters (group, enrich)
-#' - outdir, chr, character
-#' - organism, chr, character
-#' - orgdb, OrgDb, AnnotationDbi, one of organism, orgdb required
+#'    Required:
+#'    - gene_list, chr, characters (group, enrich)
+#'    - outdir, chr, character
+#'    - organism, chr, character
+#'    - orgdb, OrgDb, AnnotationDbi, one of organism, orgdb required
 #'
-#' optional:
-#' - for_gsea, logical, gene_list, num, sorted, named (GSEA)
+#'    optional:
+#'    - for_gsea, logical, gene_list, num, sorted, named (GSEA)
 #'
 #' @export
 is_valid_go_input <- function(...) {
@@ -311,7 +296,6 @@ save_go_table <- function(x, outdir, name = NULL) {
 #' @param outdir string, path to save the plots
 #' @param name prefix for the plots
 #'
-#' @import ggplot2
 #'
 #' @return
 save_go_plot <- function(x, outdir, name = NULL) {

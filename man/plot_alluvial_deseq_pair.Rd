@@ -2,8 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{plot_alluvial_deseq_pair}
 \alias{plot_alluvial_deseq_pair}
-\title{RNAseq cmp,
-number of sig genes}
+\title{plot_alluvial_deseq_pair}
 \usage{
 plot_alluvial_deseq_pair(
   x = NULL,
@@ -23,6 +22,5 @@ plot_alluvial_deseq_pair(
 \item{feature}{string default: gene}
 }
 \description{
-RNAseq cmp,
-number of sig genes
+plot_alluvial_deseq_pair
 }

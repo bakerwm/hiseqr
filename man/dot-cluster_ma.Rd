@@ -2,8 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{.cluster_ma}
 \alias{.cluster_ma}
-\title{cluster
-data.frame}
+\title{.cluster_ma}
 \usage{
 .cluster_ma(ma, method = "euclidean")
 }
@@ -11,6 +10,5 @@ data.frame}
 \item{method}{string see dist(method = ),}
 }
 \description{
-cluster
-data.frame
+.cluster_ma
 }

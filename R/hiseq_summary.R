@@ -5,19 +5,9 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name hiseq_summary
 
 
-#' @describeIn hiseq_summary
-#'
-#' organize data for project, saved in json format
-#' saved in: project_dir/report/data/
-#'
-#' files/png
-#' plot.rds
-#' config.json
-#' ...
-#'
+#' hiseq_summary
 #' @param x path to the ATACseq project
 #'
 #' @export

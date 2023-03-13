@@ -2,7 +2,7 @@
 % Please edit documentation in R/diffbind.R
 \name{prep_diffbind}
 \alias{prep_diffbind}
-\title{Prepare data for diffbind}
+\title{prep_diffbind}
 \usage{
 prep_diffbind(design, outdir)
 }
@@ -12,5 +12,5 @@ prep_diffbind(design, outdir)
 \item{outdir}{output dirs}
 }
 \description{
-Prepare data for diffbind
+prep_diffbind
 }

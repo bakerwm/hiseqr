@@ -2,7 +2,8 @@
 % Please edit documentation in R/plot.R
 \name{venn_plot}
 \alias{venn_plot}
-\title{deprecated}
+\title{deprecated
+venn_plot Create venn plot using ggVennDiagram}
 \usage{
 venn_plot(..., names = NULL)
 }
@@ -13,9 +14,5 @@ venn_plot(..., names = NULL)
 }
 \description{
 deprecated
+venn_plot Create venn plot using ggVennDiagram
 }
-\section{Functions}{
-\itemize{
-\item \code{venn_plot()}: Create venn plot using ggVennDiagram
-
-}}

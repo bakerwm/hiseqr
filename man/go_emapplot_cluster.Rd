@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_emapplot_cluster}
 \alias{go_emapplot_cluster}
-\title{create plots}
+\title{go_emapplot_cluster}
 \usage{
 go_emapplot_cluster(x, ...)
 }
@@ -13,5 +13,5 @@ updated: 2020-12-15, pairwise_termsim(ego)
 updated: 2021-09-01, deprecated, see treeplot()}
 }
 \description{
-create plots
+go_emapplot_cluster
 }

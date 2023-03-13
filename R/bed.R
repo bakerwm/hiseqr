@@ -7,7 +7,6 @@
 #'
 #' @param x string path to the peak file
 #'
-#' @import rtracklayer
 #' @export
 #'
 read_bed <- function(x) {
@@ -20,7 +19,6 @@ read_bed <- function(x) {
 #'
 #' @param x string path to the peak xls, output fo MACS2
 #' @export
-#'
 read_peak_xls <- function(x) {
   xlines <- readLines(x, n = 50)
   xlines <- xlines[grep("^#", xlines)] # head lines
@@ -34,9 +32,7 @@ read_peak_xls <- function(x) {
 #'
 #' @param x string path to the peak file
 #'
-#' @import rtracklayer
 #' @export
-#'
 read_narrowpeak <- function(x) {
   ext <- c(signalValue = "numeric", pValue = "numeric",
            qValue = "numeric", peak = "integer")
@@ -46,8 +42,7 @@ read_narrowpeak <- function(x) {
 
 
 #' guess bed format
-#' bed3, bed6, bed10
-#'
+#' @export 
 guess_bed <- function(x) {
   df <- readr::read_delim(x, "\t", show_col_types = F, col_names = F,
                           n_max = 100)
@@ -74,7 +69,6 @@ guess_bed <- function(x) {
 #' intersect_bed2
 #'
 #' @param blist list, bed files
-#' @import GenomicRanges
 #' @export
 intersect_bed2 <- function(blist, return_numbers = FALSE){
   stopifnot(length(blist) >= 2)
@@ -113,7 +107,6 @@ intersect_bed2 <- function(blist, return_numbers = FALSE){
 #' intersect_bed3
 #'
 #' @param blist list, intersect 3 bed files
-#' @import GenomicRanges
 #' @export
 intersect_bed3 <- function(blist, return_numbers = FALSE){
   stopifnot(length(blist) >= 3)
@@ -173,7 +166,6 @@ intersect_bed3 <- function(blist, return_numbers = FALSE){
 #' intersect_bed4
 #'
 #' @param blist list, intersect 4 bed files
-#' @import GenomicRanges
 #' @export
 intersect_bed4 <- function(blist){
   stopifnot(length(blist) >= 4)

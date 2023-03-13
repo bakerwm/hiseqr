@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_cnetplot}
 \alias{go_cnetplot}
-\title{create plots}
+\title{go_cnetplot}
 \usage{
 go_cnetplot(x, ...)
 }
@@ -15,5 +15,5 @@ text_width
 show_category}
 }
 \description{
-create plots
+go_cnetplot
 }

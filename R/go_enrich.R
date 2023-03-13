@@ -16,14 +16,11 @@
 #' 5. netplot
 #' 6. ...
 #'
-#' @name go_gsea
 
 
 
-#' @describeIn go_enrich enrichGO analysis from clusterprofiler
-#'
-#' for clusterProfiler::enrichGO
-#'
+#' go_enrich
+#' 
 #' @param gene_list character Genes for GO analysis
 #' @param organism character Name of the organism, eg: dm3, fruitfly
 #' @param ... pass arguments: , orgdb, keytype, pval_cutoff, qval_cutoff,
@@ -40,13 +37,9 @@
 #' @param qval_cutoff float Cutoff for q-value, default: 0.9
 #' @param readable bool Args for groupGO function, convert to gene symbol
 #'
-#' @description pval_cutoff, qval_cutoff, set to 0.9, in order to return
+#' pval_cutoff, qval_cutoff, set to 0.9, in order to return
 #' enrich results anyway, filter in downstream analysis
 #'
-#' @import clusterProfiler
-#' @import clusterProfiler.dplyr
-#' @import stringr
-#' @import cowplot
 #'
 #' @example go_enrich(gene = , organism = , keytype = ,
 #' readable = TRUE, pval_cutoff = 0.05, qval_cutoff = 0.05, ...)
@@ -168,7 +161,7 @@ go_enrich <- function(gene_list, organism, ...) {
 
 
 
-#' create plots
+#' go_enrich_plot
 #' @param gene_list object of enrichGO
 #' @param ... passing extra arguments
 #' parent function: get_go_plots(),

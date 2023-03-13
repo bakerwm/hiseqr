@@ -2,25 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{deseq_pair_stat_plot}
 \alias{deseq_pair_stat_plot}
-\title{#' functions for pair deseq
-#'
-#' @param x string to GroupA "A.vs.B"
-#' @param y string to GroupB "A.vs.B"
-#' @param feature string default: gene
-#' @param outdir string directory to save files
-#'
-#' @exportpair_deseq_report <- function(x, y, feature, outdir) {
-
-deseq_pair_report <- function(x, y, outdir) {
-message("# Run RNAseq pair ...")
-##---------------------##report
-
-subdir   <- paste0(basename(x), ".compare.", basename(y))
-outdir   <- normalizePath(outdir)outdir   <- file.path(outdir, subdir)
-
-if(! dir.exists(outdir)) {
-dir.create(outdir, mode = "0755", recursive = TRUE)
-}}
+\title{deseq_pair_stat_plot}
 \usage{
 deseq_pair_stat_plot(x = NULL, y = NULL, .pd_rds = NULL)
 }
@@ -34,102 +16,5 @@ deseq_pair_stat_plot(x = NULL, y = NULL, .pd_rds = NULL)
 \item{feature}{string default: gene}
 }
 \description{
-template <- system.file("rnaseq", "deseq_pair_report.Rmd",
-package = "hiseqr")
-template_to <- file.path(outdir, basename(template))
-\subsection{copy Rmd}{
-
-file.copy(template, template_to)
-out_html <- file.path(outdir, "deseq_pair_report.html")
+deseq_pair_stat_plot
 }
-}
-\details{
-\subsection{run Rmd}{
-
-if(file.exists(out_html)) {
-message("output exists, skipping ...")
-} else {
-rmarkdown::render(input       = template,
-output_file = out_html,
-params      = list(x = x,
-y = y))
-}
-}
-#' RNAseq cmp, stat
-#' number of sig genes
-#'
-#' @param x string to GroupA "A.vs.B"
-#' @param y string to GroupB "A.vs.B"
-#' @param feature string default: gene
-#' @param kepp_not_sig logical whether keep not sig changed genes, default: TRUE
-#' @param .pd_rds string path to the file, saving read_deseq_pair() output
-#'
-#' @import dplyr
-#'
-#' @export
-deseq_pair_stat <- function(x         = NULL,
-y         = NULL,
-.pd_rds      = NULL,
-keep_not_sig = TRUE) {
-}
-}
-\section{loading data from rds file}{
-if(is.null(.pd_rds)) {
-pd <- read_deseq_pair(x, y)
-} else {
-pd <- readRDS(.pd_rds) # x, y
-x    <- pd$x
-y    <- pd$y
-feature <- pd$feature
-}
-}
-
-\section{checkpoint}{
-if(is.null(pd)) {
-warning("x, y required")
-return(NULL)
-}
-}
-
-\section{sig genes, count}{
-df1 <- merge(sapply(pd$sig_genes$x, nrow) \%>\%
-as.data.frame() \%>\%
-tibble::rownames_to_column("sig"),
-sapply(pd$sig_genes$y, nrow) \%>\%
-as.data.frame() \%>\%
-tibble::rownames_to_column("sig"),
-by = "sig") \%>\%
-dplyr::rename(GroupA = "..x", GroupB = "..y")
-}
-
-\section{sig genes, plot}{
-df2 <- df1 \%>\%
-tidyr::gather("sample", "count", -1) \%>\%
-dplyr::filter(sig \%in\% c("up", "down"))
-}
-
-\section{for table (with gene names)}{
-gl <- lapply(list(pd$sig_genes$x,
-pd$sig_genes$y), function(i){
-dplyr::bind_rows(i) \%>\%
-dplyr::select(Gene, sig)
-})
-
-df3 <- merge(gl[\link{1}], gl[\link{2}], by = "Gene") \%>\%
-dplyr::rename(GroupA = sig.x,
-GroupB = sig.y) \%>\%
-dplyr::mutate(trend  = paste(GroupA, GroupB, sep = "-"))
-}
-
-\section{remove not_sig}{
-if(! isTRUE(keep_not_sig)) {
-df3 <- df3 \%>\%
-dplyr::filter(! trend \%in\% c("not-not"))
-# dplyr::filter(! grepl("not", trend))
-}
-}
-
-\section{output}{
-
-}
-

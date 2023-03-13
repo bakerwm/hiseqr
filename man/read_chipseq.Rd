@@ -10,6 +10,5 @@ read_chipseq(x)
 \item{x}{string path}
 }
 \description{
-input dir
-output files, config
+read ChIPseq directory
 }

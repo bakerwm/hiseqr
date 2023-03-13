@@ -2,26 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{deseq_pair_heatmap_te}
 \alias{deseq_pair_heatmap_te}
-\title{#' to-do: hclust rows !!!!
-#' RNAseq cmp,
-#' number of sig genes
-#'
-#' @param x string to GroupA "A.vs.B"
-#' @param y string to GroupB "A.vs.B"
-#' @param feature string default: gene
-#' @param .pd_rds string path to the file, saving read_deseq_pair() output
-#'
-#' @import dplyr
-#'
-#' @export
-deseq_pair_heatmap <- function(x    = NULL,
-y    = NULL,
-feature = "gene",
-.pd_rds = NULL) {
-\subsection{load data}{
-
-pd <- deseq_pair_stat(x, y, feature, .pd_rds)
-}}
+\title{deseq_pair_heatmap_te}
 \usage{
 deseq_pair_heatmap_te(
   x = NULL,
@@ -41,34 +22,5 @@ deseq_pair_heatmap_te(
 \item{.pd_rds}{string path to the file, saving read_deseq_pair() output}
 }
 \description{
-#' to-do: hclust rows !!!!
-#' RNAseq cmp,
-#' number of sig genes
-#'
-#' @param x string to GroupA "A.vs.B"
-#' @param y string to GroupB "A.vs.B"
-#' @param feature string default: gene
-#' @param .pd_rds string path to the file, saving read_deseq_pair() output
-#'
-#' @import dplyr
-#'
-#' @export
-deseq_pair_heatmap <- function(x    = NULL,
-y    = NULL,
-feature = "gene",
-.pd_rds = NULL) {
-\subsection{load data}{
-
-pd <- deseq_pair_stat(x, y, feature, .pd_rds)
+deseq_pair_heatmap_te
 }
-}
-\details{
-
-}
-\section{checkpoint}{
-if(is.null(pd)) {
-warning("x, y required")
-return(NULL)
-}
-}
-

@@ -2,8 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{stat_deseq_pair}
 \alias{stat_deseq_pair}
-\title{stat_deseq_pair
-number of sig genes}
+\title{stat_deseq_pair}
 \usage{
 stat_deseq_pair(
   x = NULL,
@@ -27,5 +26,4 @@ stat_deseq_pair(
 }
 \description{
 stat_deseq_pair
-number of sig genes
 }

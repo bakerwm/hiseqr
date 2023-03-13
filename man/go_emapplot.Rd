@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_emapplot}
 \alias{go_emapplot}
-\title{create plots}
+\title{go_emapplot}
 \usage{
 go_emapplot(x, ...)
 }
@@ -18,5 +18,5 @@ layout, kk, nicely,
 updated: 2020-12-15, pairwise_termsim(ego)}
 }
 \description{
-create plots
+go_emapplot
 }

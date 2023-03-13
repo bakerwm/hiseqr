@@ -5,17 +5,16 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name deseq
 
 
-#' @describeIn deseq
+#' deseq
 #'
 #' @param dds DESeqDataSet
 #' @param outdir character saving the results
 #' @param strandness character could be "sens", "anti", default "sens"
 #' @param fix_batch bool fix batch effect, from replicates, suffix; default: TRUE
 #' @param shrink logical `shrink` LFC by ["apeglm", "ashr", "normal"],
-#'   default: TRUE
+#'     default: TRUE
 #' @param transform logical transform dds by `vst()`, `rlog()`, default: TRUE
 #' @param overwrite bool overwrite exists file, default: FALSE
 #' @param readable add `ENTREZID`, `SYMBOL`, based on gene_id, require: `genome`
@@ -25,9 +24,6 @@
 #' @param p_adjust bool use p-adjust value instead
 #' @param cpu integer, number of CPU to run in parallel, default: 2
 #'
-#' @import DESeq2
-#' @import apeglm
-#' @import ggplot2
 #'
 #' @return DESeqResults, res (shrinked)
 #'
@@ -177,11 +173,7 @@ deseq <- function(dds, ...) {
 }
 
 
-#' @describeIn run_deseq_res
-#' run DESeq2::results() for dds
-#' vst(), rlog() for dds
-#' results() for res
-#' lfcShrink() for res
+#' run_deseq_res
 #'
 #' @param dds DESeqDataSet
 #' @param outdir character saving deseq_res to file: deseq_res.rds

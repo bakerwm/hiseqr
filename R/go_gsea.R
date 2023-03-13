@@ -16,31 +16,23 @@
 #' 5. netplot
 #' 6. ...
 #'
-#' @name go_gsea
 
 
 
-#' @describeIn go_gsea
-#' gseGO analysis from clusterProfiler
-#'
-#' for clusterProfiler::groupGO, and enrichGO, gseGO
-#'
+#' go_gsea
+#' 
 #' @param gene_list numeric
 #' @param organism character Name of the organism, eg: dm3, fruitfly
 #' @param fold_change numeric, with names
 #' @param ... pass arguments: , orgdb, keytype, pval_cutoff, qval_cutoff,
-#' readable, with default values:
-#' orgdb = NULL
-#' keytype = NULL
-#' pval_cutoff = 0.9
 #'
 #' @param orgdb OrgDb from AnnotationDbi, overwrite `organism`
 #' @param keytype character Name of the keytype for input, default: NULL
 #' @param pval_cutoff float Cutoff for p-value, default: 0.9
 #'
 #'
-#' @import clusterProfiler
-#' @example gseGO(gene =, OrgDb = , ont = )
+#' @example 
+#'    gseGO(gene =, OrgDb = , ont = )
 #'
 #' @export
 go_gsea <- function(gene_list, organism, ...) {
@@ -127,9 +119,7 @@ go_gsea <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn gsea_input Prepare data for GSEA analysis
-#' require sorted values (fold_change, ...), with names (gene)
-#'
+#' prep_go_gsea
 #'
 #' @param gene_list character, gene name
 #' @param organism character, name of the genome
@@ -264,7 +254,6 @@ prep_go_gsea <- function(gene_list, organism, ...) {
 }
 
 
-#' create plots
 #' @param x object of gseaGO
 #'
 #' @export

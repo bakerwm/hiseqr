@@ -5,15 +5,9 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name hiseq_summary_modules
 
 
-#' @describeIn  read_hiseq_stat
-#'
-#' input: trim_json/trim_stat_json
-#' output: name, total, clean, too_short, too_short2, ...
-#'
-#'
+#'  read_hiseq_stat
 #' @param x path to hiseq, single
 #' @param keys character, quality control groups
 #'  options: c("trim", "align", "peak", "lendist", "frip", "report",
@@ -21,8 +15,6 @@
 #' @param add_tag add SHA-256 value of dirnname(x), first-7 characters
 #'
 #'
-#' @import dplyr
-#' @import readr
 #'
 #' @export
 read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
@@ -87,23 +79,10 @@ read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
 }
 
 
-##----------------------------------------------------------------------------##
-## sub-modules for summary
-
-#' @describeIn  read_hiseq_trim_stat
-#'
-#' Only for r1 directory (atac, ... )
-#' or trim dir
-#' parsing the trimming status
-#'
-#' input: trim_json/trim_stat_json
-#' output: name, total, clean, too_short, too_short2, ...
-#'
+#'  read_hiseq_trim_stat
 #'
 #' @param x path to hiseq, single
 #'
-#' @import dplyr
-#' @import readr
 #'
 #' @export
 read_hiseq_trim_stat <- function(x) {
@@ -132,20 +111,10 @@ read_hiseq_trim_stat <- function(x) {
 }
 
 
-#' @describeIn  read_hiseq_align_stat
-#'
-#' Only for r1 directory (atac, ... )
-#' or trim dir
-#' parsing the alignment status
-#'
-#' input: trim_json/trim_stat_json
-#' output: name, total, clean, too_short, too_short2, ...
-#'
+#'  read_hiseq_align_stat
 #'
 #' @param x path to hiseq, single
 #'
-#' @import dplyr
-#' @import readr
 #'
 #' @export
 read_hiseq_align_stat <- function(x) {
@@ -174,20 +143,10 @@ read_hiseq_align_stat <- function(x) {
 
 
 
-#' @describeIn  read_hiseq_trim_json
-#'
-#' Only for r1 directory (atac, ... )
-#' or trim dir
-#' parsing the alignment status
-#'
-#' input: trim_json/trim_stat_json
-#' output: name, total, clean, too_short, too_short2, ...
-#'
+#'  read_hiseq_trim_json
 #'
 #' @param x json file
 #'
-#' @import dplyr
-#' @import readr
 #'
 #' @export
 read_hiseq_trim_json <- function(x) {
@@ -211,20 +170,10 @@ read_hiseq_trim_json <- function(x) {
 
 
 
-#' @describeIn  read_hiseq_align_json
-#'
-#' Only for r1 directory (atac, ... )
-#' or trim dir
-#' parsing the alignment status
-#'
-#' input: trim_json/trim_stat_json
-#' output: name, total, clean, too_short, too_short2, ...
-#'
+#'  read_hiseq_align_json
 #'
 #' @param x json file
 #'
-#' @import dplyr
-#' @import readr
 #'
 #' @export
 read_hiseq_align_json <- function(x) {
@@ -263,11 +212,7 @@ read_hiseq_align_json <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_peak_stat
-#'
-#' number of peaks
-#' peak reads
-#'
+#' read_hiseq_peak_stat
 #' @param x path to the directory
 #'
 #' @export
@@ -309,9 +254,7 @@ read_hiseq_peak_stat <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_lendist_stat
-#'
-#' Gather length distributino of hiseq: r1, rn
+#' read_hiseq_lendist_stat
 #'
 #' @param x path to the directory
 #'
@@ -347,9 +290,7 @@ read_hiseq_lendist_stat <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_lendist_json
-#'
-#' Gather length distributino of hiseq: r1
+#' read_hiseq_lendist_json
 #'
 #' @param x path to the csv/json file
 #'
@@ -366,9 +307,7 @@ read_hiseq_lendist_json <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_frip_stat
-#'
-#' Fraction in peak
+#' read_hiseq_frip_stat
 #'
 #' @param x path to the directory
 #'
@@ -402,9 +341,7 @@ read_hiseq_frip_stat <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_frip_json
-#'
-#' Fraction in peak
+#' read_hiseq_frip_json
 #'
 #' @param x json file
 #'
@@ -420,10 +357,7 @@ read_hiseq_frip_json <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_enrich_stat
-#'
-#' Return the report/HiSeq_report.html
-#'
+#' read_hiseq_enrich_stat
 #' @param x path to the directory
 #'
 #' @export
@@ -449,9 +383,7 @@ read_hiseq_enrich_stat <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_cor_stat
-#'
-#' Return the cor heatmap/pca plots
+#' read_hiseq_cor_stat
 #'
 #' @param x path to the directory
 #'
@@ -483,9 +415,7 @@ read_hiseq_cor_stat <- function(x) {
 }
 
 
-#' @describeIn read_hiseq_report_stat
-#'
-#' Return the report/HiSeq_report.html
+#' read_hiseq_report_stat
 #'
 #' @param x path to the directory
 #'
@@ -506,7 +436,7 @@ read_hiseq_report_stat <- function(x) {
 }
 
 
-#' @describeIn read_rnaseq_deseq
+#' read_rnaseq_deseq
 #'
 #' @param x character path to the rnaseq_rx
 #'
@@ -548,152 +478,3 @@ read_rnaseq_deseq <- function(x, sig_list = TRUE) {
     )
   }
 }
-
-
-
-
-
-
-
-#' #' @describeIn  read_hiseq_stat
-#' #'
-#' #' input: trim_json/trim_stat_json
-#' #' output: name, total, clean, too_short, too_short2, ...
-#' #'
-#' #'
-#' #' @param x path to hiseq, single
-#' #' @param keys character, quality control groups
-#' #'  options: c("trim", "align", "peak", "lendist", "frip", "report")
-#' #' @param add_tag add SHA-256 value of dirnname(x), first-7 characters
-#' #'
-#' #'
-#' #' @import dplyr
-#' #' @import readr
-#' #'
-#' #' @export
-#' read_hiseq_stat <- function(x, keys = "align", add_tag = FALSE) {
-#'   # check arguments
-#'   pd <- read_hiseq(x)
-#'   if(! is(pd, "list")) {
-#'     warning(paste0("Not a hiseq directory: ", x))
-#'     return(NULL)
-#'   }
-#'   # tss_enrich
-#'   # genebody_enrich
-#'   # bam_cor: PCA, heatmap
-#'   # bam_fingerprint
-#'   # peak_overlap
-#'   # peak_idr
-#'   k_list <- c(
-#'     "trim", "align", "peak", "lendist", "frip", "report",
-#'     "enrich", "cor")
-#'   if(isTRUE(keys)) {
-#'     keys <- k_list
-#'   }
-#'   keys   <- purrr::keep(keys, function(i) i %in% k_list)
-#'   k_rm   <- purrr::discard(keys, function(i) i %in% k_list)
-#'   if(length(k_rm) > 0) {
-#'     warning(paste(c("unknown keys skipped:", k_rm), collapse = ", "))
-#'   }
-#'   if(length(keys) == 0) {
-#'     warning(paste(c("no keys, expect", k_list), collapse = ", "))
-#'     return(NULL)
-#'   }
-#'   # output
-#'   out <- lapply(keys, function(k) {
-#'     # build function
-#'     f  <- paste0("read_hiseq_", k, "_stat")
-#'     fn <- tryCatch(error = function(cnd) {
-#'       warning(paste0("unknown keys: ", k))
-#'       NULL
-#'     },
-#'     match.fun(f))
-#'     # do the things
-#'     df <- fn(x) %>% unique() #
-#'     if(isTRUE(add_tag) & inherits(df, "data.frame")) {
-#'       tag <- substr(hash_string(dirname(x)), 1, 7)
-#'       df$label <- paste0(basename(x), ".", tag)
-#'     }
-#'     df
-#'   })
-#'   # assign names
-#'   names(out) <- keys
-#'   out
-#' }
-
-
-#' #' @describeIn read_hiseq_frip_stat
-#' #'
-#' #' Fraction in peak
-#' #'
-#' #' @param x path to the directory
-#' #'
-#' #' @export
-#' read_hiseq_frip_stat <- function(x) {
-#'   j_list <- sapply(x, function(i) {
-#'     if(is_hiseq_dir(i)) {
-#'       pd <- read_hiseq(i)
-#'       # search for: trim_dir
-#'       if(startsWith(pd$hiseq_type, "qc")) {
-#'         t <- c("frip_json", "frip_toml", "frip_txt") # qc_dir
-#'       } else {
-#'         t <- c("frip_json") # pipeline
-#'       }
-#'       t <- purrr::discard(t, function(k) is.null(list_hiseq_file(i, k)))
-#'       pd$args[[t]] # json
-#'     }
-#'   })
-#'   read_hiseq_frip_json(j_list)
-#' }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#'
-#' #' @describeIn read_hiseq_report_stat
-#' #'
-#' #' Return the report/HiSeq_report.html
-#' #'
-#' #' @param x path to the directory
-#' #'
-#' #' @export
-#' read_hiseq_report_stat <- function(x) {
-#'   sapply(x, function(f) {
-#'     if(is_hiseq_dir(f)) {
-#'       pd <- read_hiseq(f)
-#'       t <- "report_dir"
-#'       j <- ifelse(t %in% names(pd$args), pd$args[[t]], "")
-#'       # for html file
-#'       if(is(j, "character") & file.exists(j)) {
-#'         h <- list.files(j, "*html$", full.names = TRUE)
-#'         if(length(h) > 1) {
-#'           h <- h[1]
-#'           message("More than 1 html detected")
-#'         }
-#'         h
-#'       }
-#'     }
-#'   })
-#' }
-
-
-# tss_enrich
-# genebody_enrich
-# bam_cor: PCA, heatmap
-# bam_fingerprint
-# peak_overlap
-# peak_idr
-
-

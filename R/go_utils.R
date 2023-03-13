@@ -4,26 +4,15 @@
 #'
 #'
 #'
-#' @name go_utils
 
-## @deprecated
-#' @describeIn is_named_num Check if input is named numbers
-#' eg: the input for GSEA analysis
-#'
-#'
+
 #' @export
 is_named_num <- function(x) {
   is.vector(x) & is.numeric(x) & !is.null(names(x)) & !any(is.na(names(x)))
 }
 
 
-#' @describeIn is_go_result check x, go analysis output
-#'
-#' support:
-#' groupGOResult,
-#' enrichResult,
-#' enrichKEGG,
-#' ...
+#' is_go_result
 #'
 #' @param x object
 #' @param recursive boolean, whether loop over list
@@ -54,7 +43,7 @@ is_go_result <- function(x, type = TRUE) {
 }
 
 
-#' @describeIn get_orgdb Pick the organism db
+#' get_orgdb
 #'
 #' @param x character The name of organism, or build name, eg: dm3, fruitfly
 #' Support human, mouse and fruitfly
@@ -102,7 +91,7 @@ get_orgdb <- function(x) {
 }
 
 
-#' @describeIn get_organism_name Extract the organism name
+#' get_organism_name
 #'
 #' @param x character the names used in other project
 #' @param group character The name return, ["organism", "OrgDb", "TxDb"]
@@ -169,8 +158,7 @@ get_organism_name <- function(x, group = "organism") {
 }
 
 
-#' to-do: grepl() options, ignore.case
-#' @describeIn get_orgdb_info
+#' get_orgdb_info
 #'
 #' @param x OrgDb
 #' @param options character name of metadata, eg: ORGANISM
@@ -195,7 +183,7 @@ get_orgdb_metadata <- function(x, options = "ORGANISM") {
 }
 
 
-#' @describeIn is_valid_organism
+#' is_valid_organism
 #'
 #' @param x string, organism name
 #'
@@ -205,12 +193,11 @@ is_valid_organism <- function(x) {
 }
 
 
-#' @describeIn guess_keytype Guess the keytype of the genes
+#' guess_keytype
 #'
 #' orgdb
 #' @param x string, gene name
 #' @param organism string, name of the organism, eg: Homo sapiens
-#' @import AnnotationDbi
 #'
 #' @export
 guess_keytype <- function(x, organism = NULL, orgdb = NULL) {
@@ -270,14 +257,12 @@ guess_keytype <- function(x, organism = NULL, orgdb = NULL) {
 }
 
 
-#' @describeIn is_valid_keys check keys is correct keytype in OrgDb
+#' is_valid_keys
 #'
-#' Function from AnnotationDbi, .testForValidKeys
-#'
-#'
-#' fks is an alternate vector of keys to consult for validity.
-#' Normally this will be NULL and the test function should consult
-#' keys for the supplied keytype
+#' @description
+#'    fks is an alternate vector of keys to consult for validity.
+#'    Normally this will be NULL and the test function should consult
+#'    keys for the supplied keytype
 #'
 #' @param orgdb OrgDb
 #' @param keys character gene names
@@ -319,7 +304,7 @@ is_valid_keys <- function(orgdb, keys, keytype, fks = NULL,
 }
 
 
-#' @describeIn is_valid_keytype Check keytype, from OrgDb, select()
+#' is_valid_keytype
 #'
 #' @export
 is_valid_keytype <- function(x, orgdb = NULL, organism = NULL) {
@@ -337,7 +322,7 @@ is_valid_keytype <- function(x, orgdb = NULL, organism = NULL) {
 }
 
 
-#' @describeIn convert_id Convert gene ids between keytypes, using AnnotationDbi
+#' convert_id
 #'
 #' @param x gene names
 #' @param organism name of the genome, eg: "dm6"
@@ -434,12 +419,7 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
 }
 
 
-#' @describeIn convert URL to link
-#'
-#' markdown: [name](url)
-#' html: <a href=url target="_blank">name</a>
-#'
-#' conflict with: hiseq_reprot.R/.url_to_link2
+#' convert URL to link
 #'
 #' @export
 .url_to_link2 <- function(url, name, style = "markdown") {
@@ -461,19 +441,19 @@ convert_id <- function(x, from_keytype = NULL, to_keytype = "SYMBOL",
 }
 
 
-#' @describeIn gene_to_link Link to the gene on database (ENSEMBL)
+#' gene_to_link
 #'
-#' create emsembl geneID links
-#' format [site]/id/[stable_id]
-#' site1: https://asia.ensembl.org
-#' site2: https://www.ensembl.org
+#' @description 
+#'    create emsembl geneID links
+#'    format [site]/id/[stable_id]
+#'    site1: https://asia.ensembl.org
+#'    site2: https://www.ensembl.org
+#'    ensembl: https://asia.ensembl.org/id/FBgn0004872
+#'    flybase: http://flybase.org/reports/FBgn0004872
 #'
 #' @param x string, gene names
 #' @param organism string, scientific name of the organism, eg: Drosophila melanogaster,
 #' @param style string, url, markdown, html, ...
-#'
-#' ensembl: https://asia.ensembl.org/id/FBgn0004872
-#' flybase: http://flybase.org/reports/FBgn0004872
 #'
 #' @export
 gene_to_link <- function(x, organism, style = "url",

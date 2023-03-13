@@ -10,12 +10,9 @@
 #' 4. netplot
 #' 5. ...
 #'
-#' @name kegg
 
 
-#' @describeIn kegg_gsea
-#' run gseKEGG()
-#'
+#' kegg_gsea
 #' @param gene_list decreasing sorted numeric vector
 #' @param organism kegg_code, eg: dme
 #'
@@ -162,12 +159,7 @@ kegg_gsea <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn prep_kegg_gsea
-#' Prepare data for KEGG GSEA analysis
-#'
-#' require sorted values (fold_change, ...), with names (gene)
-#' require: ENTREZID (FLYBASECG for fruitfly)
-#'
+#' prep_kegg_gsea
 #' @param gene_list gene name
 #' @param fold_change numeric
 #'
@@ -325,9 +317,5 @@ prep_kegg_gsea <- function(gene_list, organism, ...) {
 }
 
 
-#' #' @export
-#' kegg_gsea_plot <- function(x, ...) {
-#'   go_gsea_plot(x, ...)
-#' }
 
 

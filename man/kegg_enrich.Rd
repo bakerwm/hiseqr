@@ -24,16 +24,16 @@ readable = TRUE}
 
 \item{qval_cutoff}{float Cutoff for q-value, default: 0.9}
 
-\item{readable}{bool Args for enrichKEGG function, convert to gene symbol}
+\item{readable}{bool Args for enrichKEGG function, convert to gene symbol
+
+pval_cutoff, qval_cutoff, set to 0.9, in order to return
+enrich results anyway, filter in downstream analysis}
 }
 \description{
-pval_cutoff, qval_cutoff, set to 0.9, in order to return
-enrich results anyway, filter in downstream analysis
-}
-\details{
 overrepresent analysis
 GSEA analysis
-
+}
+\details{
 enrich kegg
 \enumerate{
 \item csv files, results
@@ -43,4 +43,6 @@ enrich kegg
 \item netplot
 \item ...
 }
+
+kegg_enrich
 }

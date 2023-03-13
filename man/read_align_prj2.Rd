@@ -2,10 +2,10 @@
 % Please edit documentation in R/align.R
 \name{read_align_prj2}
 \alias{read_align_prj2}
-\title{load all pickles, sub-samples}
+\title{load all pickles}
 \usage{
 read_align_prj2(x)
 }
 \description{
-load all pickles, sub-samples
+load all pickles
 }

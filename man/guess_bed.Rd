@@ -2,12 +2,10 @@
 % Please edit documentation in R/bed.R
 \name{guess_bed}
 \alias{guess_bed}
-\title{guess bed format
-bed3, bed6, bed10}
+\title{guess bed format}
 \usage{
 guess_bed(x)
 }
 \description{
 guess bed format
-bed3, bed6, bed10
 }

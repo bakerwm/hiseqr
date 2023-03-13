@@ -14,15 +14,11 @@
 #'
 #' to-to: simpify arguments by `...`
 #'
-#' @name deseq_qc_utils
 
 #------------------------------------------------------------------------------#
 # loading data for deseq_qc()
 
-#' @describeIn deseq_qc_dds
-#'
-#' parse dds_trans data, from file: `deseq_res.rds`
-#' see `run_deseq(dds, outdir, ...)`
+#' deseq_qc_dds
 #'
 #' @param x DESeqDataSet object or outdir (deseq_deseq2)
 #'
@@ -92,49 +88,20 @@ deseq_qc_dds <- function(x = NULL, ...) {
 }
 
 
-#' @describeIn deseq_qc_res
+#' deseq_qc_res
 #'
 #' @example
-#' ma, volcano: log2FolcChange, pvalue
-#' scatter: wt vs mut
-#'
-#'
-#' get data.frame from `norm_table.fix.xls`,
-#' for `dds`, see `import_featurecounts()` and `prep_hiseq_deseq()`
-#' be careful using the following compatiable data types:
-#' `data.frame`, `deseq_dds.rds`,
-#'
-#' return: data.frame
-#' for scatter plot, require mean values of wt/mut
-#' x: log10(wt + 1), names(df)[2]
-#' y: log10(mut + 1), names(df)[3]
-#'
-#' assign `sig` column based on log2FoldChange, padj (or pvalue)
-#' see: `get_sig_name(..., return_dataframe = TRUE)`
-#' sig: for colors, ["up":"red", "not":"grey50", "down":"blue"]
-#'   up: padj < pval & log2fc >= log2(fc)
-#'   down: padj < pval & log2fc <= -log2(fc)
-#'   not: is.na(padj) | padj >= pval
-#'
-#' ext: for shapes, ["up":2, "dot":20, "down":6]
-#'   change dot shapes, based on the range of log2fc_limits
-#'   default limits = `scales::breaks_ext(n=5)(log2FoldChange)`
-#'   up: log2fc > max(log2fc_limits)
-#'   down: log2fc < min(log2fc_limits)
-#'   not: log2fc >= min(log2fc_limits) & log2fc <= max(log2fc_limits)
-#'
+#'   ma, volcano: log2FolcChange, pvalue
+#'   scatter: wt vs mut
 #' @param x character path to the file `norm_table.fix.xls`
-#' also support data types: `DESeqDataSet`, ...
+#'   also support data types: `DESeqDataSet`, ...
 #' @param log2fc_limits numeric setting the range of log2FoldChange on plots
-#' default: NULL, by `scales::breaks_extend()`
+#'   default: NULL, by `scales::breaks_extend()`
 #' @param fc numeric cutoff for foldchange, default: 1, ignore foldchange
 #' @param pvalue numeric cutoff for padj, default: 0.1, the main criteria
 #' @param p_adjust bool use p-adjust value instead
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'

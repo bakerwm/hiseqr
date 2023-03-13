@@ -5,7 +5,7 @@
 #' It assumes that input path is a directory or a single *_fastqc.zip
 #' file.
 #'
-#' @description Create html report for fastqc output
+#' Create html report for fastqc output
 #' @param indir Path to the input directory, Default is the
 #'   current working directory.
 #' @param outdir path to the result file prefix (e.g., path/to/qc-result).
@@ -13,16 +13,8 @@
 #' @param template a character vector specifying the path to an Rmd template.
 #'  file.
 #' @param preview logical value. If TRUE, shows a preview of the report.
-#' @examples
-#' \donotrun{
-#' # Demo
-#' qc.path <- system.file("fastqc_results", package = "fastqcr")
-#'
-#' fastqc_report(qc.path, result.file = "demo")
-#' }
-#'
-#' @import fastqcr
-#' @import rmarkdown
+#' @example
+#'    fastqc_report()
 #'
 #' @return A list of paths of zip files
 #' @export
@@ -198,9 +190,6 @@ fastqc_plot <- function(r1_path, r2_path = NULL, module = "base quality") {
 
 
 #' Per base sequence quality plot
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
 #'
 #' @export
 plot_base_quality <- function(df, title = "Per base quality") {
@@ -304,9 +293,6 @@ plot_base_quality <- function(df, title = "Per base quality") {
 
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
 #'
 #' @export
 plot_base_content <- function(df, title = "Per base content") {
@@ -384,9 +370,6 @@ plot_base_content <- function(df, title = "Per base content") {
 
 # df <- qc$sequence_length_distribution
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
 #'
 #' @export
 plot_len_dis <- function(df, title = "Distribution of Lengths") {

@@ -1,7 +1,4 @@
-# name: go_pipe
-#
-# run go analysis, for specific input: deseq_dir |  gene_list
-#' run go analysis
+#' name: go_pipe
 #'
 #' @param x string, deseq_dir or gene names
 #' @param organism string scientific name, eg: Drosophila melanogaster
@@ -81,7 +78,7 @@ go_pipe <- function(x, organism, outdir,
 
 
 
-#' generate report for directory
+#' go_report
 #'
 #' @param x path to GO output or deseq_dir
 #' @param feature string support for deseq_dir, default: gene

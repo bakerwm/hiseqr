@@ -1,17 +1,18 @@
 #' Functions for bacteria
 #'
-#'
-#' @name bacteria
 
 
-#' @description Create html report for kraken2 output
+#' bacteria
+#' 
+#' @description A tmp function for documentation
+bacteria <- function(x) {
+  x
+}
+
+#' hiseq_kraken2_report
 #'
 #' @param indir character Path to the of kraken2 results
 #' @param outdir character path to the html report
-#' @examples
-#' \donotrun{
-#'
-#' }
 #'
 #' @export
 hiseq_kraken2_report <- function (indir, outdir, preview = FALSE) {
@@ -33,7 +34,7 @@ hiseq_kraken2_report <- function (indir, outdir, preview = FALSE) {
 
 
 
-#' @describeIn read_kraken2_report
+#' read_kraken2_report
 #'
 #' @param x character path to the directory of kraken2 results
 #' @param tax_level character the level of tax, default; [G]
@@ -115,7 +116,7 @@ read_kraken2_report <- function(x, tax_level = "G", topN = 5) {
 
 
 
-#' @describeIn plot_kraken2_report
+#' plot_kraken2_report
 #' Generate heatmap for kraken2 report
 #'
 #' @param x character, path to the kraken2 output
@@ -126,7 +127,6 @@ read_kraken2_report <- function(x, tax_level = "G", topN = 5) {
 #' rank code of the closest ancestor rank with a number indicating the distance
 #' from that rank. E.g., "G2" is a rank code indicating a taxon is between
 #'
-#' @import ggplot2
 #'
 #' @export
 plot_kraken2_report <- function(x, tax_level = "G", topN = 5,
@@ -153,68 +153,3 @@ plot_kraken2_report <- function(x, tax_level = "G", topN = 5,
       axis.title  = element_blank()
     )
 }
-
-
-
-#' deprecated
-#'
-#' add levels
-#'
-#' #' @describeIn read_kraken2_report
-#' #'
-#' #' @param x character path to the directory of kraken2 results
-#' #' @param tax_level character the level of tax, default; [G]
-#' #' @param topN int the number of taxon to show
-#' #'
-#' #' A rank code, indicating (U)nclassified, (R)oot, (D)omain, (K)ingdom,
-#' #' (P)hylum, (C)lass, (O)rder, (F)amily, (G)enus, or (S)pecies. Taxa that are
-#' #' not at any of these 10 ranks have a rank code that is formed by using the
-#' #' rank code of the closest ancestor rank with a number indicating the distance
-#' #' from that rank. E.g., "G2" is a rank code indicating a taxon is between
-#' #' genus and species and the grandparent taxon is at the genus rank
-#' #'
-#' #'
-#' #' @export
-#' read_kraken2_report <- function(x, tax_level = "G", topN = 5) {
-#'   lapply(x, function(f) {
-#'     s  <- c('pct', 'reads_in_clade', 'reads_in_tax', 'code', 'taxid', 'name')
-#'     df <- readr::read_delim(f, "\t", trim_ws = TRUE, col_types = readr::cols(),
-#'                             col_names = s)
-#'     # unclassified
-#'     df_un <- dplyr::filter(df, name == "unclassified")
-#'     n_un  <- dplyr::pull(df_un, reads_in_clade)
-#'     # root
-#'     n_root <- dplyr::filter(df, name == "root") %>%
-#'       dplyr::pull(reads_in_clade)
-#'     n_total = n_un + n_root
-#'     # filter by code
-#'     df1 <- df %>%
-#'       dplyr::filter(startsWith(code, tax_level)) %>%
-#'       # dplyr::filter(grepl(tax_level, code)) %>%
-#'       dplyr::arrange(desc(reads_in_tax)) %>%
-#'       head(topN)
-#'     # add others
-#'     n_other <- n_root - sum(df1$reads_in_tax)
-#'     df2 <- tibble::tibble(
-#'       pct = n_other / n_total * 100,
-#'       reads_in_clade = n_other,
-#'       reads_in_tax   = n_other,
-#'       code           = "X",
-#'       taxid          = 0,
-#'       name           = "Other"
-#'     )
-#'     # combine
-#'     df3 <- dplyr::bind_rows(df1, df2, df_un)
-#'     df3$name <- forcats::as_factor(df3$name)
-#'     # output
-#'     df3 %>%
-#'       dplyr::mutate(
-#'         total   = n_total,
-#'         hit     = n_root,
-#'         hit_pct = round(reads_in_tax / total * 100, 2),
-#'         sample  = gsub(".kraken2|.report$", "", basename(f))
-#'       ) %>%
-#'       dplyr::select(sample, name, reads_in_tax, hit_pct, hit, total)
-#'   }) %>%
-#'     dplyr::bind_rows()
-#' }

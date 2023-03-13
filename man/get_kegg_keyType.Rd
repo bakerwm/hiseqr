@@ -2,8 +2,7 @@
 % Please edit documentation in R/kegg_utils.R
 \name{get_kegg_keyType}
 \alias{get_kegg_keyType}
-\title{for clusterProfiler:
-kegg,}
+\title{get_kegg_keyType}
 \usage{
 get_kegg_keyType(organism)
 }
@@ -11,10 +10,5 @@ get_kegg_keyType(organism)
 \item{organism}{character name of the organism}
 }
 \description{
-for KEGGREST
-ncbi-geneid
-}
-\details{
-for fruit fly: use flybasecg (OrgDb) => ncbi-geneid (kegg in clusterProfiler)
-for human, mouse: use entrezid (OrgDb) => ncbi-geneid (kegg in clusterProfiler)
+get_kegg_keyType
 }

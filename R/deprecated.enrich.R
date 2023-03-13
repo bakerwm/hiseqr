@@ -16,10 +16,9 @@
 #'
 #' `enrichGO()`, `enrichKEGG()`, `gseGO`, `gseKEGG`, `groupGO`, ...
 #'
-#' @name enrich
 
 #'
-#' #' @describeIn enrich_hub A port for enrich analysis
+#' #' enrich_hub A port for enrich analysis
 #' #'
 #' #'
 #' #' @param x path to the RNAseqRx directory: a.vs.b
@@ -36,8 +35,6 @@
 #' #' - show_category: 12
 #' #'
 #' #'
-#' #' @import dplyr
-#' #' @import DESeq2
 #' #'
 #' #' @example
 #' #' library(clusterProfiler)
@@ -85,15 +82,12 @@
 #' }
 #'
 #'
-#' #' @describeIn prep_enrich Prepare data for Enrich analysis
+#' #' prep_enrich Prepare data for Enrich analysis
 #' #'
 #' #' @description
 #' #'
 #' #' @param x path to the directory of RNAseqRx
 #' #'
-#' #' @import readr
-#' #' @import configr
-#' #' @import dplyr
 #' #'
 #' #'
 #' #'

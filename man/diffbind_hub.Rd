@@ -2,7 +2,7 @@
 % Please edit documentation in R/diffbind.R
 \name{diffbind_hub}
 \alias{diffbind_hub}
-\title{Run DiffBind for peaks (groups)}
+\title{diffbind_hub}
 \usage{
 diffbind_hub(design, outdir)
 }
@@ -12,5 +12,5 @@ diffbind_hub(design, outdir)
 \item{outdir}{output dirs}
 }
 \description{
-Standard
+diffbind_hub
 }

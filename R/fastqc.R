@@ -1,5 +1,7 @@
+#' Functions for fastqc
+#'
 
-
+#' plot_fastqc
 #' @param r1 List output of `qc_read()` of read1
 #' @param r2 List output of `qc_read()` of read2
 #' @param module Character name of the modules
@@ -152,9 +154,6 @@ qc_status <- function(x, module = TRUE) {
 }
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
 #'
 #' @param x List output of `qc_read(x, module = TRUE)`
 #' @export
@@ -209,9 +208,6 @@ plot_base_content <- function(x, ...) {
 }
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
 #'
 #' @param x List output of `qc_read(x, module = TRUE)`
 #' @export
@@ -264,10 +260,7 @@ plot_seq_length_distribution <- function(x, ...) {
 }
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
-#'
+#' plot_base_seq_quality
 #' @param x List output of `qc_read(x, module = TRUE)`
 #' @export
 plot_base_seq_quality <- function(x, ...) {
@@ -338,10 +331,7 @@ plot_base_seq_quality <- function(x, ...) {
 }
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
-#'
+#' plot_tile_seq_quality
 #' @param x List output of `qc_read(x, module = TRUE)`
 #' @export
 plot_tile_seq_quality <- function(x, ...) {
@@ -366,10 +356,7 @@ plot_tile_seq_quality <- function(x, ...) {
 }
 
 
-#' @import ggplot2
-#' @import dplyr
-#' @import scales
-#'
+#' plot_seq_quality_scores
 #' @param x List output of `qc_read(x, module = TRUE)`
 #' @export
 plot_seq_quality_scores <- function(x, ...) {

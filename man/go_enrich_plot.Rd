@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_enrich.R
 \name{go_enrich_plot}
 \alias{go_enrich_plot}
-\title{create plots}
+\title{go_enrich_plot}
 \usage{
 go_enrich_plot(x, ...)
 }
@@ -16,5 +16,5 @@ text_width}
 \item{gene_list}{object of enrichGO}
 }
 \description{
-create plots
+go_enrich_plot
 }

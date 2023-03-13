@@ -12,11 +12,10 @@
 #' to-to:
 #' - simpify arguments by `...`
 #' - distance between samples (bam cor)
-#'
-#' @name deseq_qc
 
 
-#' @describeIn deseq_qc quality control for dds object
+
+#' deseq_qc
 #'
 #' @param x character file `norm_table.fix.csv`, or `DESeqDataSet`
 #' also support the following data types: (be careful)
@@ -44,7 +43,6 @@
 #' @param p_adjust bool use p-adjust value instead
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @import DESeq2
 #'
 #' @return list of ggplots
 #'

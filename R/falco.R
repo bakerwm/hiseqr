@@ -13,7 +13,7 @@
 # f <- list.files(".", "fastqc_data.txt$")
 
 
-#' @description falco_plot_base_content
+#' falco_plot_base_content
 #'
 #' @param x output of falco_read_txt()
 #' @param mode character line, bar
@@ -53,7 +53,7 @@ falco_plot_base_content <- function(x, mode = "line", ...) {
 }
 
 
-#' @description falco_plot_lendist
+#' falco_plot_lendist
 #' bar plot or line plot
 #' module = 7, Sequence Length Distribution
 #'
@@ -86,7 +86,7 @@ falco_plot_lendist <- function(x, mode = "line", ...) {
 }
 
 
-#' @description falco_plot_lendist
+#' falco_plot_lendist
 #' bar plot or line plot
 #' module = 7, Sequence Length Distribution
 #'
@@ -119,7 +119,7 @@ falco_plot_base_content <- function(x, mode = "line") {
 }
 
 
-#' @description get_falco_data
+#' get_falco_data
 #'
 #' @param x full list of falco_read_txt
 #'
@@ -156,7 +156,7 @@ falco_fetch_data <- function(x, module = "ALL", group = "ALL") {
 }
 
 
-#' @description read_falco
+#' read_falco
 #'
 #' @param x string fastqc_data.txt file
 #' @param module int or character the name of the modules
@@ -193,7 +193,7 @@ falco_read_txt <- function(x, module = "ALL", group = "ALL") {
 }
 
 
-#' @description read_falco_module
+#' read_falco_module
 #'
 #' @param x string
 #'
@@ -223,7 +223,7 @@ falco_read_module <- function(x) {
 }
 
 
-#' @describeIn falco_guess_module
+#' falco_guess_module
 #'
 #' @export
 falco_guess_module <- function(x) {

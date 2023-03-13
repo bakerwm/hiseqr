@@ -58,5 +58,6 @@ to-to:
 \itemize{
 \item simpify arguments by \code{...}
 \item distance between samples (bam cor)
+deseq_qc
 }
 }

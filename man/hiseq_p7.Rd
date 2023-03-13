@@ -2,11 +2,13 @@
 % Please edit documentation in R/hiseq_p7.R
 \name{hiseq_p7}
 \alias{hiseq_p7}
-\alias{hiseq_p7_report}
-\title{Functions for check P7 structure}
+\title{hiseq_p7}
 \usage{
-hiseq_p7_report(input, output = NULL)
+hiseq_p7(x)
+}
+\arguments{
+\item{x}{character path to the directory of hiseq p7 output}
 }
 \description{
-Check the structure of P7, TruSeq, Nextera
+hiseq_p7
 }

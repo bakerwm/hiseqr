@@ -2,12 +2,11 @@
 #'
 #' force "entrezid" in analysis pipeline
 #'
-#' @name go_input
 
 ##----------------------------------------------------------------------------##
 ## deprecated
 #'
-#' #' @describeIn prep_go_input Prepare data for GO analysis
+#' #' prep_go_input Prepare data for GO analysis
 #' #'
 #' #' 1. Guess the keytype of the gene
 #' #' 2. Convert gene to entrezid
@@ -73,7 +72,7 @@
 #' }
 #'
 #'
-#' #' @describeIn gsea_input Prepare data for GSEA analysis
+#' #' gsea_input Prepare data for GSEA analysis
 #' #' require sorted values (fold_change, ...), with names (gene)
 #' #'
 #' #'

@@ -14,15 +14,11 @@
 #'
 #' to-to: simpify arguments by `...`
 #'
-#' @name deseq_qc_plot
 
 #------------------------------------------------------------------------------#
 # main: qc plots
 
-#' @describeIn deseq_qc_counts
-#'
-#' x could be "dds", deseq_deseq2, `norm_table.fix.csv`
-#' output: data.frame (merge)
+#' deseq_qc_counts
 #'
 #' @param x DESeqDataSet
 #' @param outdir character saving the results
@@ -136,7 +132,7 @@ deseq_qc_counts <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_mean_sd
+#' deseq_qc_mean_sd
 #' check mean standard diviation (SD), after transformation by vst, vlog
 #'
 #' @param x DESeqDataSet
@@ -145,8 +141,6 @@ deseq_qc_counts <- function(x, ...) {
 #' default: standard
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @importFrom vsn meanSdPlot
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -203,8 +197,7 @@ deseq_qc_mean_sd <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_top_gene
-#' Check values for top genes
+#' deseq_qc_top_gene
 #'
 #' @param x `DESeqDataSet`, see `deseq_qc_dds(x=)`
 #' @param outdir character saving the results
@@ -213,10 +206,6 @@ deseq_qc_mean_sd <- function(x, ...) {
 #' @param n_max integer number of genes to display, defualt: 30
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @importFrom pheatmap pheatmap
-#' @importFrom RColorBrewer brewer.pal
-#' @importFrom ggplotify as.ggplot
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -290,19 +279,13 @@ deseq_qc_top_gene <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_dist
-#' check distance between samples
-#'
+#' deseq_qc_dist
 #' @param x DESeqDataSet
 #' @param outdir character saving the results
 #' @param transform_method bool compute tranformed data, `vst()`, `rlog()`
 #' default: standard
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @importFrom pheatmap pheatmap
-#' @importFrom RColorBrewer brewer.pal
-#' @importFrom ggplotify as.ggplot
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -363,8 +346,7 @@ deseq_qc_dist <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_pca
-#' check PCA plot for dds
+#' deseq_qc_pca
 #'
 #' @param x `DESeqDataSet`, see `deseq_qc_dds(x=)`
 #' @param outdir character saving the results
@@ -372,10 +354,6 @@ deseq_qc_dist <- function(x, ...) {
 #' default: FALSE
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom BiocGenerics plotPCA
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -446,8 +424,7 @@ deseq_qc_pca <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_ma
-#' check MA plot for res
+#' deseq_qc_ma
 #'
 #' @param x see `deseq_qc_res(x=)`
 #' @param outdir character saving the results
@@ -458,9 +435,6 @@ deseq_qc_pca <- function(x, ...) {
 #' @param p_adjust bool use p-adjust value instead
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -560,8 +534,7 @@ deseq_qc_ma <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_volcano
-#' check volcano plot for res
+#' deseq_qc_volcano
 #'
 #' @param x see `deseq_qc_res(x=)`
 #' @param outdir character saving the results
@@ -572,10 +545,6 @@ deseq_qc_ma <- function(x, ...) {
 #' @param p_adjust bool use p-adjust value instead
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom BiocGenerics plotPCA
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -673,10 +642,7 @@ deseq_qc_volcano <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_scatter
-#' for scatter plot
-#' x: log10(wt + 1)
-#' y: log10(mut + 1)
+#' deseq_qc_scatter
 #'
 #' @param x see `deseq_qc_res(x=)`
 #' @param outdir character saving the results
@@ -687,9 +653,6 @@ deseq_qc_volcano <- function(x, ...) {
 #'  large number dots
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -821,10 +784,7 @@ deseq_qc_scatter <- function(x, ...) {
 }
 
 
-#' @describeIn deseq_qc_scatter2
-#' for scatter plot, colored by specific column
-#' x: log10(wt + 1)
-#' y: log10(mut + 1)
+#' deseq_qc_scatter2
 #'
 #' @param x see `deseq_qc_res(x=)`
 #' @param outdir character saving the results
@@ -835,9 +795,6 @@ deseq_qc_scatter <- function(x, ...) {
 #'  large number dots
 #' @param overwrite bool overwrite exists file, default: FALSE
 #'
-#' @improt ggplot2
-#' @importFrom ggrepel geom_text_repel
-#' @importFrom patchwork wrap_plots plot_annotation
 #'
 #' @return ggplot
 #'
@@ -856,6 +813,7 @@ deseq_qc_scatter2 <- function(x, ...) {
     overwrite  = FALSE,
     readable   = TRUE,
     density_point = FALSE,
+    ylim = NULL,
     # .col_label = "gene_id",
     color_by   = "sig", # sig, tissue
     add_sig    = FALSE,
@@ -967,10 +925,7 @@ deseq_qc_scatter2 <- function(x, ...) {
 
 
 
-#' @describeIn deseq_qc_add_sig_label
-#' add sig labels to plot, based on `sig` column and
-#' is designed for:
-#' `deseq_qc_ma()`, `deseq_qc_volcano()`, `deseq_qc_scatter()`
+#' deseq_qc_add_sig_label
 #'
 #' @param x ggplot
 #' @param label_list character gene names

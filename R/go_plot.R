@@ -5,11 +5,10 @@
 #' force "entrezid" in analysis pipeline
 #' force "readable=T" for output
 #'
-#' @name go_plot
 
 
 
-#' create plots
+#' go_barplot
 #' @param x list of objects of groupGO, enrichGO
 #' @param ..., support, fold_change, text_width,
 #' fold_change
@@ -62,7 +61,7 @@ go_barplot <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_dotplot
 #' @param x object of enrichGO
 #' @param ..., support, fold_change, text_width,
 #' fold_change
@@ -122,7 +121,7 @@ go_dotplot <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_cnetplot
 #' @param x object of enrichGO
 #' @param ..., support, fold_change, text_width,
 #' fold_change
@@ -165,7 +164,7 @@ go_cnetplot <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_emapplot
 #' @param x object of enrichGO
 #' @param ..., support, fold_change, text_width,
 #'
@@ -246,7 +245,7 @@ go_emapplot <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_emapplot_cluster
 #' @param x object of enrichGO
 #'
 #' updated: 2020-12-15, pairwise_termsim(ego)
@@ -292,7 +291,7 @@ go_emapplot_cluster <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_gsea_plot
 #' @param x object of gseaResult
 #' @param ..., support, fold_change, text_width,
 #' fold_change
@@ -335,7 +334,7 @@ go_gsea_plot <- function(x, ...) {
 }
 
 
-#' create plots
+#' go_heatplot
 #' @param x object of enrichGO
 #' @param ..., support, fold_change, text_width,
 #' fold_change
@@ -380,7 +379,7 @@ go_heatplot <- function(x, ...) {
 
 
 
-#' create plots
+#' go_treeplot
 #' @param x object of enrichGO
 #'
 #' updated: 2020-12-15, pairwise_termsim(ego)
@@ -437,7 +436,7 @@ go_treeplot <- function(x, ...) {
 
 
 
-#' wego plot
+#' go_wego_plot
 #'
 #' @param x list of objects of groupGO, enrichGO
 #'

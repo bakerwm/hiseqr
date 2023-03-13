@@ -13,32 +13,13 @@
 #'
 #' helper functions:
 #'
-#' @import fs
-#' @import ggplot2
-#' @import ggthemes
-#' @import dplyr
-#' @import tidyr
-#' @import readr
-#' @import tibble
-#' @import patchwork
 #'
 #'
-#' @import DiffBind
-#' @import ggplot2
-#' @import dplyr
-#' @import ChIPseeker
-#' @import rtracklayer
-#' @import org.Dm.eg.db
-#' @import TxDb.Dmelanogaster.UCSC.dm6.ensGene
 #'
 #'
-#' @name diffbind
 
 
 #' get_hiseq_data
-#'
-#' retrive data from hiseq directory
-#'
 #' @param dir path to the hiseq
 #' @param group attribute of the file, peak, bam, ...
 #'
@@ -54,14 +35,7 @@ get_hiseq_data <- function(dir, group = "peak") {
 
 
 
-#' Convert narrowPeak to bed4
-#'
-#'
 #' np2bed4
-#'
-#' Convert narrowPeak to BED4
-#'
-#' save column-7: signalValue
 #'
 #' @param np narrowPeak file
 #' @param outdir path to save the bed file, if NULL, save to the same directory
@@ -95,9 +69,7 @@ np2bed4 <- function(np, outdir=NULL) {
 
 
 
-#' ATACseqDiff
-#'
-#' DiffBind analysis for ATACseq results
+#' atacseq_diff
 #'
 #' @param dirA path to directory of merge sample, B
 #' @param dirB path to directory of merge sample, B
@@ -159,12 +131,8 @@ atacseq_diff <- function(dirA, dirB, outdir = NULL) {
 
 
 
-#' Run DiffBind for peaks (groups)
+#' diffbind_hub
 #'
-#' Standard
-#'
-#' @import DiffBind
-#' @import ChIPseeker
 #'
 #' @param design data.frame or csv file, for the peak and bam files
 #' @param outdir output dirs
@@ -296,7 +264,7 @@ diffbind_hub <- function(design, outdir) {
 
 
 
-#' Prepare data for diffbind
+#' prep_diffbind
 #'
 #' @param design data.frame or csv file, for the peak and bam files
 #' @param outdir output dirs
@@ -400,20 +368,3 @@ prep_diffbind <- function(design, outdir) {
     out_files = f_files
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

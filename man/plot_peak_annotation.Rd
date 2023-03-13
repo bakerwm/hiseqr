@@ -2,7 +2,7 @@
 % Please edit documentation in R/annotate_peak.R
 \name{plot_peak_annotation}
 \alias{plot_peak_annotation}
-\title{make plot}
+\title{plot_peak_annotation}
 \usage{
 plot_peak_annotation(
   x,
@@ -19,5 +19,5 @@ plot_peak_annotation(
 \item{plot_type}{string, bar, tss, venn, upset}
 }
 \description{
-make plot
+plot_peak_annotation
 }

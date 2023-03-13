@@ -2,91 +2,7 @@
 % Please edit documentation in R/rnaseq.R
 \name{prep_rnaseq_enrich}
 \alias{prep_rnaseq_enrich}
-\title{#' @describeIn import_matrix Construct dds for DESeq2 analysis using matrix
-#'
-#' using DESeqDataSetFromMatrix()
-#'
-#' @param ma matrix sample vs genes, non-negative integers
-#' @param control_name vector, sample names in ma, as control
-#' @param treatment_name vector, sample names in ma, as treatment
-#'
-#' output: DESeqDataSet: dds
-#'
-#' @export
-import_matrix <- function(ma, control_name, treatment_name) {Check arguments
-
-stopifnot(inherits(ma, "matrix"))Check sample names in ma
-
-stopifnot(all(c(control_name, treatment_name) \%in\% colnames(ma)))Convert to integers, if float exists
-
-ma <- round(ma, digits = 0)Save only positive values
-
-neg_cols <- apply(ma < 0, 1, any)
-if (sum(neg_cols) > 0) {
-warning(paste0("Remove ", sum(neg_cols), " records, with negative counts"))
-ma <- ma\link{! neg_cols, }
-}create design
-
-col_data <- data.frame(condition = factor(c(
-rep("control", times = length(control_name)),
-rep("treatment", times = length(treatment_name))
-),
-levels = c("control", "treatment")
-))
-rownames(col_data) <- c(control_name, treatment_name)return dds
-
-DESeq2::DESeqDataSetFromMatrix(
-countData = ma,
-colData   = col_data,
-design    = ~condition
-)
-}
-#' @describeIn prep_deseq Prepare data for DESeq analysis
-#'
-#' @param x path to the directory of RNAseqRx
-#'
-#' @import readr
-#' @import configr
-#' @import dplyr
-#'
-#' @export
-prep_deseq <- function(x) {
-if(! is_hiseq_dir(x, "rnaseq_rx")) {
-msg <- paste0("\code{x} expect a RNAseqRx, eg: a.vs.b directory, failed: ", x)
-stop(msg)
-}Load control/treatment, wildtype/mutant files
-
-pd <- read_hiseq(x)Wildtype dir, smp_name
-
-wt_dir    <- list_hiseq_file(x, "wt_dir", "_rx")
-wt_r1     <- list_hiseq_dir(wt_dir, "_r1")
-wt_names  <- list_hiseq_file(wt_dir, "smp_name", "_r1")
-wt_count_files <- list_hiseq_file(wt_dir, "count_sens", "r1")Mutant dir, smp_name
-
-mut_dir   <- list_hiseq_file(x, "mut_dir", "_rx")
-mut_r1    <- list_hiseq_dir(mut_dir, "_r1")
-mut_names <- list_hiseq_file(mut_dir, "smp_name", "r1")
-mut_count_files <- list_hiseq_file(mut_dir, "count_sens", "r1")Parsing the genome
-
-genome <- list_hiseq_file(x, "genome", "_rx")Parsing count.txt files
-
-c_files <- c(wt_count_files, mut_count_files)
-df <- hiseqr::read_fc2(c_files)
-colnames(df) <- c("id", wt_names, mut_names) # shorter names?!!!!Convert data.frame to matrix
-
-ma <- df \%>\%
-tibble::column_to_rownames("id") \%>\%
-as.matrix()Output
-
-list(
-ma              = ma,
-control_name    = wt_names,
-treatment_name  = mut_names,
-genome          = genome,
-control_count   = wt_count_files,
-treatment_count = mut_count_files
-)
-}}
+\title{prep_rnaseq_enrich}
 \usage{
 prep_rnaseq_enrich(x)
 }
@@ -94,10 +10,5 @@ prep_rnaseq_enrich(x)
 \item{x}{path to the directory of RNAseqRx}
 }
 \description{
-Extract significant genes, create dirs
+prep_rnaseq_enrich
 }
-\section{Functions}{
-\itemize{
-\item \code{prep_rnaseq_enrich()}: Prepare data for Enrich analysis
-
-}}

@@ -2,14 +2,13 @@
 % Please edit documentation in R/utils.R
 \name{utils}
 \alias{utils}
-\alias{hash_string}
 \title{Functions for HiSeq pipeline, utils for general data processing}
 \usage{
-hash_string(x)
-}
-\arguments{
-\item{x}{string}
+utils(x)
 }
 \description{
-Functions for HiSeq pipeline, utils for general data processing
+A tmp function for documentation
+}
+\details{
+utils
 }

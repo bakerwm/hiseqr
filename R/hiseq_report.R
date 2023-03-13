@@ -5,7 +5,6 @@
 #' Prepare for plot
 #' Plotting
 #'
-#' @name hiseq_report
 
 
 
@@ -76,7 +75,7 @@ csv_to_html_report <- function(input, output) {
 
 
 
-#' @describeIn fix samples names
+#' fix samples names
 #'
 #' fix hiseq sample names, remove the most common string in names
 #'
@@ -92,7 +91,7 @@ fix_hiseq_names <- function(x, ...) {
 
 
 
-#' @describeIn fig_to_panel
+#' fig_to_panel
 #'
 #' Generate panel in Xaringan slides using XaringanExtra package
 #'

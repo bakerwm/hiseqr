@@ -1,23 +1,24 @@
 #' annotate peaks using ChIPseeker package
 #'
-#'
-#'
-#' @name annotate_peak
+
+#' annotate_peak
+#' 
+#' @param x string 
+#' 
+#' @return data.frame
+#' @export
+annotate_peak <- function(x, ...) {
+  x
+  # this is a fake function, for documentation
+}
 
 
-#' to-do
-#' 1. annotation, plotAnnoBar
-#' 2. tss, plotDistToTSS
-#' 3. tss, region, plotAvgProf
-#' 4. annotation, vennpie, upsetplot(peakAnno, vennpie=TRUE)
-
-
-
-#' @describeIn read_peak_annotation
-#'
+#' read_peak_annotation
+#' 
 #' @param x peak file or hiseq_dir path
 #' @param genome string, optional if x is hiseq_dir
 #' @param tss_region numeric, 3000
+#' @param ... more arguments
 #'
 #' @export
 read_peak_annotation <- function(x, genome = NULL, tss_region = 3000,
@@ -57,8 +58,8 @@ read_peak_annotation <- function(x, genome = NULL, tss_region = 3000,
 
 
 
+#' plot_peak_annotation
 #'
-#' make plot
 #' @param x csAnno object or list of csAnno
 #' @param plot_type string, bar, tss, venn, upset
 #'
@@ -122,10 +123,7 @@ plot_peak_annotation <- function(x, genome = NULL, tss_region = 3000,
 }
 
 
-#' @describeIn read_peak_profile
-#'
-#' on promoter
-#'
+#' read_peak_profile
 #' @param x peak file or hiseq_dir path
 #' @param genome string, optional if x is hiseq_dir
 #' @param tss_region numeric, 3000
@@ -199,8 +197,7 @@ read_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
 }
 
 
-#' @describeIn plot_peak_profile
-#'
+#' plot_peak_profile
 #' @export
 plot_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
                               on_summit = FALSE, facet = "none", conf = NA,
@@ -249,6 +246,10 @@ plot_peak_profile <- function(x, genome = NULL, flanking = 2000, bed = NULL,
 }
 
 
+#' read_peak
+#' 
+#' @return list
+#' @export
 read_peak <- function(x, upstream = 2000, downstream = 20000) {
   if(inherits(x, "character")) {
     gr_list <- lapply(x, function(i) {
@@ -267,15 +268,11 @@ read_peak <- function(x, upstream = 2000, downstream = 20000) {
 }
 
 
-#' @describeIn get_txdb
+#' get_txdb
 #'
 #' @param x character The name of organism, or build name, eg: dm3, fruitfly
-#' Support human, mouse and fruitfly
-#'
-#' to-do: fetch from bioconductor
-#'   laod orgdb
-#'   GOSemSim::load_OrgDb()
-#'
+#'    Support human, mouse and fruitfly
+#' 
 #' @export
 get_txdb <- function(x) {
   #----------------------------------------------------------------------------#

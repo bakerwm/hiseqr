@@ -179,7 +179,7 @@ fix_hiseq_sheet <- function(df, sampleid_start = 1) {
 }
 
 
-#' @describeIn is_valid_sheet_df
+#' is_valid_sheet_df
 #'
 #' Check the fields in sheet
 #' @param data.frame sample data
@@ -240,7 +240,7 @@ is_valid_sheet_df <- function(df, verbose = FALSE) {
 
 
 
-#' @describeIn fix_hiseq_sampleid
+#' fix_hiseq_sampleid
 #'
 #' @export
 fix_hiseq_sampleid <- function(x, start = 1) {

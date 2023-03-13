@@ -3,10 +3,19 @@
 #'
 #'
 #'
-#' @name utils
 
 
-#' @describeIn hash_string
+#' utils
+#' 
+#' @description A tmp function for documentation
+utils <- function(x) {
+  x
+}
+
+
+#' hash_string
+#' 
+#' @example 
 #' check the SHA256 for a string
 #' alternative in python:
 #' >>> hashlib.sha256(s.encode()).hexdigest()
@@ -22,9 +31,7 @@ hash_string <- function(x) {
 
 
 
-#' @describeIn check_hash_string
-#' check the SHA256 for a string
-#'
+#' check_hash_string
 #' @param hash_x string, SHA-256 value
 #' @param x string
 #'
@@ -42,13 +49,7 @@ check_hash_string <- function(hash_x, x) {
 }
 
 
-
-
-
-
-#' @describeIn check_path
-#' check if directory exists, if not, create
-#'
+#' check_path
 #' @param x character path to the directory
 #'
 #' @export
@@ -74,7 +75,7 @@ check_path <- function(x) {
 }
 
 
-#' @describeIn read_toml Parse TOML files as data.frame
+#' read_toml
 #'
 #'
 #' @param x path to the toml file
@@ -97,14 +98,8 @@ read_toml <- function(x) {
 }
 
 
-
-
-#' @describeIn read_align Parse Alignment stat, toml
-#' map, unique, multiple, unmap
-#'
+#' read_align
 #' @param x path to stat file
-#' @import readr
-#' @import dplyr
 #'
 #' @export
 read_align <- function(x){
@@ -124,14 +119,10 @@ read_align <- function(x){
 }
 
 
-
-
-
-#' @describeIn read_text parse the file, eg: fragment size
+#' read_text
 #'
 #' @param x path to fragment length
 #'
-#' @import dplyr
 #'
 #' @export
 read_text <- function(x, ...){
@@ -147,21 +138,7 @@ read_text <- function(x, ...){
 }
 
 
-
-
-
-
-
-
-#' @describeIn guess_separater Guess the separater of the plain text file
-#' @description Guess the format of the plain text file
-#' ,    csv
-#' tab  table
-#' :
-#' white space [default]
-#'
-#' Check the first 100 lines of the file, if the separater exists
-#'
+#' guess_separater 
 #' @param x character path to files, csv, txt, ...
 #'
 #' @export
@@ -191,12 +168,7 @@ guess_separator <- function(x, nmax = 100) {
 }
 
 
-
-
-
-
-#' @describeIn path_to_list Convert directory structure into nested list
-#'
+#' path_to_list
 #' @param path character Path to the file or directory
 #' @param recursive bool Constructure the nested list recursive
 #'
@@ -244,16 +216,7 @@ path_to_list <- function(path, recursive = FALSE) {
 }
 
 
-
-
-
-
-#' @describeIn fq_name Retrive the names of fastq files
-#'
-#' remove .fa, .fa.gz, .fq, .fq.gz
-#' remove, "_1" or "_2" suffix
-#' remove, _rep1, _rep2, ...
-#'
+#' fq_name 
 #' @param x character, name of fastq files
 #' @param fix_pe bool, trim _1, _2 suffix, default: FALSE
 #' @param fix_rep bool, trim _rep1, _r1 in tha file name
@@ -285,15 +248,12 @@ fq_name <- function(x, fix_pe = TRUE, fix_rep = FALSE){
 }
 
 
-
-#' @describeIn read_fc Parsing single featureCounts file
+#' read_fc
 #'
 #' @param x path to count.txt file, featureCounts output
 #' @param digits integers, Number of digits keep, default: 0
 #' @param get_gene_length bool, save gene_lengthin column 5
 #'
-#' @import readr
-#' @import dplyr
 #'
 #' @export
 read_fc <- function(x, digits = 0, get_gene_length = FALSE){
@@ -328,8 +288,7 @@ read_fc <- function(x, digits = 0, get_gene_length = FALSE){
 }
 
 
-
-#' @describeIn read_fc2 Parsing multiple featureCounts files
+#' read_fc2
 #'
 #' @param x character featureCount files, or data.frames
 #'
@@ -345,7 +304,7 @@ read_fc2 <- function(x, get_gene_length = FALSE) {
 }
 
 
-#' @describeIn read_fc_summary Parsing the summary file of featureCounts output
+#' read_fc_summary
 #'
 #' @param x path to the count.txt.summary file
 #' @param fix_name bool extract file name,
@@ -374,12 +333,12 @@ read_fc_summary <- function(x, fix_name=TRUE) {
 }
 
 
-#' @describeIn bind_cols2 Merge multiple data.frame by column
+#' bind_cols2
 #'
 #' @param x a list of data.frames
 #' @param by column name for function merge()
 #'
-#' @description see example on https://www.r-bloggers.com/2018/10/how-to-perform-merges-joins-on-two-or-more-data-frames-with-base-r-tidyverse-and-data-table/
+#' see example on https://www.r-bloggers.com/2018/10/how-to-perform-merges-joins-on-two-or-more-data-frames-with-base-r-tidyverse-and-data-table/
 #' see dplyr::bind_cols, for how to process dots
 #'
 #' @export
@@ -408,7 +367,7 @@ bind_cols2 <- function(..., by = NULL) {
 
 
 
-#' @describeIn str_similar Extract similar string by Levenshtein-distance,
+#' str_similar
 #'
 #' function: utils::adist
 #' alternative: stringdist package
@@ -417,7 +376,6 @@ bind_cols2 <- function(..., by = NULL) {
 #' @param y
 #'
 #'
-#' @import stringdist
 #'
 #' @export
 str_similar <- function(x, y, ignore_case = FALSE) {
@@ -435,17 +393,13 @@ str_similar <- function(x, y, ignore_case = FALSE) {
 }
 
 
-
-
-# --Functions for html report --------------------------------------------------
-
-#' @describeIn to_DT convert data.frames to DT table
+#' to_DT
 #'
 #' @param df data.frame
 #' @param mode integer default 1
 #' @param page_length integer default 10
 #'
-#' @description see https://rstudio.github.io/DT/ for details
+#' see https://rstudio.github.io/DT/ for details
 #'
 #' @export
 to_DT <- function(df, mode = 1, pageLength = 10) {

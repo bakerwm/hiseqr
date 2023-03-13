@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_gsea_plot}
 \alias{go_gsea_plot}
-\title{create plots}
+\title{go_gsea_plot}
 \usage{
 go_gsea_plot(x, ...)
 }
@@ -15,5 +15,5 @@ text_width
 show_category}
 }
 \description{
-create plots
+go_gsea_plot
 }

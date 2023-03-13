@@ -2,26 +2,14 @@
 #'
 #' Apply DESeq2 for RNAseq DE analysis
 #'
-#' @import fs
-#' @import ggplot2
-#' @import ggthemes
-#' @import dplyr
-#' @import tidyr
-#' @import readr
-#' @import tibble
-#' @import patchwork
-#' @import DESeq2
 #'
 #'
-#' @name salmon
 
 
 
-#' @describeIn rnaseq_salmon_hub A port for RNAseq analysis, DE analysis
-#'
+#' rnaseq_salmon_hub
 #' @param x path to the RNAseqRx directory, a.vs.b
 #' @param ... extra arguments for demseq2_main function#'
-#'
 #'
 #' deseq2_main() extra arguments:
 #' - fc_cutoff    : 2
@@ -33,8 +21,6 @@
 #' @param readable bool, Add symbol and entrezid to table
 #' organism, fc_cutoff, pval_cutoff, readable,
 #'
-#' @import dplyr
-#' @import DESeq2
 #'
 #' @export
 rnaseq_salmon_hub <- function(x, ...) {

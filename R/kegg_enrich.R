@@ -12,16 +12,9 @@
 #' 5. netplot
 #' 6. ...
 #'
-#' @name kegg_enrich
 
 
-#' @describeIn kegg_enrich
-#' enrichKEGG analysis from clusterprofiler
-#'
-#' for clusterProfiler::enrichKEGG
-#'
-#' gene_list, the could be: kegg, ncbi-geneid, ncbi-proteinid or uniprot
-#'
+#' kegg_enrich
 #'
 #' @param gene_list character Genes for KEGG analysis
 #' @param organism character Name of the organism, eg: dm3, fruitfly
@@ -37,13 +30,9 @@
 #' @param qval_cutoff float Cutoff for q-value, default: 0.9
 #' @param readable bool Args for enrichKEGG function, convert to gene symbol
 #'
-#' @description pval_cutoff, qval_cutoff, set to 0.9, in order to return
+#' pval_cutoff, qval_cutoff, set to 0.9, in order to return
 #' enrich results anyway, filter in downstream analysis
 #'
-#' @import clusterProfiler
-#' @import clusterProfiler.dplyr
-#' @import stringr
-#' @import cowplot
 #'
 #' @example enrich_kegg(gene = , organism = , keytype = ,
 #' readable = TRUE, pval_cutoff = 0.05, qval_cutoff = 0.05, ...)
@@ -128,19 +117,4 @@ kegg_enrich <- function(gene_list, organism, ...) {
   #-- Return: data
   kegg_data
 }
-
-
-#' use 'go_enrich_plot()' to plot
-#' @export
-# kegg_enrich_plot <- function(x, ...) {
-#   # go_enrich_plot(x, ...)
-#   dots <- rlang::list2(...)
-#   go_enrich_plot(x, !!!dots)
-# }
-
-
-
-
-
-
 

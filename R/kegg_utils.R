@@ -15,27 +15,9 @@
 #' head(keggConv("eco", "ncbi-geneid")) # all entries
 #'
 #'
-#' @name kegg_utils
 
 
-#' @description Convert between KEGG id and OrgDb id
-#'
-#' for most organism:
-#' {kegg_code}:{OrgDb_entrezid}
-#'
-#' for fruitfly:
-#' {kegg_code}:{Dmel_}{OrgDb_FLYBASECG}
-#' keytype -> FLYBASECG -> dme:Dmel_{CG10000}
-#'
-#' for prokaryotes
-#' do not contains: entrezid, use uniprot instead
-#' {up}:{uniprot_id}
-#'
-#'
-#' KEGG supported gene type:
-#' ncbi-geneid, ncbi-proteinid, uniprot, flybase (for dme)
-#'
-#'
+#' to_kegg_id
 #' @param gene_list character geneid
 #' @param organism character Name of the organism, support abbr for fruitfly,
 #' human, mouse, eg: dm3, dm6, hg38, mouse, mm10, human,
@@ -130,17 +112,7 @@ to_kegg_gene_id <- function(gene_list, organism, keytype = NULL,
 }
 
 
-#' for clusterProfiler:
-#' kegg,
-#'
-#' for KEGGREST
-#' ncbi-geneid
-#'
-#'
-#' for fruit fly: use flybasecg (OrgDb) => ncbi-geneid (kegg in clusterProfiler)
-#' for human, mouse: use entrezid (OrgDb) => ncbi-geneid (kegg in clusterProfiler)
-#'
-#'
+#' get_kegg_keyType
 #' @param organism character name of the organism
 #'
 #' @export
@@ -160,16 +132,9 @@ get_kegg_keytype <- function(organism) {
 }
 
 
-#' @describeIn kegg_code
-#'
-#' from: http://www.genome.jp/kegg/catalog/org_list.html
-#' using tools: clusterProfiler::search_kegg_organism()
-#'
-#' using: KEGGREST::keggList("organism")
-#'
+#' get_kegg_code
 #' @param x string organism name
 #'
-#' @import clusterProfiler
 #'
 #' @export
 get_kegg_code <- function(x) {

@@ -2,7 +2,7 @@
 % Please edit documentation in R/diffbind.R
 \name{np2bed4}
 \alias{np2bed4}
-\title{Convert narrowPeak to bed4}
+\title{np2bed4}
 \usage{
 np2bed4(np, outdir = NULL)
 }
@@ -14,9 +14,4 @@ of np}
 }
 \description{
 np2bed4
-}
-\details{
-Convert narrowPeak to BED4
-
-save column-7: signalValue
 }

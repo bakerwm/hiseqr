@@ -2,10 +2,7 @@ Package: hiseqr
 Title: What the Package Does (One Line, Title Case)
 Version: 0.0.0.9000
 Authors@R: 
-    person(given = "First",
-           family = "Last",
-           role = c("aut", "cre"),
-           email = "first.last@example.com",
+    person("Ming", "Wang", , "wangm08@hotmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: What the package does (one paragraph).
 License: MIT + file LICENSE
@@ -14,15 +11,45 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/bakerwm/hiseqr
 BugReports: https://github.com/bakerwm/hiseqr/issues
-Suggests: 
-    spelling
 Language: en-US
-Imports: 
-    ggplot2,
+Suggests: 
+    apeglm,
+    ggVennDiagram,
+    ggalluvial, 
+    ggplotify,
+    ggrepel, 
+    ggthemes,
     readr,
     dplyr,
+    tidyr,
+    tibble, 
+    stringr,
+    stringdist, 
+    clusterProfiler.dplyr,
     RColorBrewer,
+    scales, 
+    DiffBind,
+    cowplot,
+    configr,
+    fs, 
+    reticulate, 
+    apeglm,
+    vsn,
+    fastqcr,
+    ChIPseeker,
+    SummarizedExperiment, 
+    AnnotationDbi,
+    BiocGenerics,
+    rmarkdown, 
+    TxDb.Dmelanogaster.UCSC.dm6.ensGene,
+    org.Dm.eg.db, 
     rtracklayer,
-    GenomicRanges,
-    cowplot
+    GenomicRanges
+Imports: 
+    tidyverse,
+    ggplot2,
+    patchwork, 
+    DESeq2, 
+    clusterProfiler, 
+    pheatmap
 RoxygenNote: 7.2.3

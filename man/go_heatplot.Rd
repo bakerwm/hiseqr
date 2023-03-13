@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_heatplot}
 \alias{go_heatplot}
-\title{create plots}
+\title{go_heatplot}
 \usage{
 go_heatplot(x, ...)
 }
@@ -15,5 +15,5 @@ text_width
 show_category}
 }
 \description{
-create plots
+go_heatplot
 }

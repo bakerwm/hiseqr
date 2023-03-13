@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_pipe.R
 \name{go_report}
 \alias{go_report}
-\title{generate report for directory}
+\title{go_report}
 \usage{
 go_report(x, feature = "gene")
 }
@@ -12,5 +12,5 @@ go_report(x, feature = "gene")
 \item{feature}{string support for deseq_dir, default: gene}
 }
 \description{
-generate report for directory
+go_report
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/rnaseq.R
 \name{make_publish_plots}
 \alias{make_publish_plots}
-\title{deprecated: see deseq_utils.R}
+\title{make_publish_plots}
 \usage{
 make_publish_plots(x, outdir = NULL, to_pdf = TRUE)
 }
@@ -14,21 +14,5 @@ make_publish_plots(x, outdir = NULL, to_pdf = TRUE)
 \item{save2pdf}{bool Save the plots in PDF file,}
 }
 \description{
-deprecated: see deseq_utils.R
+make_publish_plots
 }
-\section{Functions}{
-\itemize{
-\item \code{make_publish_plots()}: Create plots with pubilsh quality
-
-}}
-\section{sample names}{
-rep_name <- data \%>\%
-dplyr::select(Gene:baseMean) \%>\%
-dplyr::select(-Gene, -baseMean) \%>\%
-names()
-}
-
-\section{groups}{
-
-}
-

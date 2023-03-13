@@ -14,12 +14,8 @@ falco_plot_base_content(x, mode = "line")
 \item{mode}{character line, bar}
 }
 \description{
-falco_plot_base_content
-
-falco_plot_lendist
-bar plot or line plot
-module = 7, Sequence Length Distribution
+read falco output
 }
 \details{
-read falco output
+falco_plot_base_content
 }

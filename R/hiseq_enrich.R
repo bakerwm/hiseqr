@@ -16,12 +16,9 @@
 #'
 #' `enrichGO()`, `enrichKEGG()`, `gseGO`, `gseKEGG`, `groupGO`, ...
 #'
-#' @name hiseq_enrich
 
 
-#' @describeIn hiseq_enrich
-#' enrich analysis for rnaseq_rx directory
-#'
+#' hiseq_enrich
 #' @param x character path to the rnaseq_rx directory
 #'
 #' @example
@@ -74,15 +71,12 @@ hiseq_enrich<- function(x, ...) {
 }
 
 
-#' @describeIn prep_enrich Prepare data for Enrich analysis
+#' hiseq_prep_enrich
 #'
 #' @description
 #'
 #' @param x path to the directory of rnaseq_rx
 #'
-#' @import readr
-#' @import configr
-#' @import dplyr
 #'
 #' @export
 hiseq_prep_enrich <- function(x, ...) {

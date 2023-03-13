@@ -40,9 +40,6 @@ chipseq_report <- function(input, output) {
 
 #' read ChIPseq directory
 #'
-#' input dir
-#' output files, config
-#'
 #' @param x string path
 #'
 #' @export
@@ -70,7 +67,7 @@ read_chipseq <- function(x) {
 }
 
 
-
+#' check if chip
 #' @param x string, path to dir
 #'
 #' @export
@@ -83,6 +80,7 @@ is_chipseq_dir <- function(x) {
 }
 
 
+#' check if chip_r1
 #' @param x string, path to dir
 #'
 #' @export
@@ -92,6 +90,7 @@ is_chipseq_single_dir <- function(x) {
 }
 
 
+#' check if chip_rm
 #' @param x string, path to dir
 #'
 #' @export
@@ -101,6 +100,7 @@ is_chipseq_merge_dir <- function(x) {
 }
 
 
+#' check if chip_rn
 #' @param x string, path to dir
 #'
 #' @export
@@ -108,7 +108,6 @@ is_chipseq_multiple_dir <- function(x) {
   x_type <- is_hiseq_dir(x)
   x_type %in% c("chipseq_from_design", "chipseq_rx")
 }
-
 
 
 #' list_chipseq_single_dirs
@@ -179,7 +178,7 @@ get_chipseq_align_stat <- function(x) {
 }
 
 
-
+#' get frip
 #' @export
 get_chipseq_frip_stat <- function(x) {
   # search for single dir
@@ -194,6 +193,7 @@ get_chipseq_frip_stat <- function(x) {
 }
 
 
+#' get length distribution
 #' @export
 get_chipseq_lendist_stat <- function(x) {
   # search for single dir
@@ -206,6 +206,7 @@ get_chipseq_lendist_stat <- function(x) {
 }
 
 
+#' get peak stat
 #' @export
 get_chipseq_peak_stat <- function(x) {
   # search for single dir
@@ -224,6 +225,7 @@ get_chipseq_peak_stat <- function(x) {
 }
 
 
+#' get chip_report
 #' @export
 get_chipseq_report <- function(x) {
   # search for single dir

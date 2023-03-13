@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_dotplot}
 \alias{go_dotplot}
-\title{create plots}
+\title{go_dotplot}
 \usage{
 go_dotplot(x, ...)
 }
@@ -15,5 +15,5 @@ text_width
 show_category}
 }
 \description{
-create plots
+go_dotplot
 }

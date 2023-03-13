@@ -22,19 +22,10 @@ file.}
 A list of paths of zip files
 }
 \description{
-Create html report for fastqc output
-}
-\details{
 This function parsing *_fastqc.zip files from input path.
 It assumes that input path is a directory or a single *_fastqc.zip
 file.
 }
-\examples{
-\donotrun{
-# Demo
-qc.path <- system.file("fastqc_results", package = "fastqcr")
-
-fastqc_report(qc.path, result.file = "demo")
-}
-
+\details{
+Create html report for fastqc output
 }

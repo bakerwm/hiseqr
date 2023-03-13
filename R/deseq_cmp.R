@@ -8,20 +8,18 @@
 #'
 #' helper functions:
 #'
-#'
-#' @import fs
-#' @import ggplot2
-#' @import ggthemes
-#' @import dplyr
-#' @import tidyr
-#' @import readr
-#' @import tibble
-#' @import patchwork
-#'
-#'
-#' @name deseq_cmp
 
-#' functions for pair deseq
+
+#' deseq_cmp
+#' 
+#' @description
+#'    A tmp function, help documentation 
+deseq_cmp <- function(x) {
+  x
+}
+
+
+#' deseq_pair_report
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
@@ -61,13 +59,11 @@ deseq_pair_report <- function(x, y, outdir, shrink_method = "apeglm") {
 
 
 #' RNAseq cmp, stat
-#' number of sig genes
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param ... extra parameters for deseq_qc_res()
 #'
-#' @import dplyr
 #'
 #' @export
 read_deseq_pair <- function(x, y, ...) {
@@ -124,7 +120,6 @@ read_deseq_pair <- function(x, y, ...) {
 
 
 #' stat_deseq_pair
-#' number of sig genes
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
@@ -132,7 +127,6 @@ read_deseq_pair <- function(x, y, ...) {
 #' @param kepp_not_sig logical whether keep not sig changed genes, default: TRUE
 #' @param group character "all", "gene", "te", "piRC"
 #'
-#' @import dplyr
 #'
 #' @export
 stat_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL,
@@ -219,7 +213,6 @@ stat_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL,
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #' @param ... parameters for deseq_qc_res()
 #'
-#' @import dplyr
 #'
 #' @export
 plot_overlap_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = "all", ...) {
@@ -257,9 +250,7 @@ plot_overlap_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = 
 
 
 
-#' cluster
-#' data.frame
-#'
+#' .cluster_ma
 #' @param method string see dist(method = ),
 #'
 #' @export
@@ -278,16 +269,13 @@ plot_overlap_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = 
 }
 
 
-#' to-do: hclust rows !!!!
-#' RNAseq cmp,
-#' number of sig genes
+#' plot_heatmap_deseq_pair
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #'
-#' @import dplyr
 #'
 #' @export
 plot_heatmap_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = "all", ...) {
@@ -344,15 +332,12 @@ plot_heatmap_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = 
 }
 
 
-#' RNAseq cmp,
-#' number of sig genes
-#'
+#' plot_alluvial_deseq_pair
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #'
-#' @import dplyr
 #'
 #' @export
 plot_alluvial_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group = "all", ...) {
@@ -402,166 +387,12 @@ plot_alluvial_deseq_pair <- function(x = NULL, y = NULL, .pd_rds = NULL, group =
 }
 
 
-
-
-
-
-
-
-# # extract sig genes
-# read_deseq_dir <- function(x) {
-#   df <- lapply(x, function(f) {
-#     df <- readr::read_delim(f, "\t", col_types = readr::cols())
-#     smp_name <- stringr::str_extract(names(df)[3], "sh.*")
-#     # fix names
-#     smp_name <- gsub("(_\\d+)+h", "", smp_name) # remove time
-#     smp_name <- gsub("Piwi1_Piwi2", "piwi12", smp_name) # piwi
-#     smp_name <- gsub("Armi", "armi", smp_name) # remove time
-#     smp_name <- gsub("Piwi", "piwi", smp_name) # remove time
-#     # assign
-#     df$sample <- smp_name
-#     # old.vs.new
-#     if("symbol" %in% names(df)) {
-#       df <- df %>%
-#         dplyr::rename(SYMBOL = symbol)
-#     }
-#     df <- df %>%
-#       dplyr::select(Gene, log2FoldChange, padj, sig, sample, SYMBOL)
-#     df
-#   }) %>%
-#     dplyr::bind_rows()
-#   # add levels
-#   df %>%
-#     dplyr::mutate(sample = factor(sample, levels = sort(unique(df$sample))))
-# }
-
-
-#' #' functions for pair deseq
-#' #'
-#' #' @param x string to GroupA "A.vs.B"
-#' #' @param y string to GroupB "A.vs.B"
-#' #' @param feature string default: gene
-#' #' @param outdir string directory to save files
-#' #'
-#' #' @export
-#' # pair_deseq_report <- function(x, y, feature, outdir) {
-#' deseq_pair_report <- function(x, y, outdir) {
-#'   message("# Run RNAseq pair ...")
-#'   ##---------------------##
-#'   # report
-#'   subdir   <- paste0(basename(x), ".compare.", basename(y))
-#'   outdir   <- normalizePath(outdir)
-#'   # outdir   <- file.path(outdir, subdir)
-#'   if(! dir.exists(outdir)) {
-#'     dir.create(outdir, mode = "0755", recursive = TRUE)
-#'   }
-#'
-#'   template <- system.file("rnaseq", "deseq_pair_report.Rmd",
-#'                           package = "hiseqr")
-#'   template_to <- file.path(outdir, basename(template))
-#'   ## copy Rmd
-#'   file.copy(template, template_to)
-#'   out_html <- file.path(outdir, "deseq_pair_report.html")
-#'
-#'   ## run Rmd
-#'   if(file.exists(out_html)) {
-#'     message("output exists, skipping ...")
-#'   } else {
-#'     rmarkdown::render(input       = template,
-#'                       output_file = out_html,
-#'                       params      = list(x = x,
-#'                                          y = y))
-#'   }
-#' }
-
-
-
-
-#' #' RNAseq cmp, stat
-#' #' number of sig genes
-#' #'
-#' #' @param x string to GroupA "A.vs.B"
-#' #' @param y string to GroupB "A.vs.B"
-#' #' @param feature string default: gene
-#' #' @param kepp_not_sig logical whether keep not sig changed genes, default: TRUE
-#' #' @param .pd_rds string path to the file, saving read_deseq_pair() output
-#' #'
-#' #' @import dplyr
-#' #'
-#' #' @export
-#' deseq_pair_stat <- function(x         = NULL,
-#'                             y         = NULL,
-#'                             .pd_rds      = NULL,
-#'                             keep_not_sig = TRUE) {
-#'   # loading data from rds file
-#'   if(is.null(.pd_rds)) {
-#'     pd <- read_deseq_pair(x, y)
-#'   } else {
-#'     pd <- readRDS(.pd_rds) # x, y
-#'     x    <- pd$x
-#'     y    <- pd$y
-#'     feature <- pd$feature
-#'   }
-#'
-#'   # checkpoint
-#'   if(is.null(pd)) {
-#'     warning("x, y required")
-#'     return(NULL)
-#'   }
-#'   # sig genes, count
-#'   df1 <- merge(sapply(pd$sig_genes$x, nrow) %>%
-#'                  as.data.frame() %>%
-#'                  tibble::rownames_to_column("sig"),
-#'                sapply(pd$sig_genes$y, nrow) %>%
-#'                  as.data.frame() %>%
-#'                  tibble::rownames_to_column("sig"),
-#'                by = "sig") %>%
-#'     dplyr::rename(GroupA = "..x", GroupB = "..y")
-#'
-#'   # sig genes, plot
-#'   df2 <- df1 %>%
-#'     tidyr::gather("sample", "count", -1) %>%
-#'     dplyr::filter(sig %in% c("up", "down"))
-#'
-#'   # for table (with gene names)
-#'   gl <- lapply(list(pd$sig_genes$x,
-#'                     pd$sig_genes$y), function(i){
-#'                       dplyr::bind_rows(i) %>%
-#'                         dplyr::select(Gene, sig)
-#'                     })
-#'
-#'   df3 <- merge(gl[[1]], gl[[2]], by = "Gene") %>%
-#'     dplyr::rename(GroupA = sig.x,
-#'                   GroupB = sig.y) %>%
-#'     dplyr::mutate(trend  = paste(GroupA, GroupB, sep = "-"))
-#'
-#'   # remove not_sig
-#'   if(! isTRUE(keep_not_sig)) {
-#'     df3 <- df3 %>%
-#'       dplyr::filter(! trend %in% c("not-not"))
-#'     # dplyr::filter(! grepl("not", trend))
-#'   }
-#'
-#'   # output
-#'   c(pd,
-#'     list(
-#'       sig_count_table = df1,
-#'       sig_plot_table  = df2,
-#'       sig_list        = df3)
-#'   )
-#' }
-
-
-#' RNAseq cmp,
-#' number of sig genes
-#' .pd_rds is read_deseq_pair() output
-#'
+#' deseq_pair_stat_plot
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #'
-#' @import dplyr
 #'
 #' @export
 deseq_pair_stat_plot <- function(x    = NULL,
@@ -604,99 +435,12 @@ deseq_pair_stat_plot <- function(x    = NULL,
 }
 
 
-
-
-
-#'
-#' #' to-do: hclust rows !!!!
-#' #' RNAseq cmp,
-#' #' number of sig genes
-#' #'
-#' #' @param x string to GroupA "A.vs.B"
-#' #' @param y string to GroupB "A.vs.B"
-#' #' @param feature string default: gene
-#' #' @param .pd_rds string path to the file, saving read_deseq_pair() output
-#' #'
-#' #' @import dplyr
-#' #'
-#' #' @export
-#' deseq_pair_heatmap <- function(x    = NULL,
-#'                                y    = NULL,
-#'                                feature = "gene",
-#'                                .pd_rds = NULL) {
-#'   ## load data
-#'   pd <- deseq_pair_stat(x, y, feature, .pd_rds)
-#'
-#'   # checkpoint
-#'   if(is.null(pd)) {
-#'     warning("x, y required")
-#'     return(NULL)
-#'   }
-#'
-#'   ##------------------------------------------------##
-#'   ## colors
-#'   cc <- scales::hue_pal()(3) # red, green, blue
-#'   cc <- c(cc[1], cc[3], cc[2]) # red, blue, green
-#'
-#'   ## data
-#'   df <- pd$sig_list %>%
-#'     dplyr::filter(!trend %in% c("not-not")) %>%
-#'     dplyr::select(-trend) %>%
-#'     tidyr::pivot_longer(-Gene, names_to = "sample", values_to = "sig") %>%
-#'     dplyr::mutate(sig = factor(sig, levels = c("up", "not", "down")))
-#'
-#'   ## for cluster
-#'   ma <- df %>%
-#'     dplyr::mutate(sig = plyr::mapvalues(sig, c("up", "not", "down"),
-#'                                         c(1, 0, -1),
-#'                                         warn_missing = FALSE)) %>%
-#'     dplyr::mutate(sig = as.numeric(as.character(sig))) %>%
-#'     pivot_wider(names_from = "sample", values_from = "sig") %>%
-#'     tibble::column_to_rownames("Gene") %>%
-#'     as.matrix() %>%
-#'     .cluster_ma()
-#'
-#'   ## plot
-#'   if(nrow(df) > 0) {
-#'     p1 <- df %>%
-#'       ggplot(aes(sample, Gene, fill = sig)) +
-#'       geom_tile() +
-#'       scale_fill_manual(values = cc) +
-#'       scale_x_discrete(position = "top") +
-#'       scale_y_discrete(limits = rownames(ma)) +
-#'       ggtitle(pd$title) +
-#'       theme_minimal() +
-#'       theme(
-#'         panel.grid = element_blank(),
-#'         axis.title = element_blank()
-#'       )
-#'
-#'     ## remove y-text
-#'     if(nrow(df) > 100) {
-#'       # remove y text
-#'       p1 <- p1 +
-#'         theme(axis.text.y = element_blank())
-#'     }
-#'   } else {
-#'     p1 <- NULL
-#'   }
-#'
-#'   ## output
-#'   p1
-#' }
-#'
-
-
-#' to-do: hclust rows !!!!
-#' RNAseq cmp,
-#' number of sig genes
-#'
+#' deseq_pair_heatmap_te
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #'
-#' @import dplyr
 #'
 #' @export
 deseq_pair_heatmap_te <- function(x    = NULL,
@@ -785,15 +529,13 @@ deseq_pair_heatmap_te <- function(x    = NULL,
 
 
 
-#' RNAseq cmp,
-#' number of sig genes
+#' deseq_pair_alluvial_plot
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #' @param .pd_rds string path to the file, saving read_deseq_pair() output
 #'
-#' @import dplyr
 #'
 #' @export
 deseq_pair_alluvial_plot <- function(x    = NULL,
@@ -851,27 +593,13 @@ deseq_pair_alluvial_plot <- function(x    = NULL,
 
 
 
-##-----------------------------##
-## functions for two group pair
-## 1. sig genes
-## 2. overlap genes
-## 3. plot: sig genes
-## 4. plot: overlap genes
-## 5. TE scatter
-## 6. TE heatmap
 
-#' functions for compare two deseq
+#' compare_deseq
 #'
 #' @param x string to GroupA "A.vs.B"
 #' @param y string to GroupB "A.vs.B"
 #' @param feature string default: gene
 #'
-#' @import ggplot2
-#' @import dplyr
-#' @import pheatmap
-#' @import ggalluvial
-#' @import RColorBrewer
-#' @import clusterProfiler
 #'
 #' @export
 compare_deseq <- function(x, y, feature = "gene") {

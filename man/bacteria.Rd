@@ -2,22 +2,13 @@
 % Please edit documentation in R/bacteria.R
 \name{bacteria}
 \alias{bacteria}
-\alias{hiseq_kraken2_report}
 \title{Functions for bacteria}
 \usage{
-hiseq_kraken2_report(indir, outdir, preview = FALSE)
-}
-\arguments{
-\item{indir}{character Path to the of kraken2 results}
-
-\item{outdir}{character path to the html report}
+bacteria(x)
 }
 \description{
-Create html report for kraken2 output
+A tmp function for documentation
 }
-\examples{
-\donotrun{
-
-}
-
+\details{
+bacteria
 }

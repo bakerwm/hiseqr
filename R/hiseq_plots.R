@@ -3,7 +3,7 @@
 
 
 
-#' @describeIn plot_hiseq_trim Create bar_plot for trim stat
+#' plot_hiseq_trim Create bar_plot for trim stat
 #'
 #' output from get_rnaseq_trim_stat(),
 #' including columns:
@@ -57,7 +57,7 @@ plot_hiseq_trim <- function(x, fish = "Trimma_lantana",
 
 
 
-#' @describeIn plot_hiseq_trim2
+#' plot_hiseq_trim2
 #' for all available columns
 #' Create bar_plot for trim stat
 #'
@@ -111,7 +111,7 @@ plot_hiseq_trim2 <- function(x, fish = "Trimma_lantana",
 
 
 
-#' @describeIn plot_rnaseq_align Create bar_plot for align_stat
+#' plot_rnaseq_align Create bar_plot for align_stat
 #'
 #' Output from get_rnaseq_align_stat()
 #' including columns:
@@ -188,7 +188,7 @@ plot_hiseq_align <- function(x,
 
 
 
-#' @describeIn plot_rnaseq_featureCounts
+#' plot_rnaseq_featureCounts
 #'
 #' @param x character path to RNAseq r1, rn
 #'
@@ -241,7 +241,7 @@ plot_rnaseq_featureCounts <- function(x, fish = "Trimma_lantana") {
 
 
 
-#' @describeIn plot_rnaseq_sig_count for significant genes
+#' plot_rnaseq_sig_count for significant genes
 #'
 #' @param x character path to the rnaseq_rx
 #'
@@ -273,7 +273,7 @@ plot_rnaseq_sig_count <- function(x, fish = "Trimma_lantana") {
 
 
 
-#' @describeIn plot_hiseq_peak Create bar_plot for align_stat
+#' plot_hiseq_peak Create bar_plot for align_stat
 #'
 #' Output from get_rnaseq_align_stat()
 #' including columns:
@@ -318,7 +318,7 @@ plot_hiseq_peak <- function(x,
 
 
 
-#' @describeIn plot_hiseq_peak Create bar_plot for align_stat
+#' plot_hiseq_peak Create bar_plot for align_stat
 #'
 #' Output from get_rnaseq_align_stat()
 #' including columns:
@@ -381,7 +381,7 @@ plot_hiseq_lendist <- function(x,
 
 
 
-#' @describeIn plot_hiseq_frip Create bar_plot for FRiP
+#' plot_hiseq_frip Create bar_plot for FRiP
 #'
 #' Output from read_hiseq_frip_stat()
 #' including columns:
@@ -438,7 +438,7 @@ plot_hiseq_frip <- function(x,
 
 
 
-#' @describeIn plot_hiseq_bam_cor
+#' plot_hiseq_bam_cor
 #'
 #' generate bam cor plots for hiseq dirs
 #' @param x path to the directory
@@ -512,7 +512,7 @@ plot_hiseq_bam_cor <- function(x) {
 #' #------------------------------------------------------------------------------#
 #' # figures for summary
 #' #
-#' #' @describeIn plot_hiseq_trim Create bar_plot for trim stat
+#' #' plot_hiseq_trim Create bar_plot for trim stat
 #' #'
 #' #' output from get_rnaseq_trim_stat(),
 #' #' including columns:
@@ -597,7 +597,7 @@ plot_hiseq_bam_cor <- function(x) {
 
 
 
-#' #' @describeIn plot_hiseq_align Create bar_plot for align_stat
+#' #' plot_hiseq_align Create bar_plot for align_stat
 #' #'
 #' #' Output from get_rnaseq_align_stat()
 #' #' including columns:

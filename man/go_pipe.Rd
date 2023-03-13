@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_pipe.R
 \name{go_pipe}
 \alias{go_pipe}
-\title{run go analysis}
+\title{name: go_pipe}
 \usage{
 go_pipe(x, organism, outdir, fold_change = NULL, feature = "gene")
 }
@@ -18,5 +18,5 @@ go_pipe(x, organism, outdir, fold_change = NULL, feature = "gene")
 \item{feature}{string, required for deseq_dir}
 }
 \description{
-run go analysis
+name: go_pipe
 }

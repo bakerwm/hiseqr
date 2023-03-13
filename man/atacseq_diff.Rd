@@ -2,7 +2,7 @@
 % Please edit documentation in R/diffbind.R
 \name{atacseq_diff}
 \alias{atacseq_diff}
-\title{ATACseqDiff}
+\title{atacseq_diff}
 \usage{
 atacseq_diff(dirA, dirB, outdir = NULL)
 }
@@ -14,5 +14,5 @@ atacseq_diff(dirA, dirB, outdir = NULL)
 \item{outdir}{path to the output, dirA.vs.dirB}
 }
 \description{
-DiffBind analysis for ATACseq results
+atacseq_diff
 }

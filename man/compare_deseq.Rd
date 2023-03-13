@@ -2,7 +2,7 @@
 % Please edit documentation in R/deseq_cmp.R
 \name{compare_deseq}
 \alias{compare_deseq}
-\title{functions for compare two deseq}
+\title{compare_deseq}
 \usage{
 compare_deseq(x, y, feature = "gene")
 }
@@ -14,5 +14,5 @@ compare_deseq(x, y, feature = "gene")
 \item{feature}{string default: gene}
 }
 \description{
-functions for compare two deseq
+compare_deseq
 }

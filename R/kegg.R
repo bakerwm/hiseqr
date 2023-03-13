@@ -19,18 +19,10 @@
 #' 4. netplot
 #' 5. ...
 #'
-#' @name kegg
 
 
 
-#' @describeIn run_kegg Main port for KEGG analysis
-#'
-#' enrich: over-representation analysis
-#' gsea: gsea
-#'
-#'
-#' organize KEGG output
-#' generate tables, plots
+#' run_kegg
 #' @param gene_list vector of gene list
 #' @param organism name of genome, eg: Homo sapiens
 #' @param outdir string
@@ -40,17 +32,17 @@
 #'
 #'
 #' @example
-#' library(clusterProfiler)
-#' library(DOSE)
-#' data(geneList)
-#' dots <- list(
-#'     gene_list   = geneList[geneList > 1] %>% names,
-#'     organism    = "hg38",
-#'     outdir      = "demo",
-#'     keytype     = "ENTREZID",
-#'     fold_change = geneList
-#'   )
-#' do.call(run_kegg, dots)
+#'    library(clusterProfiler)
+#'    library(DOSE)
+#'    data(geneList)
+#'    dots <- list(
+#'       gene_list   = geneList[geneList > 1] %>% names,
+#'      organism    = "hg38",
+#'      outdir      = "demo",
+#'      keytype     = "ENTREZID",
+#'      fold_change = geneList
+#'      )
+#'    do.call(run_kegg, dots)
 #'
 #'
 #' @export
@@ -89,21 +81,7 @@ kegg <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn prep_kegg
-#' Prepare data for kegg analysis
-#'
-#' 1. Guess the keytype of the gene
-#' 2. Convert gene to entrezid
-#' 3. add fold_change to gene
-#' 4. extract orgdb
-#'
-#' !important: skip orgdb in arg_vars
-#' use saveDb() and loadDb() to save/read OrgDb from file
-#' Because the object is a reference to a sqlite data base.
-#'
-#' genes, orgsnism, orgdb, keytype, gsea_gene
-#'
-#' genes with fold_change, or other ranking
+#' prep_kegg
 #' @param gene_list gene names
 #' @param organism string, eg: Homo sapiens
 #' @param ... extra argument
@@ -189,8 +167,9 @@ prep_kegg <- function(gene_list, organism, ...) {
 }
 
 
-#' @describeIn check_go_input Check the input for GO analysis
-#'
+#' check_go_input
+#' 
+#' @description
 #' Required:
 #' - gene_list, chr, characters (group, enrich)
 #' - outdir, chr, character

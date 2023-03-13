@@ -33,3 +33,6 @@ Processing data
 Prepare for plot
 Plotting
 }
+\details{
+hiseq_deseq
+}

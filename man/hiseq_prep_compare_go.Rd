@@ -2,12 +2,11 @@
 % Please edit documentation in R/hiseq_compare_cluster.R
 \name{hiseq_prep_compare_go}
 \alias{hiseq_prep_compare_go}
-\alias{hiseq_prep_pairwise_go}
-\title{functions for compareCluster}
+\title{functions for compareCluster
+hiseq_prep_compare_go
+prepare data for \code{compareCluster()} function}
 \usage{
 hiseq_prep_compare_go(x, ...)
-
-hiseq_prep_pairwise_go(x, ...)
 }
 \arguments{
 \item{x}{character path to the rnaseq_rx, parsing the mut_name}
@@ -26,18 +25,9 @@ hiseq_prep_pairwise_go(x, ...)
 data.frame including columns: gene_id, group, sig, genome
 
 arguments
-
-data.frame including columns: gene_id, group, sig, genome
-
-arguments
 }
 \description{
 functions for compareCluster
+hiseq_prep_compare_go
+prepare data for \code{compareCluster()} function
 }
-\section{Functions}{
-\itemize{
-\item \code{hiseq_prep_compare_go()}: prepare data for \code{compareCluster()} function
-
-\item \code{hiseq_prep_pairwise_go()}: prepare data for \code{compareCluster()} function
-
-}}

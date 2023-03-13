@@ -16,41 +16,24 @@
 #' 5. netplot
 #' 6. ...
 #'
-#' @name go_group
 
 
 
-#' @describeIn go_group groupGO analysis using clusterProfiler
-#'
-#' mission:
-#' - perform groupGO analysis
-#' - save groupGOResult to local file: go_group_data_BP.rds # BP, CC, MF
-#' - make plots (barplot, wego)
-#' - save plots (ggplot) to local file: go_group_plot_BP.rds # BP, CC, MF
-#'
-#'
+#' go_group
+#' 
 #' @param gene_list character Genes for GO analysis
 #' @param organism character Name of the organism, eg: dm3, fruitfly
 #' @param outdir string Path to the directory, saving go_group results
-#' ..., pass the following arguments from parent function
-#'
-#' or else, set default values:
-#' orgdb    = NULL
-#' keytype  = NULL
-#' level    = 2
-#' readable = TRUE
+#' @param ... pass the following arguments from parent function
 #'
 #' @param orgdb OrgDb from AnnotationDbi, overwrite `organism`
 #' @param keytype character Name of the keytype for input, default: NULL
 #' @param level int GO levels, default: 2
 #' @param readable bool Args for groupGO function, convert to gene symbol
 #'
-#' @import clusterProfiler
-#' @import clusterProfiler.dplyr
-#' @import stringr
-#' @import cowplot
 #'
-#' @example go_group(gene =, OrgDb = , keyType = , level = , ont = , readable = )
+#' @example
+#'    go_group(gene =, OrgDb = , keyType = , level = , ont = , readable = )
 #'
 #' @export
 go_group <- function(gene_list, organism, ...) {
@@ -135,13 +118,11 @@ go_group <- function(gene_list, organism, ...) {
 }
 
 
-#' create plots
+#' go_group_plot
+#' 
 #' @param x object of enrichGO
 #' @param ... passing extra arguments
-#' parent function: get_go_plots(),
-#'
-#' text_width
-#'
+#' 
 #' @export
 go_group_plot <- function(x, ...) {
   #--Default values: BEGIN

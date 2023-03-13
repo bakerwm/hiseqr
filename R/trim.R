@@ -2,11 +2,10 @@
 #'
 #' read data from hiseq.trim output
 #'
-#' @name trim
 
 
 
-#' @describeIn read_hiseq_trim
+#' read_hiseq_trim
 #'
 #' @param x character or data.frame
 #'

@@ -2,7 +2,7 @@
 % Please edit documentation in R/go_plot.R
 \name{go_wego_plot}
 \alias{go_wego_plot}
-\title{wego plot}
+\title{go_wego_plot}
 \usage{
 go_wego_plot(x, ...)
 }
@@ -10,5 +10,5 @@ go_wego_plot(x, ...)
 \item{x}{list of objects of groupGO, enrichGO}
 }
 \description{
-wego plot
+go_wego_plot
 }
