@@ -2,12 +2,7 @@
 % Please edit documentation in R/sample_sheet.R
 \name{fix_hiseq_sample_name}
 \alias{fix_hiseq_sample_name}
-\title{mission:
-\enumerate{
-\item replace non-letters, by "_"
-\item fix hiseq_type
-\item add rep1/rep2 in the tail
-}}
+\title{fix_hiseq_sample_name}
 \usage{
 fix_hiseq_sample_name(x)
 }
@@ -15,10 +10,5 @@ fix_hiseq_sample_name(x)
 \item{x}{character}
 }
 \description{
-mission:
-\enumerate{
-\item replace non-letters, by "_"
-\item fix hiseq_type
-\item add rep1/rep2 in the tail
-}
+fix_hiseq_sample_name
 }

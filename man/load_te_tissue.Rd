@@ -8,5 +8,7 @@ load_te_tissue(...)
 }
 \description{
 Data from this publication:
-1.Malone, C. D. et al. Specialized piRNA pathways act in germline and somatic tissues of the Drosophila ovary. Cell vol. 137 522–535 (2009). DOI: \href{https://doi.org/10.1016/j.cell.2009.03.040}{10.1016/j.cell.2009.03.040}
+1.Malone, C. D. et al. Specialized piRNA pathways act in germline and
+somatic tissues of the Drosophila ovary. Cell vol. 137 522–535 (2009).
+DOI: \href{https://doi.org/10.1016/j.cell.2009.03.040}{10.1016/j.cell.2009.03.040}
 }

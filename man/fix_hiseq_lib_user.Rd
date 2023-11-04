@@ -2,8 +2,7 @@
 % Please edit documentation in R/sample_sheet.R
 \name{fix_hiseq_lib_user}
 \alias{fix_hiseq_lib_user}
-\title{lib_number, auto_fix
-eg: YY01, WM03}
+\title{fix_hiseq_lib_user}
 \usage{
 fix_hiseq_lib_user(x)
 }
@@ -11,6 +10,5 @@ fix_hiseq_lib_user(x)
 \item{x}{character lib_user}
 }
 \description{
-lib_number, auto_fix
-eg: YY01, WM03
+fix_hiseq_lib_user
 }

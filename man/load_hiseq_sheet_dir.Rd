@@ -7,6 +7,12 @@ load hiseq sample sheet files}
 \usage{
 load_hiseq_sheet_dir(x)
 }
+\arguments{
+\item{x}{string}
+}
+\value{
+data.frame
+}
 \description{
 Example:
 load hiseq sample sheet files

@@ -2,8 +2,7 @@
 % Please edit documentation in R/sample_sheet.R
 \name{fix_hiseq_lib_sub}
 \alias{fix_hiseq_lib_sub}
-\title{lib_sub
-eg: G1, G2}
+\title{fix_hiseq_lib_sub}
 \usage{
 fix_hiseq_lib_sub(x)
 }
@@ -11,6 +10,5 @@ fix_hiseq_lib_sub(x)
 \item{x}{character lib_sub}
 }
 \description{
-lib_sub
-eg: G1, G2
+fix_hiseq_lib_sub
 }

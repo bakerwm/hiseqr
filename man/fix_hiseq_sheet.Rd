@@ -2,7 +2,7 @@
 % Please edit documentation in R/sample_sheet.R
 \name{fix_hiseq_sheet}
 \alias{fix_hiseq_sheet}
-\title{Auto fix sample_sheet}
+\title{fix_hiseq_sheet}
 \usage{
 fix_hiseq_sheet(df, sampleid_start = 1)
 }
@@ -10,12 +10,5 @@ fix_hiseq_sheet(df, sampleid_start = 1)
 \item{df}{data.frame}
 }
 \description{
-replace, "\link[=^\\\\w\\\\-\\\\.]{^\\w\\-\\.} by "_"
-}
-\details{
-lib_number: [A-Z]{2}\\d{2}
-lib_user:   [A-Z]{2,4}\\d{2}
-sample_name: \link[=\\\\w\\\\-\\\\.]{\\w\\-\\.}+
-p7_index_id:
-barcode_id:
+fix_hiseq_sheet
 }

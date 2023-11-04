@@ -12,5 +12,5 @@ is_valid_sheet_df(df, verbose = FALSE)
 \item{index_list}{list, named index sequence}
 }
 \description{
-Check the fields in sheet
+is_valid_sheet_df
 }

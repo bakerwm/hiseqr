@@ -2,7 +2,7 @@
 % Please edit documentation in R/go.R
 \name{save_go_plot}
 \alias{save_go_plot}
-\title{save plots to outdir}
+\title{save_go_plot}
 \usage{
 save_go_plot(x, outdir, name = NULL)
 }
@@ -14,5 +14,5 @@ save_go_plot(x, outdir, name = NULL)
 \item{name}{prefix for the plots}
 }
 \description{
-save plots to outdir
+save_go_plot
 }

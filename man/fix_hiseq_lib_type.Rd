@@ -2,7 +2,7 @@
 % Please edit documentation in R/sample_sheet.R
 \name{fix_hiseq_lib_type}
 \alias{fix_hiseq_lib_type}
-\title{in the filename, HiSeq located in the first part}
+\title{fix_hiseq_lib_type}
 \usage{
 fix_hiseq_lib_type(x)
 }
@@ -10,9 +10,9 @@ fix_hiseq_lib_type(x)
 \item{x}{character the filename or lib_type}
 }
 \description{
+in the filename, HiSeq located in the first part
 Standard hiseq names in this package
-}
-\details{
+
 RNAseq
 ChIPseq
 ATACseq

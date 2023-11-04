@@ -58,3 +58,46 @@ plot(pressure)
 ```
 
 In that case, don't forget to commit and push the resulting figure files, so they display on GitHub!
+
+
+
+
+## Dependencies
+
+### Bioc
+- apeglm
+- ashr
+- tximport 
+- Organism.dplyr
+- rtracklayer
+- biomaRt
+- GenomicFeatures
+- org.Dm.eg.db
+- org.Mm.eg.db
+- org.Hs.eg.db
+- ComplexHeatmap
+
+- TxDb.Dmelanogaster.UCSC.dm6.ensGene 
+- TxDb.Hsapiens.UCSC.hg38.knownGene 
+- TxDb.Mmusculus.UCSC.mm10.ensGene 
+- TxDb.Mmusculus.UCSC.mm10.knownGene
+
+- ChIPseeker
+- OrganismDbi
+
+
+### CRAN
+- XML (require libxml2-dev)
+- restfulr
+- configr
+- reticulate
+
+
+
+
+
+
+
+
+
+

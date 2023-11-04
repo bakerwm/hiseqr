@@ -27,3 +27,7 @@ ggplot
 \description{
 deseq_qc_res
 }
+\examples{
+  ma, volcano: log2FolcChange, pvalue
+  scatter: wt vs mut
+}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/go.R
 \name{save_go_table}
 \alias{save_go_table}
-\title{save obj to outdir}
+\title{save_go_table}
 \usage{
 save_go_table(x, outdir, name = NULL)
 }
@@ -14,5 +14,5 @@ save_go_table(x, outdir, name = NULL)
 \item{name}{prefix for the plots}
 }
 \description{
-save obj to outdir
+save_go_table
 }
