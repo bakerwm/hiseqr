@@ -90,7 +90,7 @@ deseq_qc_dds <- function(x = NULL, ...) {
 
 #' deseq_qc_res
 #'
-#' @example
+#' @examples
 #'   ma, volcano: log2FolcChange, pvalue
 #'   scatter: wt vs mut
 #' @param x character path to the file `norm_table.fix.xls`
@@ -244,7 +244,7 @@ deseq_qc_res <- function(x, ...) {
   #   colnames(df)[1] <- "gene_id"
   #   # 4. mean
   #   df <- deseq_mean(df) # add mean
-  } else if(dir.exists(x) || is_hiseq_dir(x, hiseq_type = "deseq_deseq2")) {
+  } else if(dir.exists(x) | is_hiseq_dir(x, hiseq_type = "deseq_deseq2")) {
     # re-create table; see `run_deseq_res()`
     # 1. dds trans; log2, normalized
     dt_list <- deseq_qc_dds(x, return_data = "dds_trans") #log2

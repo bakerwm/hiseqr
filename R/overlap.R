@@ -17,9 +17,12 @@ overlap_p2 <- function(n1, n2, n12, name1 = "A", name2 = "B",
   # name1 = "A"
   # name2 = "B"
   # construct data
-  ia = paste0("A", seq_len(n1 - n12))
-  ib = paste0("B", seq_len(n2 - n12))
-  iab = paste0("AB", seq_len(n12))
+  # ia = paste0("A", seq_len(n1 - n12))
+  # ib = paste0("B", seq_len(n2 - n12))
+  # iab = paste0("AB", seq_len(n12))
+  ia <- paste0(rep("A", (n1 - n12)), seq_len(n1 - n12))
+  ib <- paste0(rep("B", (n1 - n12)), seq_len(n1 - n12))
+  iab <- paste0(rep("AB", n12), seq_len(n12))
   # for matrix
   ma <- rbind(data.frame(group = name1, id = c(ia, iab)),
               data.frame(group = name2, id = c(ib, iab))) %>%

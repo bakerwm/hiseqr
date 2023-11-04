@@ -1,35 +1,11 @@
 #' Example:
 
-# f  <- list.files("/data/biodata/mydb/hiseq_sample_sheet/archived-2021/", "*.xlsx", full.names = TRUE)
-# t  <- lapply(f, read_hiseq_sheet)
-# df <- dplyr::bind_rows(t)
-# df$sampleid <- fix_hiseq_sampleid(df$sampleid)
-#
-# df1 <- df %>%
-#   dplyr::mutate(tmp_user = gsub("\\d+", "", lib_user)) %>%
-#   tidyr::unite(sp, c(lib_number, tmp_user), sep = "-", remove = FALSE)
-#
-# # specific number
-# df2 <- dplyr::select(df, lib_number, lib_user) %>%
-#   dplyr::mutate(lib_user = gsub("\\d+", "", lib_user)) %>%
-#   unique() %>%
-#   dplyr::group_by(lib_user) %>%
-#   dplyr::mutate(num = stringr::str_pad(row_number(), 2, pad = 0)) %>%
-#   tidyr::unite(sp, c(lib_number, lib_user), sep = "-")
-#
-# # combine
-# df3 <- merge(df1, df2, by = "sp") %>%
-#   dplyr::mutate(lib_user = gsub("\\d+", "", lib_user),
-#                 lib_user = paste0(lib_user, num)) %>%
-#   dplyr::select(-c(sp, num, tmp_user))
-#
-# s <- "/data/biodata/mydb/hiseq_sample_sheet/summary_2021.xlsx"
-# writexl::write_xlsx(df3, s, col_names = TRUE)
-
 
 #' load hiseq sample sheet files
+#' @param x string
+#' @return data.frame
 #'
-#'
+#' @export
 load_hiseq_sheet_dir <- function(x) {
   if(inherits(x, "character")) {
     message(glue::glue("loading hiseq sample_sheet from dir: {x}"))
@@ -108,15 +84,7 @@ read_hiseq_sheet <- function(x, n_max = 10000, fix = TRUE,
 }
 
 
-#' Auto fix sample_sheet
-#'
-#' replace, "[^\\w\\-\\.] by "_"
-#'
-#' lib_number: [A-Z]{2}\\d{2}
-#' lib_user:   [A-Z]{2,4}\\d{2}
-#' sample_name: [\\w\\-\\.]+
-#' p7_index_id:
-#' barcode_id:
+#' fix_hiseq_sheet
 #'
 #' @param df data.frame
 #'
@@ -181,7 +149,6 @@ fix_hiseq_sheet <- function(df, sampleid_start = 1) {
 
 #' is_valid_sheet_df
 #'
-#' Check the fields in sheet
 #' @param data.frame sample data
 #' @param index_list list, named index sequence
 #'
@@ -229,7 +196,6 @@ is_valid_sheet_df <- function(df, verbose = FALSE) {
 }
 
 
-#' replace non-character by "_"
 .sanitize_str <- function(x, replace = "_") {
   sapply(x, function(i) {
     # gsub("[^\\w\\.\\-]", replace,  i)
@@ -252,8 +218,7 @@ fix_hiseq_sampleid <- function(x, start = 1) {
 }
 
 
-#' lib_number, auto_fix
-#' eg: YY01, WM03
+#' fix_hiseq_lib_number
 #'
 #' @param x character lib_user
 #'
@@ -268,8 +233,7 @@ fix_hiseq_lib_number <- function(x) {
 }
 
 
-#' lib_number, auto_fix
-#' eg: YY01, WM03
+#' fix_hiseq_lib_user
 #'
 #' @param x character lib_user
 #'
@@ -286,9 +250,7 @@ fix_hiseq_lib_user <- function(x) {
 }
 
 
-#' lib_sub
-#' eg: G1, G2
-#'
+#' fix_hiseq_lib_sub
 #' @param x character lib_sub
 #'
 #' @export
@@ -300,10 +262,7 @@ fix_hiseq_lib_sub <- function(x) {
 
 
 
-#' mission:
-#' 1. replace non-letters, by "_"
-#' 2. fix hiseq_type
-#' 3. add rep1/rep2 in the tail
+#' fix_hiseq_sample_name
 #'
 #' @param x character
 #'
@@ -321,10 +280,10 @@ fix_hiseq_sample_name <- function(x) {
 }
 
 
-#' in the filename, HiSeq located in the first part
-#'
-#'
-#' Standard hiseq names in this package
+#' fix_hiseq_lib_type
+#' @description
+#'    in the filename, HiSeq located in the first part
+#'    Standard hiseq names in this package
 #'
 #' RNAseq
 #' ChIPseq
@@ -430,109 +389,4 @@ is_valid_index <- function(x, hiseq_type = "p7", skip_null = TRUE) {
   }
   all(f1 | f2)
 }
-
-
-#' #' read index sequence
-#' #' @param x string path to the index file, could be *.rds, *.txt, *.csv
-#' #'
-#' #' @export
-#' read_sheet_index <- function(x) {
-#'   # check index
-#'   if(is.null(x)) {
-#'     return(NULL)
-#'   }
-#'
-#'   if(is_sheet_valid_index(names(x))) {
-#'     return(x)
-#'   } else {
-#'     x <- x[1] # the first one
-#'     if(endsWith(x, ".rds")) {
-#'       l <- readRDS(x) # named sequence
-#'       # format: truseq.TruSeq_Index1
-#'       a <- unlist(l)
-#'       # format: TruSeq_Index1
-#'       b <- stringr::str_split(names(a), "\\.", n = 2, simplify = T) #
-#'       names(a) <- b[, 2]
-#'       a
-#'     } else {
-#'       if(endsWith(x, ".txt")) {
-#'         di <- readr::read_delim(x, "\t", col_types = readr::cols())
-#'       } else if(endsWith(x, "*.csv")) {
-#'         di <- readr::read_csv(x, col_types = readr::cols())
-#'       } else {
-#'         di <- setNames(data.frame(matrix(ncol = 2, nrow = 0)),
-#'                        c("name", "sequence"))
-#'       }
-#'       # name, sequence required
-#'       if(all(c("name", "sequence") %in% colnames(di))) {
-#'         setNames(di$sequence, di$name)
-#'       } else {
-#'         warning("name, sequence, columns not found")
-#'         NULL
-#'       }
-#'     }
-#'   }
-#' }
-
-
-
-#'
-#' #' check duplication
-#' #'
-#' #' @export
-#' is_sheet_duplicate <- function(x, y = NULL) {
-#'   if(is.null(y)) {
-#'     length(x) > length(unique(x))
-#'   } else {
-#'     if(length(x) == length(y)) {
-#'       xy <- paste0(x, y)
-#'       length(xy) > length(unique(xy))
-#'     } else {
-#'       rep(FALSE, length(x)) # all FALSE
-#'     }
-#'   }
-#' }
-
-
-#'
-#' #' check index id
-#' #' @param x string
-#' #'
-#' #' @export
-#' is_sheet_index_id <- function(x) {
-#'   # TruSeq_index1-48
-#'   # Next_Ad2.1-24
-#'   # Null
-#'   # no duplicate names: p7_index + barcode
-#'   all(grepl("^(truseq_index\\d+)|(next_ad2.\\d+)|(null)$", x, perl = TRUE, ignore.case = TRUE))
-#' }
-
-
-#'
-#' #' check barcode id
-#' #' @export
-#' is_sheet_barcode_id <- function(x) {
-#'   all(grepl("^(p7_\\d+A|B)|(iclip\\d+)|(null)$", x, perl = TRUE, ignore.case = TRUE))
-#' }
-
-#'
-#' #' check index name/ barcode name
-#' #' @param x string, id of the index
-#' #' @param index string/vector, named vector,
-#' #'
-#' #' @export
-#' is_sheet_valid_index <- function(x, index = NULL) {
-#'   if(is.null(index)) {
-#'     TRUE
-#'   } else {
-#'     x <- x[!grepl("NULL", x, ignore.case = TRUE)] # remove NULL
-#'     x <- x[! is.na(x)]
-#'     all(x %in% names(index))
-#'   }
-#' }
-
-
-
-
-
 

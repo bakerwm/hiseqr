@@ -181,7 +181,7 @@ prep_go <- function(gene_list, organism, ...) {
 
 
 #' is_valid_go_input
-#' @description 
+#' @description
 #'    check_go_input Check the input for GO analysis
 #'
 #'    Required:
@@ -252,13 +252,13 @@ is_valid_go_input <- function(...) {
 }
 
 
-#' save obj to outdir
+#' save_go_table
 #'
 #' @param x list of go results
 #' @param outdir string, path to save the plots
 #' @param name prefix for the plots
-#'
 #' @return
+#' @export
 save_go_table <- function(x, outdir, name = NULL) {
   if(! dir.exists(outdir)) {
     dir.create(outdir, recursive = TRUE, mode = "0755")
@@ -290,14 +290,13 @@ save_go_table <- function(x, outdir, name = NULL) {
 }
 
 
-#' save plots to outdir
+#' save_go_plot
 #'
 #' @param x list of go plots
 #' @param outdir string, path to save the plots
 #' @param name prefix for the plots
-#'
-#'
 #' @return
+#' @export
 save_go_plot <- function(x, outdir, name = NULL) {
   if(!check_path(outdir)) {
     warning(glue::glue("not able to create dir: {outdir}"))

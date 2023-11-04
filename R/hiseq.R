@@ -17,7 +17,7 @@
 #' @export
 list_hiseq_dir <- function(x, hiseq_type = "auto"){
   if(!inherits(x, "character")) {
-    warning(glue::glue("x is {(class)}, expect character"))
+    warning(glue::glue("x is {class(x)}, expect character"))
     return(NULL)
   }
   d_out <- sapply(x, function(f) {

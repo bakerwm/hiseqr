@@ -737,7 +737,7 @@ deseq_qc_scatter <- function(x, ...) {
     p1 <- df %>%
       # # ggplot(aes(wt, mut, color = sig)) +
       # ggplot(aes_string("wt", "mut", color = color_by)) +
-      ggplot(aes(wt, mut, color = !!color_by)) +
+      ggplot(aes(wt, mut, color = !!as.name(color_by))) +
       stat_density_2d(
         aes(fill = ..density..),
         data = dplyr::filter(df, sig == "not"),
@@ -746,7 +746,7 @@ deseq_qc_scatter <- function(x, ...) {
     p1 <- df %>%
       # ggplot(aes(wt, mut, color = sig)) +
       # ggplot(aes_string("wt", "mut", color = color_by)) +
-      ggplot(aes(wt, mut, color = !!color_by)) +
+      ggplot(aes(wt, mut, color = !!as.name(color_by))) +
       geom_point(size = .4, alpha = .5)
   }
   #----------------------------------------------------------------------------#
@@ -917,7 +917,7 @@ deseq_qc_scatter2 <- function(x, ...) {
     theme(panel.grid = element_blank())
   #-- add sig labels
   if(add_sig) {
-    p2 <- deseq_qc_add_sig_label(p2)
+    p2 <- deseq_qc_add_sig_label(p2, ...)
   }
   #-- return
   p2

@@ -7,7 +7,7 @@
 #'
 
 
-#--Global: General functions ---------------------------------------------------
+#--Global: General functions ---------------------------------------------------#
 
 #' bar_plot Make barplot
 #'
@@ -860,7 +860,7 @@ prep_scatter_data <- function(data, x, y, ...) {
 
 
 
-#--Custome: for specific mission: RNAseq ---------------------------------------
+#--Custome: for specific mission: RNAseq ---------------------------------------#
 
 
 
